@@ -2,10 +2,10 @@ import type { Env, ImageRequest, GeneratedImage } from '../types';
 import { buildImagePrompt } from '../prompts/image';
 
 /**
- * Imagen 3 API client for image generation
+ * Imagen 3 API client for image generation via Vertex AI
  */
 
-interface ImagenResponse {
+interface VertexAIImagenResponse {
   predictions: Array<{
     bytesBase64Encoded: string;
     mimeType: string;
@@ -16,14 +16,128 @@ interface ImagenResponse {
  * Size configurations for different block types
  */
 const SIZE_CONFIG: Record<string, { width: number; height: number; aspectRatio: string }> = {
-  hero: { width: 2000, height: 800, aspectRatio: '5:2' },
+  hero: { width: 2000, height: 800, aspectRatio: '16:9' },
   card: { width: 750, height: 562, aspectRatio: '4:3' },
-  column: { width: 600, height: 400, aspectRatio: '3:2' },
+  column: { width: 600, height: 400, aspectRatio: '3:4' },
   thumbnail: { width: 300, height: 225, aspectRatio: '4:3' },
 };
 
+// Token cache to avoid generating new tokens for every request
+let cachedAccessToken: { token: string; expiresAt: number } | null = null;
+
 /**
- * Generate an image using Imagen 3
+ * Generate a JWT and exchange it for an access token
+ */
+async function getAccessToken(env: Env): Promise<string> {
+  // Check if we have a valid cached token
+  if (cachedAccessToken && cachedAccessToken.expiresAt > Date.now() + 60000) {
+    return cachedAccessToken.token;
+  }
+
+  const serviceAccount = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON);
+  const now = Math.floor(Date.now() / 1000);
+
+  // Create JWT header
+  const header = {
+    alg: 'RS256',
+    typ: 'JWT',
+  };
+
+  // Create JWT payload
+  const payload = {
+    iss: serviceAccount.client_email,
+    sub: serviceAccount.client_email,
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+    scope: 'https://www.googleapis.com/auth/cloud-platform',
+  };
+
+  // Encode header and payload
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const signatureInput = `${encodedHeader}.${encodedPayload}`;
+
+  // Sign the JWT using the private key
+  const signature = await signJWT(signatureInput, serviceAccount.private_key);
+  const jwt = `${signatureInput}.${signature}`;
+
+  // Exchange JWT for access token
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwt,
+    }),
+  });
+
+  if (!tokenResponse.ok) {
+    const error = await tokenResponse.text();
+    throw new Error(`Failed to get access token: ${tokenResponse.status} - ${error}`);
+  }
+
+  const tokenData = await tokenResponse.json() as { access_token: string; expires_in: number };
+
+  // Cache the token
+  cachedAccessToken = {
+    token: tokenData.access_token,
+    expiresAt: Date.now() + (tokenData.expires_in * 1000),
+  };
+
+  return tokenData.access_token;
+}
+
+/**
+ * Base64 URL encode a string
+ */
+function base64UrlEncode(str: string): string {
+  const base64 = btoa(str);
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * Sign the JWT using RSA-SHA256
+ */
+async function signJWT(input: string, privateKeyPem: string): Promise<string> {
+  // Parse the PEM private key
+  const pemContents = privateKeyPem
+    .replace('-----BEGIN PRIVATE KEY-----', '')
+    .replace('-----END PRIVATE KEY-----', '')
+    .replace(/\n/g, '');
+
+  const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+
+  // Import the key
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    binaryKey,
+    {
+      name: 'RSASSA-PKCS1-v1_5',
+      hash: 'SHA-256',
+    },
+    false,
+    ['sign']
+  );
+
+  // Sign the input
+  const encoder = new TextEncoder();
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    cryptoKey,
+    encoder.encode(input)
+  );
+
+  // Convert to base64url
+  const signatureArray = new Uint8Array(signature);
+  const signatureBase64 = btoa(String.fromCharCode(...signatureArray));
+  return signatureBase64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * Generate an image using Imagen 3 via Vertex AI
  */
 export async function generateImage(
   request: ImageRequest,
@@ -35,11 +149,20 @@ export async function generateImage(
   const fullPrompt = buildImagePrompt(request.prompt, request.size);
 
   try {
+    // Get access token
+    const accessToken = await getAccessToken(env);
+
+    const serviceAccount = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON);
+    const projectId = serviceAccount.project_id;
+    const region = env.VERTEX_AI_REGION || 'us-east4';
+
+    // Call Vertex AI Imagen API
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${env.GOOGLE_API_KEY}`,
+      `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/imagen-3.0-generate-001:predict`,
       {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -51,7 +174,7 @@ export async function generateImage(
           parameters: {
             sampleCount: 1,
             aspectRatio: sizeConfig.aspectRatio,
-            safetyFilterLevel: 'block_medium_and_above',
+            safetyFilterLevel: 'block_only_high',
             personGeneration: 'allow_adult',
           },
         }),
@@ -63,7 +186,7 @@ export async function generateImage(
       throw new Error(`Imagen API error: ${response.status} - ${error}`);
     }
 
-    const result = await response.json() as ImagenResponse;
+    const result = await response.json() as VertexAIImagenResponse;
 
     if (!result.predictions || result.predictions.length === 0) {
       throw new Error('No image generated');
@@ -88,7 +211,7 @@ export async function generateImage(
       },
     });
 
-    // Return the R2 URL (would need to be proxied or use public bucket)
+    // Return the R2 URL
     return {
       id: request.id,
       url: `/images/${filename}`,

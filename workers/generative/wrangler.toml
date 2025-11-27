@@ -7,6 +7,7 @@ compatibility_flags = ["nodejs_compat"]
 EDS_ORIGIN = "https://main--materialised-web--paolomoz.aem.live"
 DA_ORG = "paolomoz"
 DA_REPO = "materialised-web"
+VERTEX_AI_REGION = "us-east4"
 
 # Workers AI for embeddings
 [ai]
@@ -30,4 +31,5 @@ id = "a840e9485e304b40920f01eaebd46de9"
 # Secrets (set via wrangler secret put):
 # - ANTHROPIC_API_KEY
 # - GOOGLE_API_KEY
+# - GOOGLE_SERVICE_ACCOUNT_JSON
 # - DA_TOKEN

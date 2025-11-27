@@ -22,7 +22,11 @@ export interface Env {
   // API Keys (secrets)
   ANTHROPIC_API_KEY: string;
   GOOGLE_API_KEY: string;
+  GOOGLE_SERVICE_ACCOUNT_JSON: string;
   DA_TOKEN: string;
+
+  // Optional configuration
+  VERTEX_AI_REGION?: string;
 }
 
 /**

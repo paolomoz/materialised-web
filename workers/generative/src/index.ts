@@ -32,6 +32,11 @@ export default {
       return handlePersist(request, env);
     }
 
+    // Setup homepage with query-form block
+    if (url.pathname === '/api/setup-homepage' && request.method === 'POST') {
+      return handleSetupHomepage(request, env);
+    }
+
     // Proxy to EDS or serve generated page
     if (url.pathname.startsWith('/discover/')) {
       return handleDiscover(request, env);
@@ -654,4 +659,87 @@ function escapeHTML(str: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/**
+ * Handle homepage setup - creates homepage with query-form block in DA
+ */
+async function handleSetupHomepage(request: Request, env: Env): Promise<Response> {
+  try {
+    const homepageHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Vitamix | Personalized Recipes & Tips</title>
+  <meta name="description" content="Discover personalized Vitamix recipes, tips, and product recommendations tailored to your needs.">
+</head>
+<body>
+  <header></header>
+  <main>
+    <div class="section hero">
+      <div class="default-content-wrapper">
+        <h1>Discover Your Perfect Vitamix Experience</h1>
+        <p>Get personalized recipes, tips, and product recommendations powered by AI</p>
+      </div>
+      <div class="query-form">
+        <div>
+          <div>Placeholder</div>
+          <div>What would you like to make with your Vitamix?</div>
+        </div>
+        <div>
+          <div>Button</div>
+          <div>Generate</div>
+        </div>
+        <div>
+          <div>Examples</div>
+          <div>best smoothie for energy, healthy soup recipes, cleaning my Vitamix</div>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="columns">
+        <div>
+          <div>
+            <h2>Personalized Recipes</h2>
+            <p>Tell us what ingredients you have, your dietary preferences, or health goals - and we'll create custom recipes just for you.</p>
+          </div>
+          <div>
+            <h2>Product Guidance</h2>
+            <p>Not sure which Vitamix is right for you? Describe your cooking habits and we'll help you find the perfect match.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="default-content-wrapper">
+        <h2>Why Use AI-Powered Discovery?</h2>
+        <p>Our intelligent system understands your unique needs and creates content specifically for you. Whether you're looking for recipes, product comparisons, or usage tips, just ask and we'll generate a personalized page in seconds.</p>
+      </div>
+    </div>
+  </main>
+  <footer></footer>
+</body>
+</html>`;
+
+    const result = await persistAndPublish('/index', homepageHtml, [], env);
+
+    if (!result.success) {
+      return new Response(JSON.stringify({ success: false, error: result.error }), {
+        status: 500,
+        headers: corsHeaders({ 'Content-Type': 'application/json' }),
+      });
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Homepage created successfully',
+      urls: result.urls,
+    }), {
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ success: false, error: (error as Error).message }), {
+      status: 500,
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  }
 }
