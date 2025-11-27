@@ -1,0 +1,107 @@
+/**
+ * FAQ Block Styles
+ */
+
+.faq {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.faq > div {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.faq > div:hover {
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
+}
+
+.faq > div:last-child {
+  margin-bottom: 0;
+}
+
+/* Question */
+.faq > div > div:first-child {
+  padding: 20px 24px;
+  font-weight: 600;
+  font-size: 18px;
+  color: #333;
+  background: #f8f9fa;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+
+.faq > div > div:first-child::after {
+  content: '+';
+  font-size: 24px;
+  font-weight: 400;
+  color: #666;
+  transition: transform 0.2s ease;
+}
+
+.faq > div.expanded > div:first-child::after {
+  transform: rotate(45deg);
+}
+
+/* Answer */
+.faq > div > div:last-child {
+  padding: 0 24px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+  font-size: 16px;
+  line-height: 1.7;
+  color: #555;
+}
+
+.faq > div.expanded > div:last-child {
+  padding: 20px 24px;
+  max-height: 500px;
+}
+
+/* Compact variant */
+.faq.compact > div > div:first-child {
+  padding: 16px 20px;
+  font-size: 16px;
+}
+
+.faq.compact > div.expanded > div:last-child {
+  padding: 16px 20px;
+}
+
+/* Borderless variant */
+.faq.borderless > div {
+  border: none;
+  border-bottom: 1px solid #e0e0e0;
+  border-radius: 0;
+}
+
+.faq.borderless > div:last-child {
+  border-bottom: none;
+}
+
+.faq.borderless > div > div:first-child {
+  background: transparent;
+}
+
+@media (width < 600px) {
+  .faq {
+    padding: 32px 16px;
+  }
+
+  .faq > div > div:first-child {
+    padding: 16px;
+    font-size: 16px;
+  }
+
+  .faq > div.expanded > div:last-child {
+    padding: 16px;
+  }
+}

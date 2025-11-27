@@ -1,16 +1,41 @@
+.columns {
+  padding: 40px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Direct children are column items */
 .columns > div {
-  display: flex;
-  flex-direction: column;
+  margin-bottom: 32px;
+}
+
+.columns > div:last-child {
+  margin-bottom: 0;
 }
 
 .columns img {
   width: 100%;
+  border-radius: 8px;
+  margin-bottom: 16px;
 }
 
-.columns > div > div {
-  order: 1;
+.columns picture {
+  display: block;
 }
 
+.columns h3 {
+  font-size: 22px;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.columns p {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #555;
+}
+
+/* Image column styling */
 .columns > div > .columns-img-col {
   order: 0;
 }
@@ -20,14 +45,20 @@
 }
 
 @media (width >= 900px) {
-  .columns > div {
-    align-items: center;
-    flex-direction: unset;
-    gap: 24px;
+  .columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 32px;
+    padding: 60px 32px;
   }
 
-  .columns > div > div {
-    flex: 1;
-    order: unset;
+  .columns > div {
+    margin-bottom: 0;
+  }
+}
+
+@media (width < 600px) {
+  .columns {
+    padding: 32px 16px;
   }
 }

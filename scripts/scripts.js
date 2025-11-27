@@ -6,6 +6,8 @@ import {
   decorateIcons,
   decorateSections,
   decorateBlocks,
+  decorateBlock,
+  loadBlock,
   decorateTemplateAndTheme,
   waitForFirstImage,
   loadSection,
@@ -102,7 +104,7 @@ async function renderGenerativePage() {
     statusEl.textContent = `Creating ${data.blockType}...`;
   });
 
-  eventSource.addEventListener('block-content', (e) => {
+  eventSource.addEventListener('block-content', async (e) => {
     const data = JSON.parse(e.data);
 
     // Hide loading state after first block
@@ -117,21 +119,42 @@ async function renderGenerativePage() {
     // Create section and add content
     const section = document.createElement('div');
     section.className = 'section';
+    section.dataset.sectionStatus = 'initialized';
     section.innerHTML = data.html;
 
-    // Decorate the content using EDS patterns
+    // Wrap block in a wrapper div (EDS pattern)
+    const blockEl = section.querySelector('[class]');
+    if (blockEl) {
+      const blockName = blockEl.classList[0];
+      // Create wrapper
+      const wrapper = document.createElement('div');
+      wrapper.className = `${blockName}-wrapper`;
+      blockEl.parentNode.insertBefore(wrapper, blockEl);
+      wrapper.appendChild(blockEl);
+
+      // Decorate the block (adds .block class, data-block-name, wraps text nodes)
+      decorateBlock(blockEl);
+
+      // Add container class to section
+      section.classList.add(`${blockName}-container`);
+    }
+
+    // Decorate buttons and icons
     decorateButtons(section);
     decorateIcons(section);
 
-    // Find and decorate blocks
-    const block = section.querySelector('[class]');
+    // Append to DOM first
+    content.appendChild(section);
+
+    // Now load the block (CSS + JS module)
+    const block = section.querySelector('.block');
     if (block) {
-      const blockName = block.className.split(' ')[0];
-      block.classList.add('block');
-      block.dataset.blockName = blockName;
+      await loadBlock(block);
     }
 
-    content.appendChild(section);
+    // Mark section as loaded and show it
+    section.dataset.sectionStatus = 'loaded';
+    section.style.display = null;
   });
 
   eventSource.addEventListener('generation-complete', (e) => {

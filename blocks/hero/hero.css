@@ -9,14 +9,61 @@
   min-height: 300px;
 }
 
-.hero h1 {
+/* Two-column hero layout (image + content) */
+.hero > div {
   max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
-  color: var(--background-color);
+  margin: 0 auto;
 }
 
-.hero picture {
+.hero > div:first-child picture,
+.hero > div:first-child img {
+  width: 100%;
+  height: auto;
+  max-height: 400px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.hero > div:last-child {
+  padding: 24px 0;
+}
+
+.hero h1 {
+  font-size: 36px;
+  margin-bottom: 16px;
+  color: #333;
+}
+
+.hero p {
+  font-size: 18px;
+  color: #555;
+  margin-bottom: 16px;
+}
+
+.hero .button {
+  display: inline-block;
+  padding: 14px 28px;
+  background: #c00;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.hero .button:hover {
+  background: #a00;
+}
+
+/* Full-width background variant (original) */
+.hero.full-width {
+  min-height: 400px;
+}
+
+.hero.full-width h1 {
+  color: var(--background-color, #fff);
+}
+
+.hero.full-width picture {
   position: absolute;
   z-index: -1;
   inset: 0;
@@ -24,7 +71,7 @@
   box-sizing: border-box;
 }
 
-.hero img {
+.hero.full-width img {
   object-fit: cover;
   width: 100%;
   height: 100%;
@@ -32,6 +79,33 @@
 
 @media (width >= 900px) {
   .hero {
-    padding: 40px 32px;
+    padding: 60px 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: center;
+  }
+
+  .hero > div:first-child picture,
+  .hero > div:first-child img {
+    max-height: 500px;
+  }
+
+  .hero h1 {
+    font-size: 48px;
+  }
+
+  .hero p {
+    font-size: 20px;
+  }
+}
+
+@media (width < 600px) {
+  .hero {
+    padding: 32px 16px;
+  }
+
+  .hero h1 {
+    font-size: 28px;
   }
 }
