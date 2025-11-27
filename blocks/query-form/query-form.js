@@ -67,11 +67,10 @@ async function handleSubmit(event, form) {
   submitButton.textContent = 'Generating...';
 
   try {
-    // Generate slug and navigate to discover page (within EDS)
-    const slug = generateSlug(query);
-    const url = `/discover/${slug}?q=${encodeURIComponent(query)}`;
+    // Navigate to generation URL (same page with ?generate= param)
+    const url = `/?generate=${encodeURIComponent(query)}`;
 
-    // Navigate to the discover page
+    // Navigate to generate
     window.location.href = url;
   } catch (error) {
     // eslint-disable-next-line no-console

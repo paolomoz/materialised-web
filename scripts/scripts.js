@@ -17,25 +17,51 @@ import {
 const GENERATIVE_WORKER_URL = 'https://vitamix-generative.paolo-moz.workers.dev';
 
 /**
- * Check if this is a generative discover page
+ * Check if this is a generation request (has ?generate= param)
  */
-function isDiscoverPage() {
-  return window.location.pathname.startsWith('/discover/');
+function isGenerationRequest() {
+  return new URLSearchParams(window.location.search).has('generate');
 }
 
 /**
- * Render a generative discover page
+ * Generate a URL-safe slug from a query
  */
-async function renderDiscoverPage() {
+function generateSlug(query) {
+  let slug = query
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 80);
+
+  // Add short hash for uniqueness
+  let hash = 0;
+  const str = query + Date.now();
+  for (let i = 0; i < str.length; i += 1) {
+    const char = str.charCodeAt(i);
+    // eslint-disable-next-line no-bitwise
+    hash = ((hash << 5) - hash) + char;
+    // eslint-disable-next-line no-bitwise
+    hash &= hash;
+  }
+  const hashStr = Math.abs(hash).toString(36).slice(0, 6);
+  return `${slug}-${hashStr}`;
+}
+
+/**
+ * Render a generative page from query parameter
+ */
+async function renderGenerativePage() {
   // Load skeleton styles
   await loadCSS(`${window.hlx.codeBasePath}/styles/skeleton.css`);
 
   const main = document.querySelector('main');
   if (!main) return;
 
-  // Extract slug and query from URL
-  const slug = window.location.pathname.replace('/discover/', '');
-  const query = new URLSearchParams(window.location.search).get('q') || slug.replace(/-/g, ' ');
+  const query = new URLSearchParams(window.location.search).get('generate');
+  const slug = generateSlug(query);
 
   // Clear main and show loading state
   main.innerHTML = `
@@ -60,6 +86,7 @@ async function renderDiscoverPage() {
   const streamUrl = `${GENERATIVE_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}`;
   const eventSource = new EventSource(streamUrl);
   let blockCount = 0;
+  let generatedHtml = [];
 
   eventSource.onopen = () => {
     statusEl.textContent = 'Generating content...';
@@ -84,6 +111,9 @@ async function renderDiscoverPage() {
     }
     blockCount += 1;
 
+    // Store HTML for persistence
+    generatedHtml.push(data.html);
+
     // Create section and add content
     const section = document.createElement('div');
     section.className = 'section';
@@ -104,13 +134,74 @@ async function renderDiscoverPage() {
     content.appendChild(section);
   });
 
-  eventSource.addEventListener('generation-complete', () => {
+  eventSource.addEventListener('generation-complete', (e) => {
     eventSource.close();
+
     // Update document title
     const h1 = content.querySelector('h1');
     if (h1) {
       document.title = `${h1.textContent} | Vitamix`;
     }
+
+    // Add "Save this page" section
+    const saveSection = document.createElement('div');
+    saveSection.className = 'section save-page-section';
+    saveSection.innerHTML = `
+      <div class="save-page-container">
+        <h3>Like this page?</h3>
+        <p>Save it to get a permanent link you can share and revisit.</p>
+        <button class="button save-page-btn" data-slug="${slug}" data-query="${encodeURIComponent(query)}">
+          Save & Get Permanent Link
+        </button>
+        <div class="save-status"></div>
+      </div>
+    `;
+    content.appendChild(saveSection);
+
+    // Handle save button click
+    const saveBtn = saveSection.querySelector('.save-page-btn');
+    const saveStatus = saveSection.querySelector('.save-status');
+
+    saveBtn.addEventListener('click', async () => {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+      saveStatus.textContent = '';
+
+      try {
+        const response = await fetch(`${GENERATIVE_WORKER_URL}/api/persist`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            slug,
+            query,
+            html: generatedHtml,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          const permanentUrl = `${window.location.origin}/discover/${slug}`;
+          saveSection.innerHTML = `
+            <div class="save-page-container save-success">
+              <h3>Page Saved!</h3>
+              <p>Your permanent link:</p>
+              <a href="/discover/${slug}" class="permanent-link">${permanentUrl}</a>
+              <button class="button copy-link-btn" onclick="navigator.clipboard.writeText('${permanentUrl}'); this.textContent='Copied!'">
+                Copy Link
+              </button>
+            </div>
+          `;
+        } else {
+          throw new Error(result.error || 'Failed to save');
+        }
+      } catch (error) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save & Get Permanent Link';
+        saveStatus.textContent = `Error: ${error.message}. Please try again.`;
+        saveStatus.style.color = '#c00';
+      }
+    });
   });
 
   eventSource.addEventListener('error', (e) => {
@@ -260,14 +351,14 @@ function loadDelayed() {
 }
 
 async function loadPage() {
-  // Check if this is a discover page - render generatively
-  if (isDiscoverPage()) {
+  // Check if this is a generation request (?generate=query)
+  if (isGenerationRequest()) {
     document.documentElement.lang = 'en';
     decorateTemplateAndTheme();
     document.body.classList.add('appear');
     loadHeader(document.querySelector('header'));
     loadFooter(document.querySelector('footer'));
-    await renderDiscoverPage();
+    await renderGenerativePage();
     return;
   }
 

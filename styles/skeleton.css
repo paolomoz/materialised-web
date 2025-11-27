@@ -298,3 +298,81 @@ img.loaded {
 .section.block-complete {
   opacity: 1;
 }
+
+/* Save page section */
+.save-page-section {
+  margin-top: 60px;
+  padding-top: 40px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.save-page-container {
+  max-width: 500px;
+  margin: 0 auto;
+  text-align: center;
+  padding: 40px;
+  background: #f8f9fa;
+  border-radius: 12px;
+}
+
+.save-page-container h3 {
+  margin-bottom: 12px;
+}
+
+.save-page-container p {
+  color: #666;
+  margin-bottom: 24px;
+}
+
+.save-page-btn {
+  background: #c00;
+  color: #fff;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.save-page-btn:hover:not(:disabled) {
+  background: #a00;
+}
+
+.save-page-btn:disabled {
+  background: #999;
+  cursor: wait;
+}
+
+.save-status {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.save-success {
+  background: #e8f5e9;
+}
+
+.permanent-link {
+  display: block;
+  word-break: break-all;
+  color: #1976d2;
+  font-size: 14px;
+  margin: 16px 0;
+  padding: 12px;
+  background: #fff;
+  border-radius: 4px;
+}
+
+.copy-link-btn {
+  background: #333;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.copy-link-btn:hover {
+  background: #555;
+}

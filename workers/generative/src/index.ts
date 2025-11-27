@@ -27,6 +27,11 @@ export default {
       return handleStream(request, env);
     }
 
+    // Persist generated page to DA
+    if (url.pathname === '/api/persist' && request.method === 'POST') {
+      return handlePersist(request, env);
+    }
+
     // Proxy to EDS or serve generated page
     if (url.pathname.startsWith('/discover/')) {
       return handleDiscover(request, env);
@@ -239,6 +244,97 @@ async function handleDiscover(request: Request, env: Env): Promise<Response> {
 }
 
 /**
+ * Handle persist request - save generated content to DA
+ */
+async function handlePersist(request: Request, env: Env): Promise<Response> {
+  try {
+    const { slug, query, html } = await request.json() as {
+      slug: string;
+      query: string;
+      html: string[];
+    };
+
+    if (!slug || !html || !Array.isArray(html)) {
+      return new Response(JSON.stringify({ success: false, error: 'Missing required fields' }), {
+        status: 400,
+        headers: corsHeaders({ 'Content-Type': 'application/json' }),
+      });
+    }
+
+    const path = `/discover/${slug}`;
+
+    // Build the full HTML page for DA
+    const pageHtml = buildDAPageHtml(query, html);
+
+    // Persist to DA and publish
+    const result = await persistAndPublish(path, pageHtml, [], env);
+
+    if (!result.success) {
+      return new Response(JSON.stringify({ success: false, error: result.error }), {
+        status: 500,
+        headers: corsHeaders({ 'Content-Type': 'application/json' }),
+      });
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      path,
+      urls: result.urls,
+    }), {
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ success: false, error: (error as Error).message }), {
+      status: 500,
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  }
+}
+
+/**
+ * Build DA-compatible HTML page from generated blocks
+ */
+function buildDAPageHtml(query: string, blocks: string[]): string {
+  // Extract title from first h1 if present
+  let title = query;
+  const firstBlock = blocks[0] || '';
+  const h1Match = firstBlock.match(/<h1[^>]*>([^<]+)<\/h1>/);
+  if (h1Match) {
+    title = h1Match[1];
+  }
+
+  // Wrap each block in a div for EDS sections
+  const sectionsHtml = blocks.map(block => `<div>${block}</div>`).join('\n');
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <title>${escapeHTML(title)} | Vitamix</title>
+  <meta name="description" content="Personalized content about: ${escapeHTML(query)}">
+</head>
+<body>
+  <header></header>
+  <main>
+    ${sectionsHtml}
+  </main>
+  <footer></footer>
+</body>
+</html>`;
+}
+
+/**
+ * Add CORS headers to response headers
+ */
+function corsHeaders(headers: Record<string, string> = {}): Headers {
+  return new Headers({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    ...headers,
+  });
+}
+
+/**
  * Handle image requests from R2
  */
 async function handleImage(request: Request, env: Env): Promise<Response> {
@@ -369,9 +465,57 @@ function renderGeneratingPage(query: string, path: string, edsOrigin: string): s
       text-align: left;
       max-width: 1200px;
       margin: 0 auto;
+      padding: 20px;
     }
     #generation-content .section {
       margin-bottom: 40px;
+      padding: 20px;
+      background: #fff;
+      border-radius: 8px;
+    }
+    #generation-content h1, #generation-content h2, #generation-content h3 {
+      margin-top: 0;
+    }
+    #generation-content img {
+      max-width: 100%;
+      height: auto;
+    }
+    #generation-content .hero {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: center;
+    }
+    #generation-content .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+    #generation-content .cards > div {
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #generation-content .cards > div > div:last-child {
+      padding: 16px;
+    }
+    #generation-content .columns {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 32px;
+    }
+    #generation-content .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background: #c00;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 4px;
+    }
+    @media (max-width: 768px) {
+      #generation-content .hero {
+        grid-template-columns: 1fr;
+      }
     }
     .generation-status {
       color: #666;
@@ -394,57 +538,79 @@ function renderGeneratingPage(query: string, path: string, edsOrigin: string): s
     </div>
     <div id="generation-content"></div>
   </main>
-  <script type="module">
-    const eventSource = new EventSource('${path}');
-    const loadingState = document.getElementById('loading-state');
-    const content = document.getElementById('generation-content');
-    const statusEl = loadingState.querySelector('.generation-status');
-    let blockCount = 0;
+  <script>
+    (function() {
+      console.log('Starting generation...');
+      const query = ${JSON.stringify(query)};
+      const slug = '${path.replace('/discover/', '')}';
+      const streamUrl = '/api/stream?slug=' + encodeURIComponent(slug) + '&query=' + encodeURIComponent(query);
+      console.log('Stream URL:', streamUrl);
 
-    eventSource.addEventListener('layout', (e) => {
-      const data = JSON.parse(e.data);
-      statusEl.textContent = 'Generating ' + data.blocks.length + ' sections...';
-    });
+      const loadingState = document.getElementById('loading-state');
+      const content = document.getElementById('generation-content');
+      const statusEl = loadingState.querySelector('.generation-status');
+      let blockCount = 0;
 
-    eventSource.addEventListener('block-start', (e) => {
-      const data = JSON.parse(e.data);
-      statusEl.textContent = 'Creating ' + data.blockType + ' section...';
-    });
+      statusEl.textContent = 'Connecting to stream...';
 
-    eventSource.addEventListener('block-content', (e) => {
-      const data = JSON.parse(e.data);
-      // Hide loading state after first block
-      if (blockCount === 0) {
-        loadingState.style.display = 'none';
-      }
-      blockCount++;
+      const eventSource = new EventSource(streamUrl);
 
-      const section = document.createElement('div');
-      section.className = 'section';
-      section.dataset.genBlockId = data.blockId;
-      section.innerHTML = data.html;
-      content.appendChild(section);
-    });
+      eventSource.onopen = function() {
+        console.log('EventSource connected');
+        statusEl.textContent = 'Connected, waiting for content...';
+      };
 
-    eventSource.addEventListener('generation-complete', (e) => {
-      const data = JSON.parse(e.data);
-      statusEl.textContent = 'Page created successfully!';
-      // Don't reload - content is already displayed
-    });
-
-    eventSource.addEventListener('error', (e) => {
-      if (e.data) {
+      eventSource.addEventListener('layout', function(e) {
+        console.log('Layout received:', e.data);
         const data = JSON.parse(e.data);
-        loadingState.innerHTML = '<h1>Something went wrong</h1><p style="color: #c00;">' + data.message + '</p><p><a href="${edsOrigin}/">Return to homepage</a></p>';
-      }
-      eventSource.close();
-    });
+        statusEl.textContent = 'Generating ' + data.blocks.length + ' sections...';
+      });
 
-    eventSource.onerror = () => {
-      if (eventSource.readyState === EventSource.CLOSED) {
-        statusEl.textContent = 'Connection closed';
-      }
-    };
+      eventSource.addEventListener('block-start', function(e) {
+        console.log('Block start:', e.data);
+        const data = JSON.parse(e.data);
+        statusEl.textContent = 'Creating ' + data.blockType + ' section...';
+      });
+
+      eventSource.addEventListener('block-content', function(e) {
+        console.log('Block content received for:', JSON.parse(e.data).blockId);
+        const data = JSON.parse(e.data);
+
+        if (blockCount === 0) {
+          loadingState.style.display = 'none';
+        }
+        blockCount++;
+
+        const section = document.createElement('div');
+        section.className = 'section';
+        section.dataset.genBlockId = data.blockId;
+        section.innerHTML = data.html;
+        content.appendChild(section);
+      });
+
+      eventSource.addEventListener('generation-complete', function(e) {
+        console.log('Generation complete');
+        eventSource.close();
+      });
+
+      eventSource.addEventListener('error', function(e) {
+        console.log('SSE error event:', e);
+        if (e.data) {
+          const data = JSON.parse(e.data);
+          loadingState.innerHTML = '<h1>Something went wrong</h1><p style="color: #c00;">' + data.message + '</p><p><a href="${edsOrigin}/">Return to homepage</a></p>';
+        }
+      });
+
+      eventSource.onerror = function(e) {
+        console.error('EventSource error:', e);
+        console.log('ReadyState:', eventSource.readyState);
+        if (eventSource.readyState === EventSource.CLOSED) {
+          statusEl.textContent = 'Connection closed unexpectedly';
+        } else if (eventSource.readyState === EventSource.CONNECTING) {
+          statusEl.textContent = 'Reconnecting...';
+        }
+      };
+    })();
   </script>
 </body>
 </html>
