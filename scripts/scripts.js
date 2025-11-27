@@ -157,6 +157,39 @@ async function renderGenerativePage() {
     section.style.display = null;
   });
 
+  // Handle image-ready events - replace placeholder images with generated ones
+  eventSource.addEventListener('image-ready', (e) => {
+    const data = JSON.parse(e.data);
+    const { imageId, url } = data;
+
+    // eslint-disable-next-line no-console
+    console.log('Image ready:', imageId, url?.substring(0, 50));
+
+    // Skip if URL is a data URI placeholder (means generation failed)
+    if (url.startsWith('data:')) {
+      // eslint-disable-next-line no-console
+      console.log('Skipping placeholder image for', imageId);
+      return;
+    }
+
+    // Find the image with matching data-gen-image attribute
+    // Image IDs now match directly: "hero", "card-0", "card-1", "col-0", etc.
+    const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
+    if (img) {
+      updateImage(img, url);
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn('No matching image found for', imageId);
+    }
+  });
+
+  function updateImage(img, url) {
+    const fullUrl = url.startsWith('/') ? `${GENERATIVE_WORKER_URL}${url}` : url;
+    img.src = fullUrl;
+    img.classList.add('loaded');
+    img.removeAttribute('data-gen-image');
+  }
+
   eventSource.addEventListener('generation-complete', (e) => {
     eventSource.close();
 
