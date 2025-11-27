@@ -170,19 +170,51 @@ function handleStream(request: Request, env: Env): Response {
 async function handleDiscover(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
+  const slug = path.replace('/discover/', '');
+  const queryParam = url.searchParams.get('q');
 
   // Check if this is an SSE request for generation
   const accept = request.headers.get('Accept') || '';
   if (accept.includes('text/event-stream')) {
     // Extract query from URL or check cache
     const state = await env.CACHE.get(`generation:${path}`, 'json') as GenerationState | null;
-    if (state?.query) {
-      const slug = path.replace('/discover/', '');
+    const query = queryParam || state?.query;
+    if (query) {
       return handleStream(
-        new Request(`${url.origin}/api/stream?slug=${slug}&query=${encodeURIComponent(state.query)}`),
+        new Request(`${url.origin}/api/stream?slug=${slug}&query=${encodeURIComponent(query)}`),
         env
       );
     }
+  }
+
+  // Check generation state
+  let state = await env.CACHE.get(`generation:${path}`, 'json') as GenerationState | null;
+
+  // If we have a query parameter and no generation in progress, start one
+  if (queryParam && (!state || state.status !== 'in_progress')) {
+    // Mark generation as starting
+    await env.CACHE.put(`generation:${path}`, JSON.stringify({
+      status: 'in_progress',
+      query: queryParam,
+      slug,
+      startedAt: new Date().toISOString(),
+    } as GenerationState), { expirationTtl: 300 });
+
+    // Return generating page that connects to SSE
+    return new Response(renderGeneratingPage(queryParam, path, env.EDS_ORIGIN), {
+      headers: {
+        'Content-Type': 'text/html',
+      },
+    });
+  }
+
+  if (state?.status === 'in_progress') {
+    // Return generating page that connects to SSE
+    return new Response(renderGeneratingPage(state.query, path, env.EDS_ORIGIN), {
+      headers: {
+        'Content-Type': 'text/html',
+      },
+    });
   }
 
   // Check if page exists in DA (proxy to EDS)
@@ -194,25 +226,13 @@ async function handleDiscover(request: Request, env: Env): Promise<Response> {
     return proxyToEDS(request, env);
   }
 
-  // Check generation state
-  const state = await env.CACHE.get(`generation:${path}`, 'json') as GenerationState | null;
-
-  if (state?.status === 'in_progress') {
-    // Return generating page that connects to SSE
-    return new Response(renderGeneratingPage(state.query, path), {
-      headers: {
-        'Content-Type': 'text/html',
-      },
-    });
-  }
-
   if (state?.status === 'complete') {
     // Try proxy again (might have been published)
     return proxyToEDS(request, env);
   }
 
-  // Page doesn't exist - return 404 or redirect to generation
-  return new Response(renderNotFoundPage(path), {
+  // Page doesn't exist - return 404
+  return new Response(renderNotFoundPage(path, env.EDS_ORIGIN), {
     status: 404,
     headers: { 'Content-Type': 'text/html' },
   });
@@ -298,16 +318,17 @@ function simpleHash(str: string): string {
 /**
  * Render the generating page HTML
  */
-function renderGeneratingPage(query: string, path: string): string {
+function renderGeneratingPage(query: string, path: string, edsOrigin: string): string {
   return `
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Generating Page...</title>
+  <title>Creating Your Page | Vitamix</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/styles/styles.css">
-  <link rel="stylesheet" href="/styles/skeleton.css">
+  <link rel="stylesheet" href="${edsOrigin}/styles/styles.css">
+  <link rel="stylesheet" href="${edsOrigin}/styles/skeleton.css">
   <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
     .generating-container {
       max-width: 800px;
       margin: 100px auto;
@@ -315,13 +336,15 @@ function renderGeneratingPage(query: string, path: string): string {
       text-align: center;
     }
     .generating-title {
-      font-size: 24px;
-      margin-bottom: 20px;
+      font-size: 28px;
+      margin-bottom: 16px;
+      color: #333;
     }
     .generating-query {
       color: #666;
       font-style: italic;
       margin-bottom: 40px;
+      font-size: 18px;
     }
     .progress-indicator {
       display: flex;
@@ -332,7 +355,7 @@ function renderGeneratingPage(query: string, path: string): string {
     .progress-dot {
       width: 12px;
       height: 12px;
-      background: #ddd;
+      background: #c00;
       border-radius: 50%;
       animation: pulse 1.5s ease-in-out infinite;
     }
@@ -344,13 +367,22 @@ function renderGeneratingPage(query: string, path: string): string {
     }
     #generation-content {
       text-align: left;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    #generation-content .section {
+      margin-bottom: 40px;
+    }
+    .generation-status {
+      color: #666;
+      font-size: 14px;
+      margin-top: 20px;
     }
   </style>
 </head>
 <body>
-  <header></header>
   <main>
-    <div class="generating-container">
+    <div class="generating-container" id="loading-state">
       <h1 class="generating-title">Creating Your Personalized Page</h1>
       <p class="generating-query">"${escapeHTML(query)}"</p>
       <div class="progress-indicator">
@@ -358,34 +390,61 @@ function renderGeneratingPage(query: string, path: string): string {
         <div class="progress-dot"></div>
         <div class="progress-dot"></div>
       </div>
-      <div id="generation-content"></div>
+      <p class="generation-status">Analyzing your request...</p>
     </div>
+    <div id="generation-content"></div>
   </main>
-  <footer></footer>
   <script type="module">
     const eventSource = new EventSource('${path}');
+    const loadingState = document.getElementById('loading-state');
     const content = document.getElementById('generation-content');
+    const statusEl = loadingState.querySelector('.generation-status');
+    let blockCount = 0;
+
+    eventSource.addEventListener('layout', (e) => {
+      const data = JSON.parse(e.data);
+      statusEl.textContent = 'Generating ' + data.blocks.length + ' sections...';
+    });
+
+    eventSource.addEventListener('block-start', (e) => {
+      const data = JSON.parse(e.data);
+      statusEl.textContent = 'Creating ' + data.blockType + ' section...';
+    });
 
     eventSource.addEventListener('block-content', (e) => {
       const data = JSON.parse(e.data);
-      const div = document.createElement('div');
-      div.innerHTML = data.html;
-      content.appendChild(div);
+      // Hide loading state after first block
+      if (blockCount === 0) {
+        loadingState.style.display = 'none';
+      }
+      blockCount++;
+
+      const section = document.createElement('div');
+      section.className = 'section';
+      section.dataset.genBlockId = data.blockId;
+      section.innerHTML = data.html;
+      content.appendChild(section);
     });
 
     eventSource.addEventListener('generation-complete', (e) => {
       const data = JSON.parse(e.data);
-      // Reload to get the final page
-      setTimeout(() => window.location.reload(), 1000);
+      statusEl.textContent = 'Page created successfully!';
+      // Don't reload - content is already displayed
     });
 
     eventSource.addEventListener('error', (e) => {
       if (e.data) {
         const data = JSON.parse(e.data);
-        content.innerHTML = '<p style="color: red;">Error: ' + data.message + '</p>';
+        loadingState.innerHTML = '<h1>Something went wrong</h1><p style="color: #c00;">' + data.message + '</p><p><a href="${edsOrigin}/">Return to homepage</a></p>';
       }
       eventSource.close();
     });
+
+    eventSource.onerror = () => {
+      if (eventSource.readyState === EventSource.CLOSED) {
+        statusEl.textContent = 'Connection closed';
+      }
+    };
   </script>
 </body>
 </html>
@@ -395,24 +454,26 @@ function renderGeneratingPage(query: string, path: string): string {
 /**
  * Render 404 page
  */
-function renderNotFoundPage(path: string): string {
+function renderNotFoundPage(path: string, edsOrigin: string): string {
   return `
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Page Not Found</title>
-  <link rel="stylesheet" href="/styles/styles.css">
+  <title>Page Not Found | Vitamix</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="${edsOrigin}/styles/styles.css">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; }
+  </style>
 </head>
 <body>
-  <header></header>
   <main>
     <div style="max-width: 600px; margin: 100px auto; text-align: center; padding: 40px;">
       <h1>Page Not Found</h1>
       <p>The page "${escapeHTML(path)}" doesn't exist yet.</p>
-      <p><a href="/">Go to homepage</a> to generate a new page.</p>
+      <p><a href="${edsOrigin}/">Go to homepage</a> to generate a new page.</p>
     </div>
   </main>
-  <footer></footer>
 </body>
 </html>
   `.trim();

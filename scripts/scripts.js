@@ -141,61 +141,7 @@ function loadDelayed() {
   // load anything that can be postponed to the latest here
 }
 
-/**
- * Check if this is a generative page request
- */
-function isGenerativePage() {
-  return window.location.pathname.startsWith('/discover/');
-}
-
-/**
- * Handle generative page - connect to SSE and render progressively
- */
-async function loadGenerativePage(doc) {
-  const main = doc.querySelector('main');
-  if (!main) return;
-
-  // Load skeleton styles
-  await loadCSS(`${window.hlx.codeBasePath}/styles/skeleton.css`);
-
-  // Extract slug and query from URL
-  const slug = window.location.pathname.replace('/discover/', '');
-  const query = new URLSearchParams(window.location.search).get('q') || slug.replace(/-/g, ' ');
-
-  // Show loading state
-  main.innerHTML = `
-    <div class="section generating-container">
-      <h1 class="generating-title">Creating Your Page</h1>
-      <p class="generating-query">"${query}"</p>
-      <div class="progress-indicator">
-        <div class="progress-dot"></div>
-        <div class="progress-dot"></div>
-        <div class="progress-dot"></div>
-      </div>
-    </div>
-  `;
-
-  // Import and initialize stream renderer
-  const { initStreamRenderer } = await import('./stream-renderer.js');
-  const streamUrl = `${GENERATIVE_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}`;
-
-  initStreamRenderer(streamUrl, main);
-
-  // Still load header/footer
-  loadHeader(doc.querySelector('header'));
-  loadFooter(doc.querySelector('footer'));
-}
-
 async function loadPage() {
-  // Check if this is a generative page
-  if (isGenerativePage()) {
-    document.documentElement.lang = 'en';
-    decorateTemplateAndTheme();
-    document.body.classList.add('appear');
-    await loadGenerativePage(document);
-    return;
-  }
-
   await loadEager(document);
   await loadLazy(document);
   loadDelayed();
