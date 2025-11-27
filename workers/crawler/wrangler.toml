@@ -1,0 +1,28 @@
+name = "vitamix-crawler"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+CRAWL_DOMAIN = "vitamix.com"
+RATE_LIMIT_MS = "1000"
+MAX_PAGES = "500"
+
+# Workers AI for embeddings
+[ai]
+binding = "AI"
+
+# Vectorize for storing embeddings
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "vitamix-content"
+
+# R2 for storing raw HTML
+[[r2_buckets]]
+binding = "RAW_HTML"
+bucket_name = "vitamix-raw-html"
+
+# KV for crawl state tracking
+[[kv_namespaces]]
+binding = "CRAWL_STATE"
+id = "f2e8dac142c54e9cac9c899d5094576f"
