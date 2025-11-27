@@ -5,9 +5,6 @@
  * Handles query submission, slug generation, and navigation.
  */
 
-// Generative worker URL
-const GENERATIVE_WORKER_URL = 'https://vitamix-generative.paolo-moz.workers.dev';
-
 /**
  * Generate a URL-safe slug from a query
  * @param {string} query - The user's query
@@ -70,18 +67,11 @@ async function handleSubmit(event, form) {
   submitButton.textContent = 'Generating...';
 
   try {
-    // Generate slug and navigate to worker
+    // Generate slug and navigate to discover page (within EDS)
     const slug = generateSlug(query);
-    const url = `${GENERATIVE_WORKER_URL}/discover/${slug}?q=${encodeURIComponent(query)}`;
+    const url = `/discover/${slug}?q=${encodeURIComponent(query)}`;
 
-    // Store query in session for potential return
-    try {
-      sessionStorage.setItem(`query-${slug}`, query);
-    } catch (e) {
-      // Session storage might not be available
-    }
-
-    // Navigate to the generative worker page
+    // Navigate to the discover page
     window.location.href = url;
   } catch (error) {
     // eslint-disable-next-line no-console

@@ -13,8 +13,126 @@ import {
   loadCSS,
 } from './aem.js';
 
-// Generative worker URL - update this to your deployed worker
+// Generative worker URL
 const GENERATIVE_WORKER_URL = 'https://vitamix-generative.paolo-moz.workers.dev';
+
+/**
+ * Check if this is a generative discover page
+ */
+function isDiscoverPage() {
+  return window.location.pathname.startsWith('/discover/');
+}
+
+/**
+ * Render a generative discover page
+ */
+async function renderDiscoverPage() {
+  // Load skeleton styles
+  await loadCSS(`${window.hlx.codeBasePath}/styles/skeleton.css`);
+
+  const main = document.querySelector('main');
+  if (!main) return;
+
+  // Extract slug and query from URL
+  const slug = window.location.pathname.replace('/discover/', '');
+  const query = new URLSearchParams(window.location.search).get('q') || slug.replace(/-/g, ' ');
+
+  // Clear main and show loading state
+  main.innerHTML = `
+    <div class="section generating-container">
+      <h1 class="generating-title">Creating Your Personalized Page</h1>
+      <p class="generating-query">"${query}"</p>
+      <div class="progress-indicator">
+        <div class="progress-dot"></div>
+        <div class="progress-dot"></div>
+        <div class="progress-dot"></div>
+      </div>
+      <p class="generation-status">Connecting...</p>
+    </div>
+    <div id="generation-content"></div>
+  `;
+
+  const loadingState = main.querySelector('.generating-container');
+  const statusEl = main.querySelector('.generation-status');
+  const content = main.querySelector('#generation-content');
+
+  // Connect to SSE stream
+  const streamUrl = `${GENERATIVE_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}`;
+  const eventSource = new EventSource(streamUrl);
+  let blockCount = 0;
+
+  eventSource.onopen = () => {
+    statusEl.textContent = 'Generating content...';
+  };
+
+  eventSource.addEventListener('layout', (e) => {
+    const data = JSON.parse(e.data);
+    statusEl.textContent = `Generating ${data.blocks.length} sections...`;
+  });
+
+  eventSource.addEventListener('block-start', (e) => {
+    const data = JSON.parse(e.data);
+    statusEl.textContent = `Creating ${data.blockType}...`;
+  });
+
+  eventSource.addEventListener('block-content', (e) => {
+    const data = JSON.parse(e.data);
+
+    // Hide loading state after first block
+    if (blockCount === 0) {
+      loadingState.style.display = 'none';
+    }
+    blockCount += 1;
+
+    // Create section and add content
+    const section = document.createElement('div');
+    section.className = 'section';
+    section.innerHTML = data.html;
+
+    // Decorate the content using EDS patterns
+    decorateButtons(section);
+    decorateIcons(section);
+
+    // Find and decorate blocks
+    const block = section.querySelector('[class]');
+    if (block) {
+      const blockName = block.className.split(' ')[0];
+      block.classList.add('block');
+      block.dataset.blockName = blockName;
+    }
+
+    content.appendChild(section);
+  });
+
+  eventSource.addEventListener('generation-complete', () => {
+    eventSource.close();
+    // Update document title
+    const h1 = content.querySelector('h1');
+    if (h1) {
+      document.title = `${h1.textContent} | Vitamix`;
+    }
+  });
+
+  eventSource.addEventListener('error', (e) => {
+    if (e.data) {
+      const data = JSON.parse(e.data);
+      loadingState.innerHTML = `
+        <h1>Something went wrong</h1>
+        <p style="color: #c00;">${data.message}</p>
+        <p><a href="/">Return to homepage</a></p>
+      `;
+    }
+    eventSource.close();
+  });
+
+  eventSource.onerror = () => {
+    if (eventSource.readyState === EventSource.CLOSED) {
+      if (blockCount === 0) {
+        statusEl.textContent = 'Connection failed. Please try again.';
+      }
+    }
+  };
+}
 
 /**
  * Builds hero block and prepends to main in a new section.
@@ -142,6 +260,17 @@ function loadDelayed() {
 }
 
 async function loadPage() {
+  // Check if this is a discover page - render generatively
+  if (isDiscoverPage()) {
+    document.documentElement.lang = 'en';
+    decorateTemplateAndTheme();
+    document.body.classList.add('appear');
+    loadHeader(document.querySelector('header'));
+    loadFooter(document.querySelector('footer'));
+    await renderDiscoverPage();
+    return;
+  }
+
   await loadEager(document);
   await loadLazy(document);
   loadDelayed();
