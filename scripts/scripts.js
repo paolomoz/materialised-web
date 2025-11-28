@@ -287,7 +287,22 @@ async function renderGenerativePage() {
  */
 function buildHeroBlock(main) {
   const h1 = main.querySelector('h1');
-  const picture = main.querySelector('picture');
+  // Look for picture or img (EDS pipeline may convert picture to p > img)
+  let picture = main.querySelector('picture');
+  if (!picture) {
+    // Try to find an img that precedes h1 (EDS converts picture to p > img)
+    const img = main.querySelector('img');
+    if (img) {
+      // Wrap the img in a picture element for consistency
+      picture = document.createElement('picture');
+      const imgClone = img.cloneNode(true);
+      picture.appendChild(imgClone);
+      // Remove the original img's parent if it's just a wrapper p
+      if (img.parentElement.tagName === 'P' && img.parentElement.children.length === 1) {
+        img.parentElement.replaceWith(picture);
+      }
+    }
+  }
   // eslint-disable-next-line no-bitwise
   if (h1 && picture && (h1.compareDocumentPosition(picture) & Node.DOCUMENT_POSITION_PRECEDING)) {
     const section = document.createElement('div');
