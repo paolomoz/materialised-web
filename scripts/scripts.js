@@ -282,29 +282,20 @@ async function renderGenerativePage() {
 }
 
 /**
- * Builds hero block and prepends to main in a new section.
+ * Builds hero block from default content pattern (picture + h1 without block wrapper).
+ * This is the standard EDS auto-blocking behavior for pages where hero is not explicitly authored.
+ * If a .hero block already exists, this function does nothing.
  * @param {Element} main The container element
  */
 function buildHeroBlock(main) {
-  const h1 = main.querySelector('h1');
-  // Look for picture or img (EDS pipeline may convert picture to p > img or leave img bare)
-  let picture = main.querySelector('picture');
-  if (!picture) {
-    // Try to find an img that precedes h1
-    const img = main.querySelector('img');
-    if (img) {
-      // Wrap the img in a picture element for consistency
-      picture = document.createElement('picture');
-      picture.appendChild(img.cloneNode(true));
-      // Replace the original img (or its p wrapper) with the picture element
-      const parent = img.parentElement;
-      if (parent.tagName === 'P' && parent.children.length === 1) {
-        parent.replaceWith(picture);
-      } else {
-        img.replaceWith(picture);
-      }
-    }
+  // Skip if there's already an explicit hero block
+  if (main.querySelector('.hero')) {
+    return;
   }
+
+  const h1 = main.querySelector('h1');
+  const picture = main.querySelector('picture');
+
   // eslint-disable-next-line no-bitwise
   if (h1 && picture && (h1.compareDocumentPosition(picture) & Node.DOCUMENT_POSITION_PRECEDING)) {
     const section = document.createElement('div');

@@ -2,6 +2,31 @@
  * FAQ Block
  *
  * Accordion-style FAQ with expandable questions and answers.
+ *
+ * == DA/EDS Table Structure ==
+ * Authored as a table with "FAQ" header row:
+ *
+ * | FAQ                                           |                                      |
+ * |-----------------------------------------------|--------------------------------------|
+ * | Question 1 text?                              | Answer 1 text goes here              |
+ * |-----------------------------------------------|--------------------------------------|
+ * | Question 2 text?                              | Answer 2 text goes here              |
+ *
+ * Each row = one Q&A pair. Cell 1 = question, Cell 2 = answer.
+ *
+ * HTML structure after EDS processing:
+ * <div class="faq">
+ *   <div>                                     <!-- Q&A row -->
+ *     <div>Question text?</div>               <!-- question cell -->
+ *     <div>Answer text</div>                  <!-- answer cell -->
+ *   </div>
+ *   <div>
+ *     <div>Question 2?</div>
+ *     <div>Answer 2</div>
+ *   </div>
+ * </div>
+ *
+ * The decorator adds accessibility attributes and click handlers.
  */
 
 export default function decorate(block) {
@@ -45,10 +70,4 @@ export default function decorate(block) {
       });
     }
   });
-
-  // Optionally expand first item
-  const firstItem = items[0];
-  if (firstItem && !block.classList.contains('collapsed')) {
-    // Keep all collapsed by default for generated content
-  }
 }

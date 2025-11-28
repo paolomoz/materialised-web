@@ -1,3 +1,13 @@
+/**
+ * Hero Block Styles
+ *
+ * Supports two authoring patterns:
+ * 1. Auto-blocked: Default content (picture + h1) wrapped by buildHeroBlock()
+ * 2. Explicit block: Authored as a table with "Hero" header
+ *
+ * Both produce similar DOM structure after decoration.
+ */
+
 .hero-container .hero-wrapper {
   max-width: unset;
   padding: 0;
@@ -9,14 +19,21 @@
   min-height: 300px;
 }
 
-/* Two-column hero layout (image + content) */
+/* Two-column layout via grid */
 .hero > div {
-  max-width: 1200px;
-  margin: 0 auto;
+  display: contents;
 }
 
-.hero > div:first-child picture,
-.hero > div:first-child img {
+/* Image cell */
+.hero .hero-image,
+.hero > div > div:first-child:has(picture) {
+  max-width: 100%;
+}
+
+.hero .hero-image picture,
+.hero .hero-image img,
+.hero > div > div:first-child picture,
+.hero > div > div:first-child img {
   width: 100%;
   height: auto;
   max-height: 400px;
@@ -24,7 +41,9 @@
   border-radius: 8px;
 }
 
-.hero > div:last-child {
+/* Content cell */
+.hero .hero-content,
+.hero > div > div:last-child {
   padding: 24px 0;
 }
 
@@ -54,7 +73,7 @@
   background: #a00;
 }
 
-/* Full-width background variant (original) */
+/* Full-width background variant */
 .hero.full-width {
   min-height: 400px;
 }
@@ -84,10 +103,14 @@
     grid-template-columns: 1fr 1fr;
     gap: 48px;
     align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
   }
 
-  .hero > div:first-child picture,
-  .hero > div:first-child img {
+  .hero .hero-image picture,
+  .hero .hero-image img,
+  .hero > div > div:first-child picture,
+  .hero > div > div:first-child img {
     max-height: 500px;
   }
 

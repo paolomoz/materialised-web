@@ -31,10 +31,19 @@ let cachedAccessToken: { token: string; expiresAt: number } | null = null;
 async function getAccessToken(env: Env): Promise<string> {
   // Check if we have a valid cached token
   if (cachedAccessToken && cachedAccessToken.expiresAt > Date.now() + 60000) {
+    console.log('Using cached access token');
     return cachedAccessToken.token;
   }
 
+  console.log('Generating new access token for Vertex AI...');
+
+  if (!env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON secret is not configured');
+  }
+
   const serviceAccount = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON);
+  console.log('Service account email:', serviceAccount.client_email);
+  console.log('Project ID:', serviceAccount.project_id);
   const now = Math.floor(Date.now() / 1000);
 
   // Create JWT header
@@ -76,8 +85,11 @@ async function getAccessToken(env: Env): Promise<string> {
 
   if (!tokenResponse.ok) {
     const error = await tokenResponse.text();
+    console.error('Token exchange failed:', tokenResponse.status, error);
     throw new Error(`Failed to get access token: ${tokenResponse.status} - ${error}`);
   }
+
+  console.log('Access token obtained successfully');
 
   const tokenData = await tokenResponse.json() as { access_token: string; expires_in: number };
 
@@ -156,6 +168,13 @@ export async function generateImage(
     const projectId = serviceAccount.project_id;
     const region = env.VERTEX_AI_REGION || 'us-east4';
 
+    console.log('Calling Imagen 3 API:', {
+      projectId,
+      region,
+      promptLength: fullPrompt.length,
+      aspectRatio: sizeConfig.aspectRatio,
+    });
+
     // Call Vertex AI Imagen API
     const response = await fetch(
       `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/imagen-3.0-generate-001:predict`,
@@ -183,12 +202,15 @@ export async function generateImage(
 
     if (!response.ok) {
       const error = await response.text();
+      console.error('Imagen API error response:', response.status, error);
       throw new Error(`Imagen API error: ${response.status} - ${error}`);
     }
 
     const result = await response.json() as VertexAIImagenResponse;
+    console.log('Imagen API response received, predictions:', result.predictions?.length || 0);
 
     if (!result.predictions || result.predictions.length === 0) {
+      console.error('No predictions in response:', JSON.stringify(result).substring(0, 500));
       throw new Error('No image generated');
     }
 
@@ -218,7 +240,15 @@ export async function generateImage(
       prompt: request.prompt,
     };
   } catch (error) {
-    console.error('Image generation failed:', error);
+    // Log detailed error info
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : '';
+    console.error('Image generation failed:', {
+      error: errorMessage,
+      stack: errorStack,
+      requestId: request.id,
+      prompt: request.prompt.substring(0, 100),
+    });
 
     // Return a placeholder image on failure
     return {

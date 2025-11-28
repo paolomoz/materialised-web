@@ -1,15 +1,31 @@
+/**
+ * Columns Block Styles
+ *
+ * Structure after EDS processing:
+ * .columns > div (row) > div (column cell)
+ *
+ * The JS decorator adds:
+ * - columns-N-cols class based on column count
+ * - columns-img-col class on cells containing only a picture
+ */
+
 .columns {
   padding: 40px 24px;
   max-width: 1200px;
   margin: 0 auto;
 }
 
-/* Direct children are column items */
+/* Row wrapper - use display:contents to flatten for grid */
 .columns > div {
+  display: contents;
+}
+
+/* Column cells */
+.columns > div > div {
   margin-bottom: 32px;
 }
 
-.columns > div:last-child {
+.columns > div > div:last-child {
   margin-bottom: 0;
 }
 
@@ -33,26 +49,51 @@
   font-size: 16px;
   line-height: 1.6;
   color: #555;
+  margin-bottom: 12px;
+}
+
+.columns p:last-child {
+  margin-bottom: 0;
 }
 
 /* Image column styling */
-.columns > div > .columns-img-col {
+.columns-img-col {
   order: 0;
 }
 
-.columns > div > .columns-img-col img {
+.columns-img-col img {
   display: block;
+  margin-bottom: 0;
+}
+
+/* Highlight variant - for feature boxes */
+.columns.highlight > div > div {
+  background: #f8f9fa;
+  padding: 24px;
+  border-radius: 8px;
 }
 
 @media (width >= 900px) {
   .columns {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 32px;
     padding: 60px 32px;
   }
 
-  .columns > div {
+  /* Column count classes */
+  .columns.columns-2-cols {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .columns.columns-3-cols {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .columns.columns-4-cols {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .columns > div > div {
     margin-bottom: 0;
   }
 }
@@ -60,5 +101,9 @@
 @media (width < 600px) {
   .columns {
     padding: 32px 16px;
+  }
+
+  .columns.highlight > div > div {
+    padding: 20px;
   }
 }
