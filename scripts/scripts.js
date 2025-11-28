@@ -287,19 +287,21 @@ async function renderGenerativePage() {
  */
 function buildHeroBlock(main) {
   const h1 = main.querySelector('h1');
-  // Look for picture or img (EDS pipeline may convert picture to p > img)
+  // Look for picture or img (EDS pipeline may convert picture to p > img or leave img bare)
   let picture = main.querySelector('picture');
   if (!picture) {
-    // Try to find an img that precedes h1 (EDS converts picture to p > img)
+    // Try to find an img that precedes h1
     const img = main.querySelector('img');
     if (img) {
       // Wrap the img in a picture element for consistency
       picture = document.createElement('picture');
-      const imgClone = img.cloneNode(true);
-      picture.appendChild(imgClone);
-      // Remove the original img's parent if it's just a wrapper p
-      if (img.parentElement.tagName === 'P' && img.parentElement.children.length === 1) {
-        img.parentElement.replaceWith(picture);
+      picture.appendChild(img.cloneNode(true));
+      // Replace the original img (or its p wrapper) with the picture element
+      const parent = img.parentElement;
+      if (parent.tagName === 'P' && parent.children.length === 1) {
+        parent.replaceWith(picture);
+      } else {
+        img.replaceWith(picture);
       }
     }
   }
