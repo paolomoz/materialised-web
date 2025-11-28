@@ -172,19 +172,40 @@ async function renderGenerativePage() {
       return;
     }
 
+    // Build the full URL for this image
+    const fullUrl = url.startsWith('/') ? `${GENERATIVE_WORKER_URL}${url}` : url;
+
+    // Update the generatedHtml array so persisted pages have real images
+    // Find and replace the placeholder in all stored HTML blocks
+    generatedHtml = generatedHtml.map((html) => {
+      // Replace data-gen-image="imageId" src="..." with just src="fullUrl"
+      const pattern = new RegExp(
+        `(<img[^>]*data-gen-image="${imageId}"[^>]*src=")[^"]*(")`
+        + `|(<img[^>]*src=")([^"]*)("[^>]*data-gen-image="${imageId}")`,
+        'g',
+      );
+      return html.replace(pattern, (match, p1, p2, p3, p4, p5) => {
+        if (p1) {
+          // First pattern: data-gen-image before src
+          return `${p1}${fullUrl}${p2}`;
+        }
+        // Second pattern: src before data-gen-image
+        return `${p3}${fullUrl}${p5}`;
+      });
+    });
+
     // Find the image with matching data-gen-image attribute
     // Image IDs now match directly: "hero", "card-0", "card-1", "col-0", etc.
     const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
     if (img) {
-      updateImage(img, url);
+      updateImage(img, fullUrl);
     } else {
       // eslint-disable-next-line no-console
       console.warn('No matching image found for', imageId);
     }
   });
 
-  function updateImage(img, url) {
-    const fullUrl = url.startsWith('/') ? `${GENERATIVE_WORKER_URL}${url}` : url;
+  function updateImage(img, fullUrl) {
     img.src = fullUrl;
     img.classList.add('loaded');
     img.removeAttribute('data-gen-image');
