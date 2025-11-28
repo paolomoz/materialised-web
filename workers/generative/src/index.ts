@@ -142,23 +142,18 @@ function handleStream(request: Request, env: Env): Response {
       // Run orchestration
       const result = await orchestrate(query, slug, env, emit);
 
-      // Persist to DA in background
-      persistAndPublish(path, result.html, [], env)
-        .then(async (publishResult) => {
-          if (publishResult.success) {
-            await env.CACHE.put(`generation:${path}`, JSON.stringify({
-              status: 'complete',
-              query,
-              slug,
-              startedAt: new Date().toISOString(),
-              completedAt: new Date().toISOString(),
-              pageUrl: path,
-            } as GenerationState), { expirationTtl: 86400 });
-          } else {
-            console.error('Failed to persist:', publishResult.error);
-          }
-        })
-        .catch(console.error);
+      // Note: We don't auto-persist to DA here because images are generated
+      // asynchronously and the HTML would have placeholder URLs.
+      // The user can save via the "Save & Get Permanent Link" button which
+      // sends the updated HTML with real image URLs from the frontend.
+      await env.CACHE.put(`generation:${path}`, JSON.stringify({
+        status: 'complete',
+        query,
+        slug,
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        pageUrl: path,
+      } as GenerationState), { expirationTtl: 86400 });
 
     } catch (error) {
       await env.CACHE.put(`generation:${path}`, JSON.stringify({

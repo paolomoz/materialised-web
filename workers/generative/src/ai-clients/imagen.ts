@@ -22,6 +22,19 @@ const SIZE_CONFIG: Record<string, { width: number; height: number; aspectRatio: 
   thumbnail: { width: 300, height: 225, aspectRatio: '4:3' },
 };
 
+/**
+ * Default fallback images for when generation fails
+ * These are high-quality Vitamix-appropriate images hosted on reliable CDNs
+ */
+const DEFAULT_FALLBACK_IMAGES = {
+  // Default hero: beautiful smoothie action shot
+  hero: 'https://images.unsplash.com/photo-1638176066666-ffb2f013c7dd?w=2000&h=800&fit=crop&q=80',
+  // Default card: colorful smoothie bowl
+  card: 'https://images.unsplash.com/photo-1590301157890-4810ed352733?w=750&h=562&fit=crop&q=80',
+  // Default column: fresh ingredients
+  column: 'https://images.unsplash.com/photo-1610970881699-44a5587cabec?w=600&h=400&fit=crop&q=80',
+};
+
 // Token cache to avoid generating new tokens for every request
 let cachedAccessToken: { token: string; expiresAt: number } | null = null;
 
@@ -260,7 +273,29 @@ export async function generateImage(
 }
 
 /**
- * Generate multiple images in parallel
+ * Check if a generated image is a failure (placeholder SVG)
+ */
+function isFailedImage(image: GeneratedImage): boolean {
+  return image.url.startsWith('data:');
+}
+
+/**
+ * Get the image type from an image ID (e.g., "card-0" -> "card", "hero" -> "hero")
+ */
+function getImageType(imageId: string): string {
+  if (imageId === 'hero') return 'hero';
+  if (imageId.startsWith('card-')) return 'card';
+  if (imageId.startsWith('col-')) return 'column';
+  return 'card'; // default
+}
+
+/**
+ * Generate multiple images in parallel with smart fallback strategy
+ *
+ * Fallback logic:
+ * 1. For hero: use DEFAULT_FALLBACK_IMAGES.hero
+ * 2. For cards/columns: reuse a successfully generated sibling image
+ * 3. If no siblings succeeded: use DEFAULT_FALLBACK_IMAGES for that type
  */
 export async function generateImages(
   requests: ImageRequest[],
@@ -278,7 +313,62 @@ export async function generateImages(
     results.push(...batchResults);
   }
 
-  return results;
+  // Apply fallback strategy for failed images
+  return applyFallbackStrategy(results);
+}
+
+/**
+ * Apply fallback strategy for any failed image generations
+ */
+function applyFallbackStrategy(results: GeneratedImage[]): GeneratedImage[] {
+  // Group images by type to find successful siblings
+  const successByType: Record<string, GeneratedImage[]> = {
+    hero: [],
+    card: [],
+    column: [],
+  };
+
+  // First pass: identify successful images by type
+  for (const image of results) {
+    if (!isFailedImage(image)) {
+      const type = getImageType(image.id);
+      if (successByType[type]) {
+        successByType[type].push(image);
+      }
+    }
+  }
+
+  // Second pass: apply fallbacks for failed images
+  return results.map((image) => {
+    if (!isFailedImage(image)) {
+      return image; // Already successful
+    }
+
+    const type = getImageType(image.id);
+    const successfulSiblings = successByType[type] || [];
+
+    let fallbackUrl: string;
+
+    if (type === 'hero') {
+      // Hero always uses the default fallback
+      fallbackUrl = DEFAULT_FALLBACK_IMAGES.hero;
+      console.log(`Hero image failed, using default fallback`);
+    } else if (successfulSiblings.length > 0) {
+      // Reuse a random successful sibling image
+      const randomSibling = successfulSiblings[Math.floor(Math.random() * successfulSiblings.length)];
+      fallbackUrl = randomSibling.url;
+      console.log(`Image ${image.id} failed, reusing sibling ${randomSibling.id}`);
+    } else {
+      // No siblings succeeded, use default fallback
+      fallbackUrl = DEFAULT_FALLBACK_IMAGES[type as keyof typeof DEFAULT_FALLBACK_IMAGES] || DEFAULT_FALLBACK_IMAGES.card;
+      console.log(`Image ${image.id} failed with no siblings, using default fallback`);
+    }
+
+    return {
+      ...image,
+      url: fallbackUrl,
+    };
+  });
 }
 
 /**

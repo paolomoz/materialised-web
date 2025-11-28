@@ -176,22 +176,15 @@ async function renderGenerativePage() {
     const fullUrl = url.startsWith('/') ? `${GENERATIVE_WORKER_URL}${url}` : url;
 
     // Update the generatedHtml array so persisted pages have real images
-    // Find and replace the placeholder in all stored HTML blocks
+    // Find the img tag with this data-gen-image and replace its src
     generatedHtml = generatedHtml.map((html) => {
-      // Replace data-gen-image="imageId" src="..." with just src="fullUrl"
-      const pattern = new RegExp(
-        `(<img[^>]*data-gen-image="${imageId}"[^>]*src=")[^"]*(")`
-        + `|(<img[^>]*src=")([^"]*)("[^>]*data-gen-image="${imageId}")`,
+      // Find img tags with this specific data-gen-image attribute
+      // The HTML format is: <img src="..." alt="..." data-gen-image="imageId" loading="lazy">
+      const imgTagPattern = new RegExp(
+        `(<img\\s+[^>]*?)src="[^"]*"([^>]*data-gen-image="${imageId}"[^>]*>)`,
         'g',
       );
-      return html.replace(pattern, (match, p1, p2, p3, p4, p5) => {
-        if (p1) {
-          // First pattern: data-gen-image before src
-          return `${p1}${fullUrl}${p2}`;
-        }
-        // Second pattern: src before data-gen-image
-        return `${p3}${fullUrl}${p5}`;
-      });
+      return html.replace(imgTagPattern, `$1src="${fullUrl}"$2`);
     });
 
     // Find the image with matching data-gen-image attribute
