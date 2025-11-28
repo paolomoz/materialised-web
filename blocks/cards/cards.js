@@ -59,6 +59,11 @@ export default function decorate(block) {
     ul.append(li);
   });
   ul.querySelectorAll('picture > img').forEach((img) => {
+    // Skip optimization for generated images - they have data-gen-image attribute
+    // and will be replaced with actual images via SSE events
+    if (img.hasAttribute('data-gen-image')) {
+      return;
+    }
     img.closest('picture').replaceWith(
       createOptimizedPicture(img.src, img.alt, false, [{ width: '750' }]),
     );
