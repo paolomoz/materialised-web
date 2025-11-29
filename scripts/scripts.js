@@ -157,52 +157,22 @@ async function renderGenerativePage() {
     section.style.display = null;
   });
 
-  // Handle image-ready events - replace placeholder images with generated ones
+  // Handle image-ready events - images already have correct URLs in HTML
+  // This event just triggers the "loaded" animation
   eventSource.addEventListener('image-ready', (e) => {
     const data = JSON.parse(e.data);
-    const { imageId, url } = data;
+    const { imageId } = data;
 
     // eslint-disable-next-line no-console
-    console.log('Image ready:', imageId, url?.substring(0, 50));
+    console.log('Image ready:', imageId);
 
-    // Skip if URL is a data URI placeholder (means generation failed)
-    if (url.startsWith('data:')) {
-      // eslint-disable-next-line no-console
-      console.log('Skipping placeholder image for', imageId);
-      return;
-    }
-
-    // Build the full URL for this image
-    const fullUrl = url.startsWith('/') ? `${GENERATIVE_WORKER_URL}${url}` : url;
-
-    // Update the generatedHtml array so persisted pages have real images
-    // Find the img tag with this data-gen-image and replace its src
-    generatedHtml = generatedHtml.map((html) => {
-      // Find img tags with this specific data-gen-image attribute
-      // The HTML format is: <img src="..." alt="..." data-gen-image="imageId" loading="lazy">
-      const imgTagPattern = new RegExp(
-        `(<img\\s+[^>]*?)src="[^"]*"([^>]*data-gen-image="${imageId}"[^>]*>)`,
-        'g',
-      );
-      return html.replace(imgTagPattern, `$1src="${fullUrl}"$2`);
-    });
-
-    // Find the image with matching data-gen-image attribute
-    // Image IDs now match directly: "hero", "card-0", "card-1", "col-0", etc.
+    // Find the image with matching data-gen-image attribute and mark as loaded
+    // This triggers CSS transition from shimmer placeholder to actual image
     const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
     if (img) {
-      updateImage(img, fullUrl);
-    } else {
-      // eslint-disable-next-line no-console
-      console.warn('No matching image found for', imageId);
+      img.classList.add('loaded');
     }
   });
-
-  function updateImage(img, fullUrl) {
-    img.src = fullUrl;
-    img.classList.add('loaded');
-    img.removeAttribute('data-gen-image');
-  }
 
   eventSource.addEventListener('generation-complete', (e) => {
     eventSource.close();

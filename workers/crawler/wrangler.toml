@@ -21,8 +21,10 @@ index_name = "vitamix-content"
 [[r2_buckets]]
 binding = "RAW_HTML"
 bucket_name = "vitamix-raw-html"
+preview_bucket_name = "vitamix-raw-html-preview"
 
 # KV for crawl state tracking
 [[kv_namespaces]]
 binding = "CRAWL_STATE"
 id = "f2e8dac142c54e9cac9c899d5094576f"
+preview_id = "d884a2d4b40843a6b869fcb4e8b496a5"

@@ -193,14 +193,28 @@
   border: 1px solid #e0e0e0;
 }
 
-/* Image loading states */
+/* Image loading states for generative images */
 img[data-gen-image] {
-  opacity: 0.6;
-  transition: opacity 0.3s ease-out;
+  /* Show shimmer background while image loads */
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  /* Maintain aspect ratio while loading */
+  min-height: 200px;
+  object-fit: cover;
+  transition: opacity 0.3s ease-out, background 0.3s ease-out;
 }
 
-img.loaded {
-  opacity: 1;
+img[data-gen-image]:not(.loaded) {
+  /* Hide broken image icon while loading */
+  color: transparent;
+}
+
+img[data-gen-image].loaded {
+  /* Remove shimmer once image is ready */
+  background: none;
+  animation: none;
+  min-height: auto;
 }
 
 /* Generation error */

@@ -1,30 +1,33 @@
 /**
- * Hero Block Styles
+ * Hero Block Styles - Vitamix Design System
  *
- * Supports two authoring patterns:
- * 1. Auto-blocked: Default content (picture + h1) wrapped by buildHeroBlock()
- * 2. Explicit block: Authored as a table with "Hero" header
- *
- * Both produce similar DOM structure after decoration.
+ * Supports multiple variants aligned with vitamix.com design:
+ * - Default: Two-column split layout (image left, content right)
+ * - full-width: Full-bleed background image with dark overlay
+ * - light: Light background with dark text
+ * - split: 50/50 split with prominent image
+ * - reverse: Image on right side
+ * - centered: Centered text overlay on image
  */
 
+/* ===== Container Reset ===== */
 .hero-container .hero-wrapper {
   max-width: unset;
   padding: 0;
 }
 
+/* ===== Base Hero Styles ===== */
 .hero {
   position: relative;
-  padding: 40px 24px;
-  min-height: 300px;
+  padding: var(--spacing-section-sm) var(--spacing-lg);
+  min-height: 400px;
 }
 
-/* Two-column layout via grid */
 .hero > div {
   display: contents;
 }
 
-/* Image cell */
+/* ===== Image Cell ===== */
 .hero .hero-image,
 .hero > div > div:first-child:has(picture) {
   max-width: 100%;
@@ -36,99 +39,284 @@
 .hero > div > div:first-child img {
   width: 100%;
   height: auto;
-  max-height: 400px;
+  max-height: 500px;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 
-/* Content cell */
+/* ===== Content Cell ===== */
 .hero .hero-content,
 .hero > div > div:last-child {
-  padding: 24px 0;
+  padding: var(--spacing-xl) 0;
+}
+
+/* Eyebrow text - first paragraph if short and uppercase */
+.hero .hero-content > p:first-child,
+.hero > div > div:last-child > p:first-child {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-brand-red);
+  margin-bottom: var(--spacing-md);
 }
 
 .hero h1 {
-  font-size: 36px;
-  margin-bottom: 16px;
-  color: #333;
+  font-size: var(--font-size-5xl);
+  font-weight: var(--font-weight-light);
+  letter-spacing: -0.025em;
+  color: var(--color-brand-dark);
+  margin-bottom: var(--spacing-lg);
+  line-height: 1.1;
 }
 
 .hero p {
-  font-size: 18px;
-  color: #555;
-  margin-bottom: 16px;
+  font-size: var(--font-size-lg);
+  color: var(--color-charcoal);
+  line-height: 1.7;
+  margin-bottom: var(--spacing-lg);
 }
 
 .hero .button {
   display: inline-block;
-  padding: 14px 28px;
-  background: #c00;
-  color: #fff;
+  padding: 0.75rem 2rem;
+  background: var(--color-brand-red);
+  color: var(--color-white);
   text-decoration: none;
-  border-radius: 4px;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: background-color var(--transition-normal);
 }
 
 .hero .button:hover {
-  background: #a00;
+  background: var(--color-brand-red-dark);
+  text-decoration: none;
 }
 
-/* Full-width background variant */
+/* ===== Full-Width Variant (Dark Overlay) ===== */
 .hero.full-width {
-  min-height: 400px;
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  padding: 0;
+}
+
+.hero.full-width::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 26, 26, 0.7);
+  z-index: 1;
+}
+
+.hero.full-width .hero-image,
+.hero.full-width > div > div:first-child:has(picture) {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.hero.full-width .hero-image picture,
+.hero.full-width .hero-image img,
+.hero.full-width > div > div:first-child picture,
+.hero.full-width > div > div:first-child img {
+  width: 100%;
+  height: 100%;
+  max-height: unset;
+  object-fit: cover;
+  border-radius: 0;
+}
+
+.hero.full-width .hero-content,
+.hero.full-width > div > div:last-child {
+  position: relative;
+  z-index: 2;
+  color: var(--color-white);
+  max-width: 600px;
+  padding: var(--spacing-section-md) 5%;
 }
 
 .hero.full-width h1 {
-  color: var(--background-color, #fff);
+  font-size: var(--font-size-hero);
+  color: var(--color-white);
 }
 
-.hero.full-width picture {
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  object-fit: cover;
-  box-sizing: border-box;
+.hero.full-width p {
+  color: rgba(255, 255, 255, 0.9);
 }
 
-.hero.full-width img {
-  object-fit: cover;
-  width: 100%;
+.hero.full-width .hero-content > p:first-child {
+  color: var(--color-brand-red);
+}
+
+/* ===== Light Variant ===== */
+.hero.light {
+  background: var(--color-white);
+}
+
+.hero.light .hero-content,
+.hero.light > div > div:last-child {
+  color: var(--color-brand-dark);
+}
+
+.hero.light h1 {
+  color: var(--color-brand-dark);
+}
+
+/* ===== Split Variant (50/50) ===== */
+.hero.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 600px;
+  padding: 0;
+  gap: 0;
+}
+
+.hero.split > div {
+  display: contents;
+}
+
+.hero.split .hero-image,
+.hero.split > div > div:first-child:has(picture) {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero.split .hero-image picture,
+.hero.split .hero-image img,
+.hero.split > div > div:first-child picture,
+.hero.split > div > div:first-child img {
   height: 100%;
+  max-height: unset;
+  border-radius: 0;
+  position: absolute;
+  inset: 0;
 }
 
+.hero.split .hero-content,
+.hero.split > div > div:last-child {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--spacing-section-sm);
+}
+
+/* ===== Reverse Variant (Image on Right) ===== */
+.hero.reverse .hero-image,
+.hero.reverse > div > div:first-child:has(picture) {
+  order: 2;
+}
+
+.hero.split.reverse .hero-image,
+.hero.split.reverse > div > div:first-child:has(picture) {
+  order: 2;
+}
+
+/* ===== Centered Variant ===== */
+.hero.centered {
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero.centered .hero-content,
+.hero.centered > div > div:last-child {
+  position: relative;
+  z-index: 2;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.hero.centered.full-width .hero-content,
+.hero.centered.full-width > div > div:last-child {
+  padding: var(--spacing-section-lg) var(--spacing-lg);
+}
+
+/* ===== Dark Variant (No Image Overlay) ===== */
+.hero.dark {
+  background: var(--color-brand-dark);
+}
+
+.hero.dark h1,
+.hero.dark p {
+  color: var(--color-white);
+}
+
+.hero.dark .hero-content > p:first-child {
+  color: var(--color-brand-red);
+}
+
+/* ===== Desktop Styles ===== */
 @media (width >= 900px) {
   .hero {
-    padding: 60px 32px;
+    padding: var(--spacing-section-md) var(--spacing-xl);
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 48px;
+    gap: var(--spacing-2xl);
     align-items: center;
-    max-width: 1200px;
+    max-width: var(--max-width-wide);
     margin: 0 auto;
   }
 
-  .hero .hero-image picture,
-  .hero .hero-image img,
-  .hero > div > div:first-child picture,
-  .hero > div > div:first-child img {
-    max-height: 500px;
-  }
-
   .hero h1 {
-    font-size: 48px;
+    font-size: var(--font-size-hero);
   }
 
-  .hero p {
-    font-size: 20px;
+  .hero.full-width {
+    max-width: unset;
+  }
+
+  .hero.full-width h1 {
+    font-size: var(--font-size-hero);
   }
 }
 
+/* ===== Tablet Styles ===== */
+@media (width < 900px) {
+  .hero.split {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .hero.split .hero-image,
+  .hero.split > div > div:first-child:has(picture) {
+    min-height: 300px;
+  }
+
+  .hero.split.reverse .hero-image,
+  .hero.split.reverse > div > div:first-child:has(picture) {
+    order: 0;
+  }
+
+  .hero.full-width h1 {
+    font-size: var(--font-size-5xl);
+  }
+}
+
+/* ===== Mobile Styles ===== */
 @media (width < 600px) {
   .hero {
-    padding: 32px 16px;
+    padding: var(--spacing-xl) var(--spacing-md);
+    min-height: 300px;
   }
 
   .hero h1 {
-    font-size: 28px;
+    font-size: var(--font-size-4xl);
+  }
+
+  .hero.full-width {
+    min-height: 60vh;
+  }
+
+  .hero.full-width h1 {
+    font-size: var(--font-size-4xl);
+  }
+
+  .hero.full-width .hero-content,
+  .hero.full-width > div > div:last-child {
+    padding: var(--spacing-xl) var(--spacing-md);
   }
 }

@@ -40,6 +40,11 @@ export default {
       return handleSearch(request, env);
     }
 
+    // Start crawl from sitemap URLs
+    if (url.pathname === '/crawl/sitemap' && request.method === 'POST') {
+      return handleSitemapCrawl(request, env);
+    }
+
     return new Response('Not Found', { status: 404 });
   },
 };
@@ -471,4 +476,117 @@ function urlToKey(url: string): string {
  */
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Fetch and parse sitemap XML to extract URLs
+ */
+async function fetchSitemapUrls(sitemapUrl: string, filter?: string): Promise<string[]> {
+  const response = await fetch(sitemapUrl, {
+    headers: { 'User-Agent': 'VitamixCrawler/1.0' },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch sitemap: ${response.status}`);
+  }
+
+  const xml = await response.text();
+  const urls: string[] = [];
+
+  // Extract all <loc> tags
+  const locMatches = xml.matchAll(/<loc>([^<]+)<\/loc>/g);
+  for (const match of locMatches) {
+    const url = match[1].trim();
+    // Apply filter if provided (e.g., "/recipes/" to only get recipe pages)
+    if (!filter || url.includes(filter)) {
+      urls.push(url);
+    }
+  }
+
+  return urls;
+}
+
+/**
+ * Start crawl from sitemap URLs directly
+ * This bypasses link discovery and uses sitemap as the source of truth
+ */
+async function handleSitemapCrawl(request: Request, env: Env): Promise<Response> {
+  const body = await request.json() as {
+    sitemapUrl: string;
+    filter?: string;
+    maxPages?: number;
+    batchSize?: number;
+    append?: boolean; // If true, add to existing crawl instead of resetting
+  };
+
+  const { sitemapUrl, filter, append = false } = body;
+  const maxPages = body.maxPages || 3000;
+  const batchSize = body.batchSize || 20;
+
+  if (!sitemapUrl) {
+    return new Response(JSON.stringify({ error: 'sitemapUrl required' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Fetch sitemap URLs
+  console.log(`Fetching sitemap: ${sitemapUrl}${filter ? ` (filter: ${filter})` : ''}`);
+  const sitemapUrls = await fetchSitemapUrls(sitemapUrl, filter);
+  console.log(`Found ${sitemapUrls.length} URLs in sitemap`);
+
+  // Get already visited URLs if appending
+  let visited = new Set<string>();
+  if (append) {
+    visited = await getVisitedUrls(env);
+  }
+
+  // Filter out already visited URLs
+  const newUrls = sitemapUrls.filter(url => !visited.has(url));
+
+  if (!append) {
+    // Reset crawl state for fresh crawl
+    await env.CRAWL_STATE.put('stats', JSON.stringify({
+      totalPages: 0,
+      processedPages: 0,
+      failedPages: 0,
+      totalChunks: 0,
+      byContentType: {},
+      lastUpdated: new Date().toISOString(),
+    } as CrawlStats));
+
+    await env.CRAWL_STATE.delete('visited');
+  }
+
+  await env.CRAWL_STATE.put('config', JSON.stringify({
+    sitemapUrl,
+    filter,
+    maxPages,
+    batchSize,
+    mode: 'sitemap',
+    startedAt: new Date().toISOString(),
+  }));
+
+  // Set pending queue to sitemap URLs (depth 0, no link discovery needed)
+  const pendingJobs: CrawlJob[] = newUrls.slice(0, maxPages).map(url => ({
+    url,
+    depth: 99, // High depth to disable link discovery
+  }));
+
+  await env.CRAWL_STATE.put('pending', JSON.stringify(pendingJobs));
+
+  // Process first batch
+  const result = await processBatch(env, batchSize, maxPages);
+
+  return new Response(JSON.stringify({
+    message: 'Sitemap crawl started',
+    sitemapUrl,
+    filter,
+    urlsInSitemap: sitemapUrls.length,
+    urlsToProcess: newUrls.length,
+    ...result,
+    continueUrl: result.pendingCount > 0 ? '/crawl/continue' : null,
+  }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
 }

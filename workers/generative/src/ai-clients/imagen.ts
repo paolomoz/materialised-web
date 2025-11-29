@@ -166,6 +166,7 @@ async function signJWT(input: string, privateKeyPem: string): Promise<string> {
  */
 export async function generateImage(
   request: ImageRequest,
+  slug: string,
   env: Env
 ): Promise<GeneratedImage> {
   const sizeConfig = SIZE_CONFIG[request.size] || SIZE_CONFIG.card;
@@ -231,8 +232,9 @@ export async function generateImage(
     const imageData = result.predictions[0].bytesBase64Encoded;
     const mimeType = result.predictions[0].mimeType || 'image/png';
 
-    // Store in R2
-    const filename = `generated/${request.id}.${mimeType.split('/')[1]}`;
+    // Store in R2 with slug in path for uniqueness per page
+    // Path format: {slug}/{imageId}.png (e.g., "my-smoothie-xyz/hero.png")
+    const filename = `${slug}/${request.id}.${mimeType.split('/')[1]}`;
     const imageBuffer = Uint8Array.from(atob(imageData), c => c.charCodeAt(0));
 
     await env.IMAGES.put(filename, imageBuffer, {
@@ -242,11 +244,12 @@ export async function generateImage(
       customMetadata: {
         prompt: request.prompt,
         blockId: request.blockId,
+        slug,
         generatedAt: new Date().toISOString(),
       },
     });
 
-    // Return the R2 URL
+    // Return the R2 URL - matches the predictable URL format used in HTML
     return {
       id: request.id,
       url: `/images/${filename}`,
@@ -299,6 +302,7 @@ function getImageType(imageId: string): string {
  */
 export async function generateImages(
   requests: ImageRequest[],
+  slug: string,
   env: Env
 ): Promise<GeneratedImage[]> {
   // Limit concurrent generations
@@ -308,7 +312,7 @@ export async function generateImages(
   for (let i = 0; i < requests.length; i += concurrencyLimit) {
     const batch = requests.slice(i, i + concurrencyLimit);
     const batchResults = await Promise.all(
-      batch.map(request => generateImage(request, env))
+      batch.map(request => generateImage(request, slug, env))
     );
     results.push(...batchResults);
   }

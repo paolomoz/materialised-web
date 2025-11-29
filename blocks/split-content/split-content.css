@@ -1,0 +1,258 @@
+/**
+ * Split Content Block Styles - Vitamix Design System
+ *
+ * Based on vitamix.com split section patterns:
+ * - Screenshots: learn-page-social-gallery.png, blender-recommender-content.png,
+ *   learn-page-category-cards.png
+ *
+ * Features:
+ * - 50/50 or 60/40 split layouts
+ * - Full-height images
+ * - Eyebrow + headline + body + CTA pattern
+ * - Dark and light variants
+ */
+
+/* ===== Container Reset ===== */
+.split-content-container .split-content-wrapper {
+  max-width: unset;
+  padding: 0;
+}
+
+/* ===== Base Layout ===== */
+.split-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 500px;
+}
+
+.split-content > div {
+  display: contents;
+}
+
+.split-content-wrapper {
+  display: contents;
+}
+
+/* ===== Image Cell ===== */
+.split-content-image {
+  position: relative;
+  overflow: hidden;
+}
+
+.split-content-image picture {
+  display: block;
+  height: 100%;
+}
+
+.split-content-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ===== Content Cell ===== */
+.split-content-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--spacing-section-sm);
+}
+
+/* Eyebrow text */
+.split-content-body .eyebrow,
+.split-content-body > p:first-child {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-brand-red);
+  margin-bottom: var(--spacing-md);
+}
+
+/* Reset eyebrow if it's not actually an eyebrow */
+.split-content-body > p:first-child:not(.eyebrow) {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-normal);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--color-charcoal);
+}
+
+/* Headline */
+.split-content-body h2 {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-light);
+  color: var(--color-brand-dark);
+  margin-bottom: var(--spacing-lg);
+  line-height: 1.2;
+}
+
+.split-content-body h3 {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-light);
+  color: var(--color-brand-dark);
+  margin-bottom: var(--spacing-lg);
+  line-height: 1.2;
+}
+
+/* Body text */
+.split-content-body p {
+  font-size: var(--font-size-base);
+  line-height: 1.7;
+  color: var(--color-charcoal);
+  margin-bottom: var(--spacing-lg);
+}
+
+.split-content-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* CTA Button */
+.split-content-body .button {
+  align-self: flex-start;
+  margin-top: var(--spacing-md);
+}
+
+/* ===== Reverse Variant (Image Right) ===== */
+.split-content.reverse .split-content-image {
+  order: 2;
+}
+
+.split-content.reverse .split-content-body {
+  order: 1;
+}
+
+/* ===== Dark Variant ===== */
+.split-content.dark {
+  background: var(--color-brand-dark);
+}
+
+.split-content.dark .split-content-body {
+  color: var(--color-white);
+}
+
+.split-content.dark .split-content-body h2,
+.split-content.dark .split-content-body h3,
+.split-content.dark .split-content-body p {
+  color: var(--color-white);
+}
+
+.split-content.dark .split-content-body .eyebrow {
+  color: var(--color-brand-red);
+}
+
+/* ===== Light Variant ===== */
+.split-content.light {
+  background: var(--color-off-white);
+}
+
+/* ===== Ratio Variants ===== */
+
+/* 60/40 split */
+.split-content.ratio-60-40 {
+  grid-template-columns: 60% 40%;
+}
+
+.split-content.ratio-60-40.reverse {
+  grid-template-columns: 40% 60%;
+}
+
+/* 40/60 split */
+.split-content.ratio-40-60 {
+  grid-template-columns: 40% 60%;
+}
+
+.split-content.ratio-40-60.reverse {
+  grid-template-columns: 60% 40%;
+}
+
+/* ===== Centered Variant ===== */
+.split-content.centered .split-content-body {
+  text-align: center;
+  align-items: center;
+}
+
+.split-content.centered .split-content-body .button {
+  align-self: center;
+}
+
+/* ===== Contained Variant (max-width wrapper) ===== */
+.split-content.contained {
+  max-width: var(--max-width-wide);
+  margin: 0 auto;
+}
+
+/* ===== Image Position Variants ===== */
+.split-content.image-top .split-content-image img {
+  object-position: top;
+}
+
+.split-content.image-bottom .split-content-image img {
+  object-position: bottom;
+}
+
+/* ===== Padding Variants ===== */
+.split-content.padded .split-content-body {
+  padding: var(--spacing-section-md);
+}
+
+.split-content.compact .split-content-body {
+  padding: var(--spacing-xl);
+}
+
+/* ===== Responsive ===== */
+@media (width >= 1200px) {
+  .split-content-body {
+    padding: var(--spacing-section-md);
+  }
+
+  .split-content-body h2 {
+    font-size: var(--font-size-5xl);
+  }
+}
+
+@media (width < 900px) {
+  .split-content {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .split-content-image {
+    min-height: 350px;
+  }
+
+  /* On mobile, image always comes first regardless of reverse */
+  .split-content.reverse .split-content-image {
+    order: 0;
+  }
+
+  .split-content.reverse .split-content-body {
+    order: 1;
+  }
+
+  /* Ratio variants collapse to single column */
+  .split-content.ratio-60-40,
+  .split-content.ratio-40-60,
+  .split-content.ratio-60-40.reverse,
+  .split-content.ratio-40-60.reverse {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (width < 600px) {
+  .split-content-body {
+    padding: var(--spacing-xl) var(--spacing-md);
+  }
+
+  .split-content-body h2 {
+    font-size: var(--font-size-3xl);
+  }
+
+  .split-content-body h3 {
+    font-size: var(--font-size-2xl);
+  }
+
+  .split-content-image {
+    min-height: 280px;
+  }
+}

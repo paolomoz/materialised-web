@@ -1,0 +1,216 @@
+/**
+ * Category Cards Block Styles - Vitamix Design System
+ *
+ * Based on vitamix.com category navigation patterns:
+ * - Screenshots: learn-page-shop-categories.png, commercial-page-hero.png
+ *
+ * Features:
+ * - Square/contained product images
+ * - Uppercase category titles
+ * - Subtle border with hover effects
+ * - Equal-width grid layout
+ */
+
+/* ===== Container ===== */
+.category-cards {
+  padding: var(--spacing-section-md) var(--spacing-lg);
+  max-width: var(--max-width-wide);
+  margin: 0 auto;
+}
+
+/* ===== Grid Layout ===== */
+.category-cards > ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+/* ===== Card Base ===== */
+.category-card {
+  text-align: center;
+}
+
+.category-card-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-lg);
+  border: 1px solid var(--color-light-gray);
+  text-decoration: none;
+  color: inherit;
+  transition: all var(--transition-normal);
+  height: 100%;
+}
+
+.category-card-link:hover {
+  border-color: var(--color-brand-dark);
+  box-shadow: var(--shadow-md);
+  text-decoration: none;
+}
+
+/* ===== Category Image ===== */
+.category-card-image {
+  width: 100%;
+  max-width: 180px;
+  margin-bottom: var(--spacing-md);
+}
+
+.category-card-image picture {
+  display: block;
+}
+
+.category-card-image img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+
+/* ===== Category Title ===== */
+.category-card-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-brand-dark);
+  line-height: 1.3;
+}
+
+/* ===== Variants ===== */
+
+/* Bordered variant - more prominent borders */
+.category-cards.bordered .category-card-link {
+  border-width: 2px;
+}
+
+/* Large variant - bigger cards */
+.category-cards.large .category-card-image {
+  max-width: 240px;
+}
+
+.category-cards.large .category-card-title {
+  font-size: var(--font-size-base);
+}
+
+/* Highlight variant - selected/active state */
+.category-cards .category-card.active .category-card-link,
+.category-cards .category-card-link:focus {
+  border-color: var(--color-brand-dark);
+  background: var(--color-off-white);
+}
+
+/* No border variant */
+.category-cards.no-border .category-card-link {
+  border: none;
+  padding: var(--spacing-md);
+}
+
+.category-cards.no-border .category-card-link:hover {
+  box-shadow: none;
+  background: var(--color-off-white);
+}
+
+/* ===== Grid Column Variants ===== */
+
+/* 2-column grid */
+.category-cards.two-up > ul {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* 3-column grid */
+.category-cards.three-up > ul {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* 4-column grid */
+.category-cards.four-up > ul {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* ===== With Section Header ===== */
+.category-cards-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xl);
+}
+
+.category-cards-header h2 {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-light);
+  color: var(--color-brand-dark);
+  margin: 0;
+}
+
+.category-cards-header p {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--color-brand-red);
+  margin: 0 0 var(--spacing-sm);
+}
+
+.category-cards-header a {
+  color: var(--color-brand-dark);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  padding: 0.5rem 1.5rem;
+  border: 1px solid var(--color-brand-dark);
+  transition: all var(--transition-normal);
+}
+
+.category-cards-header a:hover {
+  background: var(--color-brand-dark);
+  color: var(--color-white);
+}
+
+/* ===== Responsive ===== */
+@media (width >= 1200px) {
+  .category-cards > ul {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (width < 900px) {
+  .category-cards > ul {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .category-cards.three-up > ul,
+  .category-cards.four-up > ul {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (width < 600px) {
+  .category-cards {
+    padding: var(--spacing-xl) var(--spacing-md);
+  }
+
+  .category-cards > ul {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md);
+  }
+
+  .category-cards.two-up > ul {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .category-card-link {
+    padding: var(--spacing-md);
+  }
+
+  .category-card-image {
+    max-width: 120px;
+  }
+
+  .category-card-title {
+    font-size: var(--font-size-xs);
+  }
+}

@@ -1,0 +1,34 @@
+// Product scraping script - run with: node scrape-products.js
+// This will be called from the Playwright MCP browser_run_code
+
+const productUrls = [
+  "https://www.vitamix.com/us/en_us/shop/blenders/ascent-x5-smartprep-kitchen-system",
+  "https://www.vitamix.com/us/en_us/shop/blenders/ascent-x4-gourmet-smartprep-kitchen-system",
+  "https://www.vitamix.com/us/en_us/shop/blenders/ascent-x2-smartprep-kitchen-system",
+  "https://www.vitamix.com/us/en_us/shop/blenders/ascent-x5-with-stainless-steel-container",
+  "https://www.vitamix.com/us/en_us/shop/blenders/ascent-x5",
+  "https://www.vitamix.com/us/en_us/shop/blenders/ascent-x4",
+  "https://www.vitamix.com/us/en_us/shop/blenders/ascent-x3",
+  "https://www.vitamix.com/us/en_us/shop/blenders/ascent-x2",
+  "https://www.vitamix.com/us/en_us/shop/blenders/5200-plus-stainless-steel-container",
+  "https://www.vitamix.com/us/en_us/shop/blenders/5200-legacy-bundle",
+  "https://www.vitamix.com/us/en_us/shop/blenders/5200-standard-getting-started",
+  "https://www.vitamix.com/us/en_us/shop/blenders/e310-and-pca-bundle",
+  "https://www.vitamix.com/us/en_us/shop/blenders/e320-and-pca-explorian-blender",
+  "https://www.vitamix.com/us/en_us/shop/blenders/e310",
+  "https://www.vitamix.com/us/en_us/shop/blenders/propel-750-classic-bundle",
+  "https://www.vitamix.com/us/en_us/shop/blenders/propel-series-750",
+  "https://www.vitamix.com/us/en_us/shop/blenders/propel-series-510",
+  "https://www.vitamix.com/us/en_us/shop/blenders/5-speed-immersion-blender-complete-bundle",
+  "https://www.vitamix.com/us/en_us/shop/blenders/4-piece-deluxe-immersion-blender-bundle",
+  "https://www.vitamix.com/us/en_us/shop/blenders/5-speed-immersion-blender-3-piece-bundle",
+  "https://www.vitamix.com/us/en_us/shop/blenders/5-speed-immersion-blender",
+  "https://www.vitamix.com/us/en_us/shop/blenders/2-speed-immersion-blender-whisk-attachment",
+  "https://www.vitamix.com/us/en_us/shop/blenders/certified-reconditioned-explorian",
+  "https://www.vitamix.com/us/en_us/shop/blenders/certified-reconditioned-standard",
+  "https://www.vitamix.com/us/en_us/shop/blenders/certified-reconditioned-explorian-with-programs",
+  "https://www.vitamix.com/us/en_us/shop/blenders/certified-reconditioned-a2500",
+  "https://www.vitamix.com/us/en_us/shop/blenders/certified-reconditioned-a3500"
+];
+
+module.exports = { productUrls };

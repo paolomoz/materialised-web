@@ -64,6 +64,16 @@ export default function decorate(block) {
     if (img.hasAttribute('data-gen-image')) {
       return;
     }
+    // Skip optimization for external images (different hostname)
+    try {
+      const imgUrl = new URL(img.src, window.location.href);
+      if (imgUrl.hostname !== window.location.hostname) {
+        return;
+      }
+    } catch (e) {
+      // If URL parsing fails, skip optimization
+      return;
+    }
     img.closest('picture').replaceWith(
       createOptimizedPicture(img.src, img.alt, false, [{ width: '750' }]),
     );

@@ -11,33 +11,93 @@
  */
 
 :root {
-  /* colors */
-  --background-color: white;
-  --light-color: #f8f8f8;
-  --dark-color: #505050;
-  --text-color: #131313;
-  --link-color: #3b63fb;
-  --link-hover-color: #1d3ecf;
+  /* ===== Vitamix Brand Colors ===== */
+  --color-brand-red: #C41230;
+  --color-brand-red-dark: #a30f28;
+  --color-brand-dark: #1A1A1A;
+  --color-charcoal: #333333;
+  --color-dark-gray: #666666;
+  --color-medium-gray: #999999;
+  --color-light-gray: #E5E5E5;
+  --color-off-white: #F5F5F5;
+  --color-white: #FFFFFF;
+  --color-star-gold: #FFD700;
 
-  /* fonts */
-  --body-font-family: roboto, roboto-fallback, sans-serif;
-  --heading-font-family: roboto-condensed, roboto-condensed-fallback, sans-serif;
+  /* Legacy color mappings */
+  --background-color: var(--color-white);
+  --light-color: var(--color-off-white);
+  --dark-color: var(--color-dark-gray);
+  --text-color: var(--color-brand-dark);
+  --link-color: var(--color-brand-red);
+  --link-hover-color: var(--color-brand-red-dark);
 
-  /* body sizes */
-  --body-font-size-m: 22px;
-  --body-font-size-s: 19px;
-  --body-font-size-xs: 17px;
+  /* ===== Typography ===== */
+  --font-family-primary: 'proxima-nova', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --body-font-family: var(--font-family-primary);
+  --heading-font-family: var(--font-family-primary);
 
-  /* heading sizes */
-  --heading-font-size-xxl: 55px;
-  --heading-font-size-xl: 44px;
-  --heading-font-size-l: 34px;
-  --heading-font-size-m: 27px;
-  --heading-font-size-s: 24px;
-  --heading-font-size-xs: 22px;
+  /* Font sizes */
+  --font-size-hero: 4.5rem;
+  --font-size-5xl: 3rem;
+  --font-size-4xl: 2.25rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-xl: 1.25rem;
+  --font-size-lg: 1.125rem;
+  --font-size-base: 1rem;
+  --font-size-sm: 0.875rem;
+  --font-size-xs: 0.75rem;
 
-  /* nav height */
+  /* Legacy size mappings */
+  --body-font-size-m: var(--font-size-base);
+  --body-font-size-s: var(--font-size-sm);
+  --body-font-size-xs: var(--font-size-xs);
+  --heading-font-size-xxl: var(--font-size-hero);
+  --heading-font-size-xl: var(--font-size-5xl);
+  --heading-font-size-l: var(--font-size-4xl);
+  --heading-font-size-m: var(--font-size-3xl);
+  --heading-font-size-s: var(--font-size-2xl);
+  --heading-font-size-xs: var(--font-size-xl);
+
+  /* Font weights */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* ===== Spacing ===== */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+  --spacing-section-sm: 3rem;
+  --spacing-section-md: 5rem;
+  --spacing-section-lg: 8rem;
+
+  /* ===== Shadows ===== */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.15);
+
+  /* ===== Transitions ===== */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s ease;
+
+  /* ===== Border Radius ===== */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* ===== Layout ===== */
   --nav-height: 64px;
+  --max-width-content: 1200px;
+  --max-width-wide: 1400px;
 }
 
 /* fallback fonts */
@@ -165,49 +225,79 @@ a:hover {
   text-decoration: underline;
 }
 
-/* buttons */
+/* buttons - Vitamix style */
 a.button:any-link,
 button {
   box-sizing: border-box;
   display: inline-block;
   max-width: 100%;
   margin: 12px 0;
-  border: 2px solid transparent;
-  border-radius: 2.4em;
-  padding: 0.5em 1.2em;
+  border: none;
+  border-radius: 0; /* Vitamix uses square corners */
+  padding: 0.75rem 2rem;
   font-family: var(--body-font-family);
   font-style: normal;
-  font-weight: 500;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   line-height: 1.25;
   text-align: center;
   text-decoration: none;
-  background-color: var(--link-color);
-  color: var(--background-color);
+  background-color: var(--color-brand-red);
+  color: var(--color-white);
   cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: background-color var(--transition-normal);
 }
 
 a.button:hover,
 a.button:focus,
 button:hover,
 button:focus {
-  background-color: var(--link-hover-color);
+  background-color: var(--color-brand-red-dark);
   cursor: pointer;
+  text-decoration: none;
 }
 
 button:disabled,
 button:disabled:hover {
-  background-color: var(--light-color);
-  cursor: unset;
+  background-color: var(--color-light-gray);
+  color: var(--color-medium-gray);
+  cursor: not-allowed;
 }
 
+/* Secondary button - outlined */
 a.button.secondary,
 button.secondary {
-  background-color: unset;
-  border: 2px solid currentcolor;
-  color: var(--text-color);
+  background-color: transparent;
+  border: 1px solid var(--color-brand-dark);
+  color: var(--color-brand-dark);
+}
+
+a.button.secondary:hover,
+a.button.secondary:focus,
+button.secondary:hover,
+button.secondary:focus {
+  background-color: var(--color-brand-dark);
+  color: var(--color-white);
+}
+
+/* Ghost/link button */
+a.button.ghost,
+button.ghost {
+  background-color: transparent;
+  color: var(--color-brand-red);
+  text-decoration: underline;
+  padding: 0.5rem 0;
+}
+
+a.button.ghost:hover,
+button.ghost:hover {
+  background-color: transparent;
+  text-decoration-thickness: 2px;
 }
 
 main img {

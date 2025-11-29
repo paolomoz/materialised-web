@@ -10,8 +10,19 @@ import type {
 } from '../types';
 import { classifyIntent, generateContent, validateBrandCompliance } from '../ai-clients/claude';
 import { generateLayout, analyzeQuery } from '../ai-clients/gemini';
-import { generateImages, decideImageStrategy, createPlaceholderSVG } from '../ai-clients/imagen';
+import { generateImages, decideImageStrategy } from '../ai-clients/imagen';
 import { retrieveContext, expandQuery } from './rag';
+
+// Worker base URL for image serving
+const WORKER_URL = 'https://vitamix-generative.paolo-moz.workers.dev';
+
+/**
+ * Build predictable image URL for a given slug and image ID
+ * Images are stored at: /images/{slug}/{imageId}.png
+ */
+function buildImageUrl(slug: string, imageId: string): string {
+  return `${WORKER_URL}/images/${slug}/${imageId}.png`;
+}
 
 /**
  * Orchestration context passed between stages
@@ -85,8 +96,8 @@ export async function orchestrate(
 
     ctx.layout = layout;
 
-    // Stream block content as we have it
-    await streamBlockContent(ctx.content, layout, onEvent);
+    // Stream block content as we have it (with predictable image URLs)
+    await streamBlockContent(ctx.content, layout, ctx.slug, onEvent);
 
     // Stage 5: Image Generation (conditional)
     const imageRequests = buildImageRequests(ctx.content, imageDecisions);
@@ -100,7 +111,7 @@ export async function orchestrate(
     }
 
     // Generate images (this is slow, but we've already streamed content)
-    ctx.images = await generateImages(imageRequests, env);
+    ctx.images = await generateImages(imageRequests, ctx.slug, env);
 
     // Send image ready events
     for (const image of ctx.images) {
@@ -119,8 +130,8 @@ export async function orchestrate(
       // Could trigger regeneration here, but for now just log
     }
 
-    // Build final HTML
-    const html = buildEDSHTML(ctx.content, ctx.layout, ctx.images);
+    // Build final HTML (images already have predictable URLs based on slug)
+    const html = buildEDSHTML(ctx.content, ctx.layout, ctx.slug);
 
     // Signal completion
     onEvent({
@@ -309,6 +320,7 @@ function getSizeForBlock(blockType: string): 'hero' | 'card' | 'column' | 'thumb
 async function streamBlockContent(
   content: GeneratedContent,
   layout: LayoutDecision,
+  slug: string,
   onEvent: SSECallback
 ): Promise<void> {
   for (let i = 0; i < layout.blocks.length; i++) {
@@ -327,8 +339,8 @@ async function streamBlockContent(
       },
     });
 
-    // Build HTML for this block
-    const blockHtml = buildBlockHTML(contentBlock, layoutBlock);
+    // Build HTML for this block (with predictable image URLs)
+    const blockHtml = buildBlockHTML(contentBlock, layoutBlock, slug);
 
     // Send block content
     onEvent({
@@ -353,18 +365,19 @@ async function streamBlockContent(
  */
 function buildBlockHTML(
   block: GeneratedContent['blocks'][0],
-  layoutBlock: LayoutDecision['blocks'][0]
+  layoutBlock: LayoutDecision['blocks'][0],
+  slug: string
 ): string {
   const content = block.content;
   const variant = layoutBlock.variant;
 
   switch (block.type) {
     case 'hero':
-      return buildHeroHTML(content as any, variant);
+      return buildHeroHTML(content as any, variant, slug);
     case 'cards':
-      return buildCardsHTML(content as any, variant);
+      return buildCardsHTML(content as any, variant, slug);
     case 'columns':
-      return buildColumnsHTML(content as any, variant);
+      return buildColumnsHTML(content as any, variant, slug);
     case 'text':
       return buildTextHTML(content as any, variant);
     case 'cta':
@@ -398,15 +411,16 @@ function buildBlockHTML(
  *   </div>
  * </div>
  */
-function buildHeroHTML(content: any, variant: string): string {
-  const placeholder = createPlaceholderSVG(2000, 800, 'Hero Image');
+function buildHeroHTML(content: any, variant: string, slug: string): string {
+  // Use predictable URL - image will be served once generated
+  const imageUrl = buildImageUrl(slug, 'hero');
 
   return `
     <div class="hero${variant !== 'default' ? ` ${variant}` : ''}">
       <div>
         <div>
           <picture>
-            <img src="${placeholder}" alt="${escapeHTML(content.headline)}" data-gen-image="hero" loading="lazy">
+            <img src="${imageUrl}" alt="${escapeHTML(content.headline)}" data-gen-image="hero" loading="lazy">
           </picture>
         </div>
         <div>
@@ -449,15 +463,16 @@ function buildHeroHTML(content: any, variant: string): string {
  *
  * The cards.js decorator transforms this to ul/li structure.
  */
-function buildCardsHTML(content: any, variant: string): string {
+function buildCardsHTML(content: any, variant: string, slug: string): string {
   const cardsHtml = content.cards.map((card: any, i: number) => {
-    const placeholder = createPlaceholderSVG(750, 562, 'Card Image');
+    // Use predictable URL - image will be served once generated
+    const imageUrl = buildImageUrl(slug, `card-${i}`);
 
     return `
       <div>
         <div>
           <picture>
-            <img src="${placeholder}" alt="${escapeHTML(card.title)}" data-gen-image="card-${i}" loading="lazy">
+            <img src="${imageUrl}" alt="${escapeHTML(card.title)}" data-gen-image="card-${i}" loading="lazy">
           </picture>
         </div>
         <div>
@@ -500,16 +515,17 @@ function buildCardsHTML(content: any, variant: string): string {
  *
  * The columns.js decorator adds columns-N-cols class.
  */
-function buildColumnsHTML(content: any, variant: string): string {
+function buildColumnsHTML(content: any, variant: string, slug: string): string {
   // Build all columns as cells within a single row
   const columnsHtml = content.columns.map((col: any, i: number) => {
     let colContent = '';
 
     if (col.imagePrompt) {
-      const placeholder = createPlaceholderSVG(600, 400, 'Column Image');
+      // Use predictable URL - image will be served once generated
+      const imageUrl = buildImageUrl(slug, `col-${i}`);
       colContent += `
         <picture>
-          <img src="${placeholder}" alt="${escapeHTML(col.headline || '')}" data-gen-image="col-${i}" loading="lazy">
+          <img src="${imageUrl}" alt="${escapeHTML(col.headline || '')}" data-gen-image="col-${i}" loading="lazy">
         </picture>
       `;
     }
@@ -633,18 +649,19 @@ function buildFAQHTML(content: any, variant: string): string {
 
 /**
  * Build complete EDS-compatible HTML
+ * Images already have predictable URLs built into the block HTML
  */
 function buildEDSHTML(
   content: GeneratedContent,
   layout: LayoutDecision,
-  images: GeneratedImage[]
+  slug: string
 ): string {
-  // Build blocks HTML
-  const blocksHtml = layout.blocks.map((layoutBlock, i) => {
+  // Build blocks HTML (images have predictable URLs based on slug)
+  const blocksHtml = layout.blocks.map((layoutBlock) => {
     const contentBlock = content.blocks[layoutBlock.contentIndex];
     if (!contentBlock) return '';
 
-    const blockHtml = buildBlockHTML(contentBlock, layoutBlock);
+    const blockHtml = buildBlockHTML(contentBlock, layoutBlock, slug);
     const width = layoutBlock.width === 'full' ? '' : 'contained';
 
     return `
@@ -654,14 +671,6 @@ function buildEDSHTML(
     <hr>
     `;
   }).join('\n');
-
-  // Replace image placeholders with actual URLs
-  let finalHtml = blocksHtml;
-  for (const image of images) {
-    // Find and replace placeholder for this image
-    const placeholderPattern = new RegExp(`data-gen-image="${image.id.replace('img-', '')}"[^>]*src="[^"]*"`, 'g');
-    finalHtml = finalHtml.replace(placeholderPattern, `src="${image.url}"`);
-  }
 
   return `
 <!DOCTYPE html>
@@ -675,7 +684,7 @@ function buildEDSHTML(
 <body>
   <header></header>
   <main>
-    ${finalHtml}
+    ${blocksHtml}
   </main>
   <footer></footer>
 </body>
