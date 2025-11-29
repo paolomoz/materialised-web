@@ -52,7 +52,7 @@
   background: #a00;
 }
 
-/* Dark variant */
+/* Dark variant - when .dark class is on the block itself */
 .cta.dark {
   background: #1a1a1a;
   color: #fff;
@@ -63,6 +63,19 @@
 }
 
 .cta.dark p {
+  color: #ccc;
+}
+
+/* Dark section - when .dark class is on the section wrapper */
+.section.dark .cta {
+  background: transparent;
+}
+
+.section.dark .cta h2 {
+  color: #fff;
+}
+
+.section.dark .cta p {
   color: #ccc;
 }
 
