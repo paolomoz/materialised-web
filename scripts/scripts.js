@@ -126,6 +126,10 @@ async function renderGenerativePage() {
     // Create section and add content
     const section = document.createElement('div');
     section.className = 'section';
+    // Apply section style (highlight, dark) if provided
+    if (data.sectionStyle && data.sectionStyle !== 'default') {
+      section.classList.add(data.sectionStyle);
+    }
     section.dataset.sectionStatus = 'initialized';
     section.innerHTML = data.html;
 
