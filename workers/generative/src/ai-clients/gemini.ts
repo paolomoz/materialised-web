@@ -67,6 +67,7 @@ async function callGemini(
 
 /**
  * Generate optimal page layout based on content and intent
+ * @deprecated Use predefined layout templates from prompts/layouts.ts instead
  */
 export async function generateLayout(
   content: GeneratedContent,
@@ -90,7 +91,7 @@ ${JSON.stringify(contentSummary, null, 2)}
 ## User Intent
 Type: ${intent.intentType}
 Goals: ${intent.entities.goals.join(', ') || 'general exploration'}
-Suggested blocks: ${intent.suggestedBlocks.join(', ')}
+Layout: ${intent.layoutId}
 
 ## Task
 Determine the optimal layout for this page. Consider:
@@ -108,8 +109,7 @@ Return JSON:
       "variant": "default" | "highlight" | "dark",
       "width": "full" | "contained"
     }
-  ],
-  "reasoning": "Brief explanation"
+  ]
 }
 `;
 
@@ -134,14 +134,12 @@ Return JSON:
 
     return {
       blocks: parsed.blocks || getDefaultLayout(intent),
-      reasoning: parsed.reasoning || 'Default layout applied',
     };
   } catch {
     console.error('Failed to parse layout decision:', response);
     // Return default layout
     return {
       blocks: getDefaultLayout(intent),
-      reasoning: 'Fallback to default layout',
     };
   }
 }

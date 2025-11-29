@@ -67,7 +67,7 @@ export async function retrieveContext(
 async function generateQueryEmbedding(query: string, env: Env): Promise<number[]> {
   const result = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
     text: [query],
-  });
+  }) as { data: number[][] };
 
   return result.data[0];
 }

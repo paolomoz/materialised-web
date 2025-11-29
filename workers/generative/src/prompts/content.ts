@@ -1,5 +1,6 @@
 import type { RAGContext, IntentClassification } from '../types';
 import { BRAND_VOICE_SYSTEM_PROMPT } from './brand-voice';
+import { type LayoutTemplate, formatLayoutForPrompt } from './layouts';
 
 /**
  * Content Generation System Prompt
@@ -13,6 +14,15 @@ Generate website content for a Vitamix page based on the user's query. You will 
 1. The user's query
 2. Relevant content from vitamix.com (RAG context)
 3. Intent classification
+4. **A specific layout template to follow**
+
+## CRITICAL: Follow the Layout Template EXACTLY
+
+You MUST generate content that matches the provided layout template:
+- Generate content for EVERY block in the template
+- Use the EXACT block types specified
+- Follow the item counts specified (e.g., "3 cards" means exactly 3 cards)
+- Respect section styling (highlight, dark backgrounds)
 
 ## Output Format
 
@@ -23,7 +33,9 @@ Return a JSON object with this structure:
   "subheadline": "Supporting text (expand on headline)",
   "blocks": [
     {
-      "type": "hero" | "cards" | "columns" | "text" | "cta" | "faq",
+      "type": "hero" | "cards" | "columns" | "split-content" | "text" | "cta" | "faq",
+      "variant": "default" | "full-width" | "highlight" | "reverse" | etc.,
+      "sectionStyle": "default" | "highlight" | "dark",
       "content": { /* block-specific content */ }
     }
   ],
@@ -45,7 +57,9 @@ Return a JSON object with this structure:
 ### Hero Block
 {
   "type": "hero",
+  "variant": "full-width" | "split" | "centered" | "light",
   "content": {
+    "eyebrow": "string (optional, short category text like 'MORNING RITUALS')",
     "headline": "string",
     "subheadline": "string",
     "ctaText": "string (optional)",
@@ -58,13 +72,16 @@ Return a JSON object with this structure:
 {
   "type": "cards",
   "content": {
+    "sectionTitle": "string (optional, like 'Top Smoothie Recipes')",
+    "sectionSubtitle": "string (optional)",
     "cards": [
       {
         "title": "string",
         "description": "string (2-3 sentences)",
         "imagePrompt": "string",
+        "meta": "string (optional, like 'Simple • 5 min')",
         "linkText": "string (optional)",
-        "linkUrl": "string (optional, can be /discover/... for generative links)"
+        "linkUrl": "string (optional)"
       }
     ]
   }
@@ -73,14 +90,38 @@ Return a JSON object with this structure:
 ### Columns Block
 {
   "type": "columns",
+  "variant": "default" | "highlight",
   "content": {
+    "sectionTitle": "string (optional)",
     "columns": [
       {
-        "headline": "string (optional)",
+        "headline": "string",
         "text": "string",
-        "imagePrompt": "string (optional)"
+        "imagePrompt": "string (optional - see rules below)"
       }
     ]
+  }
+}
+
+**IMPORTANT Columns Rules:**
+- When variant is "highlight": DO NOT include imagePrompt. Highlight columns are text-only feature/benefit lists.
+- When variant is "default": imagePrompt is optional. Use images only when the content truly needs visual support.
+
+### Split-Content Block
+{
+  "type": "split-content",
+  "variant": "default" | "reverse",
+  "content": {
+    "eyebrow": "string (optional, like 'BEST FOR SMOOTHIES')",
+    "headline": "string",
+    "body": "string",
+    "price": "string (optional, like '$449.95')",
+    "priceNote": "string (optional, like '10-Year Warranty')",
+    "primaryCtaText": "string",
+    "primaryCtaUrl": "string",
+    "secondaryCtaText": "string (optional)",
+    "secondaryCtaUrl": "string (optional)",
+    "imagePrompt": "string"
   }
 }
 
@@ -89,7 +130,7 @@ Return a JSON object with this structure:
   "type": "text",
   "content": {
     "headline": "string (optional)",
-    "body": "string (can be multiple paragraphs)"
+    "body": "string (can be multiple paragraphs separated by \\n\\n)"
   }
 }
 
@@ -101,8 +142,8 @@ Return a JSON object with this structure:
     "text": "string (optional)",
     "buttonText": "string",
     "buttonUrl": "string",
-    "isGenerative": boolean (true if links to another generatable page),
-    "generationHint": "string (query hint for generation if isGenerative)"
+    "secondaryButtonText": "string (optional)",
+    "secondaryButtonUrl": "string (optional)"
   }
 }
 
@@ -121,33 +162,30 @@ Return a JSON object with this structure:
 
 ## Critical Instructions
 
-1. **USE RAG CONTEXT**: Base all factual claims on the provided context. Do not invent:
+1. **FOLLOW THE LAYOUT**: Match the exact structure specified in the layout template.
+
+2. **USE RAG CONTEXT**: Base all factual claims on the provided context. Do not invent:
    - Product features or specifications
    - Prices or discounts
    - Warranty details
    - Ingredient amounts or nutritional facts
 
-2. **CITE SOURCES**: When using specific facts from RAG, include in citations array.
+3. **CITE SOURCES**: When using specific facts from RAG, include in citations array.
 
-3. **STAY ON BRAND**: Follow Vitamix brand voice guidelines strictly.
+4. **STAY ON BRAND**: Follow Vitamix brand voice guidelines strictly.
 
-4. **BE HELPFUL**: Answer the user's actual question. Don't just promote products.
+5. **BE HELPFUL**: Answer the user's actual question. Don't just promote products.
 
-5. **IMAGE PROMPTS**: Write descriptive prompts for any images needed. Focus on:
+6. **IMAGE PROMPTS**: Write descriptive prompts for any images needed. Focus on:
    - Vitamix products in lifestyle settings
    - Fresh, colorful ingredients
    - Clean, modern kitchen environments
    - Professional photography style
    - DO NOT describe text overlays or UI elements
 
-6. **GENERATIVE LINKS**: For "Learn more" or related topic CTAs, you can link to
-   /discover/{topic-slug} which will generate a new page. Include generationHint.
-
-7. **APPROPRIATE LENGTH**:
-   - Hero: 1 headline + 1-2 sentence subheadline
-   - Cards: 3-4 cards with 2-3 sentence descriptions
-   - Columns: 2-3 columns
-   - FAQ: 3-6 questions
+7. **SECTION STYLING**: Include sectionStyle for blocks that need special backgrounds:
+   - "highlight": Light gray background section
+   - "dark": Dark background with white text
 `;
 
 /**
@@ -156,7 +194,8 @@ Return a JSON object with this structure:
 export function buildContentGenerationPrompt(
   query: string,
   ragContext: RAGContext,
-  intent: IntentClassification
+  intent: IntentClassification,
+  layout: LayoutTemplate
 ): string {
   // Format RAG context for the prompt
   const ragSection = ragContext.chunks.length > 0
@@ -171,6 +210,9 @@ ${chunk.text}
 `).join('\n---\n')
     : 'No specific content found. Use general Vitamix brand knowledge but avoid making specific claims about products.';
 
+  // Format layout template
+  const layoutSection = formatLayoutForPrompt(layout);
+
   return `
 ## User Query
 "${query}"
@@ -178,23 +220,26 @@ ${chunk.text}
 ## Intent Classification
 - Type: ${intent.intentType}
 - Confidence: ${(intent.confidence * 100).toFixed(0)}%
+- Layout: ${intent.layoutId}
 - Content focus: ${intent.contentTypes.join(', ')}
-- Suggested blocks: ${intent.suggestedBlocks.join(', ')}
 - Products mentioned: ${intent.entities.products.join(', ') || 'none'}
 - Ingredients mentioned: ${intent.entities.ingredients.join(', ') || 'none'}
 - User goals: ${intent.entities.goals.join(', ') || 'general exploration'}
+
+## LAYOUT TEMPLATE (FOLLOW EXACTLY)
+${layoutSection}
 
 ## RAG Context (from vitamix.com)
 ${ragSection}
 
 ## Task
-Generate a complete page responding to this query:
-1. Create a compelling headline that addresses the user's goal
-2. Structure content with appropriate blocks
-3. Use RAG context for all factual information
-4. Follow brand guidelines strictly
-5. Include image prompts for visual blocks
-6. Add CTAs that link to related generatable pages where appropriate
+Generate content that EXACTLY matches the layout template above:
+1. Create content for EVERY section and block listed
+2. Use the exact block types and variants specified
+3. Match the item counts (e.g., 3 columns, 3 cards)
+4. Apply section styles (highlight, dark) as specified
+5. Use RAG context for all factual information
+6. Follow brand guidelines strictly
 
 Return valid JSON only.
 `;

@@ -35,13 +35,28 @@ export interface Env {
 export type ContentType = 'product' | 'recipe' | 'editorial' | 'support' | 'brand';
 
 /**
+ * Layout IDs matching layouts.ts templates
+ */
+export type LayoutId =
+  | 'product-detail'
+  | 'product-comparison'
+  | 'recipe-collection'
+  | 'use-case-landing'
+  | 'support'
+  | 'category-browse'
+  | 'educational'
+  | 'promotional'
+  | 'quick-answer'
+  | 'lifestyle';
+
+/**
  * Intent classification result
  */
 export interface IntentClassification {
   intentType: 'product_info' | 'recipe' | 'comparison' | 'support' | 'general';
   confidence: number;
+  layoutId: LayoutId;
   contentTypes: ContentType[];
-  suggestedBlocks: BlockType[];
   entities: {
     products: string[];
     ingredients: string[];
@@ -81,7 +96,7 @@ export interface RAGContext {
 /**
  * Block types supported by EDS
  */
-export type BlockType = 'hero' | 'cards' | 'columns' | 'text' | 'cta' | 'faq';
+export type BlockType = 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq';
 
 /**
  * Generated content structure
@@ -103,7 +118,9 @@ export interface GeneratedContent {
 export interface ContentBlock {
   id: string;
   type: BlockType;
-  content: HeroContent | CardsContent | ColumnsContent | TextContent | CTAContent | FAQContent;
+  variant?: string;
+  sectionStyle?: 'default' | 'highlight' | 'dark';
+  content: HeroContent | CardsContent | ColumnsContent | SplitContentContent | TextContent | CTAContent | FAQContent;
 }
 
 /**
@@ -175,6 +192,23 @@ export interface FAQContent {
 }
 
 /**
+ * Split-Content block content
+ */
+export interface SplitContentContent {
+  eyebrow?: string;
+  headline: string;
+  body: string;
+  price?: string;
+  priceNote?: string;
+  primaryCtaText: string;
+  primaryCtaUrl: string;
+  secondaryCtaText?: string;
+  secondaryCtaUrl?: string;
+  imagePrompt: string;
+  imageUrl?: string;
+}
+
+/**
  * Citation for sourced content
  */
 export interface Citation {
@@ -184,16 +218,17 @@ export interface Citation {
 }
 
 /**
- * Layout decision from Gemini
+ * Layout decision - now derived from templates, not Gemini
+ * @deprecated Use LayoutTemplate from prompts/layouts.ts instead
  */
 export interface LayoutDecision {
   blocks: Array<{
     blockType: BlockType;
     contentIndex: number;
-    variant: 'default' | 'highlight' | 'dark';
+    variant: string;
     width: 'full' | 'contained';
+    sectionStyle?: 'default' | 'highlight' | 'dark';
   }>;
-  reasoning: string;
 }
 
 /**

@@ -57,6 +57,27 @@
   text-decoration: underline;
 }
 
+/* Button styling for card CTAs */
+.cards .cards-card-body a.button {
+  display: inline-block;
+  padding: 12px 24px;
+  background: var(--color-brand-red, #c00);
+  color: var(--color-white, #fff);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 2px;
+  transition: background-color 0.2s ease;
+  margin-top: 8px;
+}
+
+.cards .cards-card-body a.button:hover {
+  background: var(--color-brand-red-dark, #a00);
+  text-decoration: none;
+}
+
 .cards .cards-card-image {
   line-height: 0;
 }

@@ -1,7 +1,7 @@
 /**
  * Intent Classification Prompt
  *
- * Used to understand what the user is looking for
+ * Used to understand what the user is looking for and select the appropriate layout
  */
 
 export const INTENT_CLASSIFICATION_PROMPT = `
@@ -41,21 +41,25 @@ You are a query classifier for the Vitamix website. Analyze the user query and r
 - "support": FAQ, troubleshooting, guides
 - "brand": About, heritage, company info
 
-## Block Types (what UI blocks to use)
-- "hero": Full-width intro with image
-- "cards": Grid of cards for products/recipes
-- "columns": Side-by-side content
-- "text": Long-form content
-- "cta": Call to action
-- "faq": FAQ accordion
+## Layout IDs (which page layout to use)
+- "product-detail": Single product focus (specs, features, FAQ)
+- "product-comparison": Side-by-side product comparison
+- "recipe-collection": Collection of recipes with tips
+- "use-case-landing": Use-case focused (e.g., "smoothies every morning") with recipes, tips, product rec
+- "support": Troubleshooting and help content
+- "category-browse": Browse products in a category
+- "educational": How-to and educational content
+- "promotional": Sales and promotional content
+- "quick-answer": Simple direct answer
+- "lifestyle": Inspirational lifestyle content
 
 ## Output Format (JSON)
 
 {
   "intent_type": "product_info" | "recipe" | "comparison" | "support" | "general",
   "confidence": 0.0-1.0,
+  "layout_id": "use-case-landing" | "recipe-collection" | "product-detail" | etc.,
   "content_types": ["product", "recipe", "editorial", "support", "brand"],
-  "suggested_blocks": ["hero", "cards", "columns", "faq"],
   "entities": {
     "products": ["A3500", "Pro 750"],
     "ingredients": ["spinach", "banana"],
@@ -63,14 +67,26 @@ You are a query classifier for the Vitamix website. Analyze the user query and r
   }
 }
 
+## Layout Selection Guidelines
+
+- **use-case-landing**: User describes a habit/routine ("every morning", "daily", "meal prep")
+- **recipe-collection**: User wants multiple recipes ("soup recipes", "smoothie ideas")
+- **product-detail**: User asks about ONE specific product
+- **product-comparison**: User compares products or asks "which is best"
+- **support**: User has a problem or asks about warranty/maintenance
+- **educational**: User wants to learn how to do something ("how to clean", "technique")
+- **quick-answer**: Simple factual question (warranty length, return policy)
+- **lifestyle**: General healthy living, inspiration
+- **category-browse**: User wants to see all products in a category
+
 ## Examples
 
 Query: "What's the best Vitamix for making soup?"
 {
   "intent_type": "comparison",
   "confidence": 0.9,
+  "layout_id": "product-comparison",
   "content_types": ["product"],
-  "suggested_blocks": ["hero", "cards", "columns", "cta"],
   "entities": {
     "products": [],
     "ingredients": [],
@@ -78,12 +94,25 @@ Query: "What's the best Vitamix for making soup?"
   }
 }
 
+Query: "I want to make smoothies every morning for breakfast"
+{
+  "intent_type": "recipe",
+  "confidence": 0.95,
+  "layout_id": "use-case-landing",
+  "content_types": ["recipe", "product"],
+  "entities": {
+    "products": [],
+    "ingredients": [],
+    "goals": ["morning routine", "breakfast", "daily smoothies"]
+  }
+}
+
 Query: "Green smoothie recipe with kale"
 {
   "intent_type": "recipe",
   "confidence": 0.95,
+  "layout_id": "recipe-collection",
   "content_types": ["recipe"],
-  "suggested_blocks": ["hero", "columns", "cards"],
   "entities": {
     "products": [],
     "ingredients": ["kale"],
@@ -95,8 +124,8 @@ Query: "A3500 vs A2500 differences"
 {
   "intent_type": "comparison",
   "confidence": 0.95,
+  "layout_id": "product-comparison",
   "content_types": ["product"],
-  "suggested_blocks": ["hero", "columns", "cards", "faq"],
   "entities": {
     "products": ["A3500", "A2500"],
     "ingredients": [],
@@ -108,12 +137,38 @@ Query: "My Vitamix is making a grinding noise"
 {
   "intent_type": "support",
   "confidence": 0.9,
+  "layout_id": "support",
   "content_types": ["support"],
-  "suggested_blocks": ["hero", "faq", "text", "cta"],
   "entities": {
     "products": [],
     "ingredients": [],
     "goals": ["troubleshooting", "noise issue"]
+  }
+}
+
+Query: "How to clean my Vitamix container"
+{
+  "intent_type": "support",
+  "confidence": 0.9,
+  "layout_id": "educational",
+  "content_types": ["support", "editorial"],
+  "entities": {
+    "products": [],
+    "ingredients": [],
+    "goals": ["cleaning", "maintenance"]
+  }
+}
+
+Query: "Tell me about the A3500"
+{
+  "intent_type": "product_info",
+  "confidence": 0.95,
+  "layout_id": "product-detail",
+  "content_types": ["product"],
+  "entities": {
+    "products": ["A3500"],
+    "ingredients": [],
+    "goals": ["product info"]
   }
 }
 `;

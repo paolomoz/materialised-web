@@ -2,6 +2,7 @@ import type { Env, IntentClassification, GeneratedContent, RAGContext } from '..
 import { BRAND_VOICE_SYSTEM_PROMPT } from '../prompts/brand-voice';
 import { INTENT_CLASSIFICATION_PROMPT } from '../prompts/intent';
 import { CONTENT_GENERATION_SYSTEM, buildContentGenerationPrompt } from '../prompts/content';
+import type { LayoutTemplate } from '../prompts/layouts';
 
 /**
  * Claude API client for text generation
@@ -75,7 +76,7 @@ export async function classifyIntent(
   const response = await callClaude(
     [{ role: 'user', content: `${INTENT_CLASSIFICATION_PROMPT}\n\nUser Query: "${query}"` }],
     {
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-haiku-4-5-20251001',
       maxTokens: 500,
       temperature: 0.3,
     },
@@ -94,8 +95,8 @@ export async function classifyIntent(
     return {
       intentType: parsed.intent_type || 'general',
       confidence: parsed.confidence || 0.5,
+      layoutId: parsed.layout_id || 'lifestyle',
       contentTypes: parsed.content_types || ['editorial'],
-      suggestedBlocks: parsed.suggested_blocks || ['hero', 'cards'],
       entities: {
         products: parsed.entities?.products || [],
         ingredients: parsed.entities?.ingredients || [],
@@ -108,8 +109,8 @@ export async function classifyIntent(
     return {
       intentType: 'general',
       confidence: 0.3,
+      layoutId: 'lifestyle',
       contentTypes: ['editorial'],
-      suggestedBlocks: ['hero', 'cards', 'cta'],
       entities: {
         products: [],
         ingredients: [],
@@ -120,16 +121,17 @@ export async function classifyIntent(
 }
 
 /**
- * Generate page content based on query and RAG context
+ * Generate page content based on query, RAG context, and layout template
  * Uses Claude Sonnet for quality
  */
 export async function generateContent(
   query: string,
   ragContext: RAGContext,
   intent: IntentClassification,
+  layout: LayoutTemplate,
   env: Env
 ): Promise<GeneratedContent> {
-  const userPrompt = buildContentGenerationPrompt(query, ragContext, intent);
+  const userPrompt = buildContentGenerationPrompt(query, ragContext, intent, layout);
 
   const response = await callClaude(
     [{ role: 'user', content: userPrompt }],
@@ -158,6 +160,8 @@ export async function generateContent(
       blocks: (parsed.blocks || []).map((block: any, index: number) => ({
         id: `block-${index}`,
         type: block.type,
+        variant: block.variant,
+        sectionStyle: block.sectionStyle,
         content: block.content,
       })),
       meta: {
@@ -208,7 +212,7 @@ Return JSON:
   const response = await callClaude(
     [{ role: 'user', content: prompt }],
     {
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-haiku-4-5-20251001',
       maxTokens: 300,
       temperature: 0.2,
     },
@@ -248,7 +252,7 @@ Use Vitamix brand voice: professional, empowering, premium.
   return callClaude(
     [{ role: 'user', content: prompt }],
     {
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-haiku-4-5-20251001',
       maxTokens: 1000,
       systemPrompt: BRAND_VOICE_SYSTEM_PROMPT,
     },

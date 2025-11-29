@@ -22,11 +22,13 @@ index_name = "vitamix-content"
 [[r2_buckets]]
 binding = "IMAGES"
 bucket_name = "vitamix-generated-images"
+preview_bucket_name = "vitamix-generated-images-preview"
 
 # KV for caching and generation state
 [[kv_namespaces]]
 binding = "CACHE"
 id = "a840e9485e304b40920f01eaebd46de9"
+preview_id = "4d776a13335d4c6a837b6a22c8e30cfd"
 
 # Secrets (set via wrangler secret put):
 # - ANTHROPIC_API_KEY

@@ -9,9 +9,10 @@ import type {
   SSEEvent,
 } from '../types';
 import { classifyIntent, generateContent, validateBrandCompliance } from '../ai-clients/claude';
-import { generateLayout, analyzeQuery } from '../ai-clients/gemini';
+import { analyzeQuery } from '../ai-clients/gemini';
 import { generateImages, decideImageStrategy } from '../ai-clients/imagen';
 import { retrieveContext, expandQuery } from './rag';
+import { getLayoutForIntent, templateToLayoutDecision, type LayoutTemplate } from '../prompts/layouts';
 
 // Worker base URL for image serving
 const WORKER_URL = 'https://vitamix-generative.paolo-moz.workers.dev';
@@ -79,20 +80,48 @@ export async function orchestrate(
     ctx.ragContext = ragContext;
     ctx.entities = entities;
 
-    // Stage 3: Content Generation (main LLM call)
-    ctx.content = await generateContent(query, ragContext, ctx.intent, env);
+    // Get layout template based on intent (needed for content generation)
+    const layoutTemplate = getLayoutForIntent(
+      ctx.intent.intentType,
+      ctx.intent.contentTypes,
+      ctx.intent.entities
+    );
+
+    console.log('Layout selection:', {
+      query,
+      intentType: ctx.intent.intentType,
+      contentTypes: ctx.intent.contentTypes,
+      entities: ctx.intent.entities,
+      selectedLayout: layoutTemplate.id,
+    });
+
+    // Extract block types from layout template for preview
+    const blockTypes = layoutTemplate.sections.flatMap(
+      section => section.blocks.map(block => block.type)
+    );
 
     // Send layout preview
     onEvent({
       event: 'layout',
-      data: { blocks: ctx.intent.suggestedBlocks },
+      data: { blocks: blockTypes },
     });
 
-    // Stage 4: Parallel - Layout generation + Image decisions
-    const [layout, imageDecisions] = await Promise.all([
-      generateLayout(ctx.content, ctx.intent, env),
-      decideImagesForContent(ctx.content, ragContext, env),
-    ]);
+    // Stage 3: Content Generation (main LLM call)
+    ctx.content = await generateContent(query, ragContext, ctx.intent, layoutTemplate, env);
+
+    // Stage 4: Derive layout from template + Image decisions
+    // No Gemini call - we use the predefined layout template directly
+    const layout = templateToLayoutDecision(layoutTemplate);
+    const imageDecisions = await decideImagesForContent(ctx.content, ragContext, env);
+
+    console.log('Layout decision from template:', {
+      layoutId: layoutTemplate.id,
+      blocks: layout.blocks.map(b => ({
+        type: b.blockType,
+        variant: b.variant,
+        width: b.width,
+      })),
+    });
 
     ctx.layout = layout;
 
@@ -244,6 +273,18 @@ function buildImageRequests(
         }
         break;
 
+      case 'split-content':
+        if (blockContent.imagePrompt || decision?.prompt) {
+          requests.push({
+            id: `split-content-${block.id}`,
+            blockId: block.id,
+            prompt: decision?.prompt || blockContent.imagePrompt,
+            aspectRatio: '4:3',
+            size: 'card',
+          });
+        }
+        break;
+
       default:
         // Other block types - use generic image ID
         const imagePrompt = extractImagePrompt(blockContent);
@@ -342,13 +383,14 @@ async function streamBlockContent(
     // Build HTML for this block (with predictable image URLs)
     const blockHtml = buildBlockHTML(contentBlock, layoutBlock, slug);
 
-    // Send block content
+    // Send block content with section style
     onEvent({
       event: 'block-content',
       data: {
         blockId: contentBlock.id,
         html: blockHtml,
         partial: false,
+        sectionStyle: layoutBlock.sectionStyle,
       },
     });
 
@@ -384,6 +426,8 @@ function buildBlockHTML(
       return buildCTAHTML(content as any, variant);
     case 'faq':
       return buildFAQHTML(content as any, variant);
+    case 'split-content':
+      return buildSplitContentHTML(content as any, variant, slug, block.id);
     default:
       return '';
   }
@@ -643,6 +687,90 @@ function buildFAQHTML(content: any, variant: string): string {
   return `
     <div class="faq${variant !== 'default' ? ` ${variant}` : ''}">
       ${faqHtml}
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Split-Content block HTML
+ *
+ * Split-Content is authored as a table block in DA:
+ * | Split Content (reverse)   |                              |
+ * |-----------------------------|------------------------------|
+ * | [feature-image.jpg]       | EYEBROW TEXT                 |
+ * |                           | ## Section Headline          |
+ * |                           | Body text paragraph here.    |
+ * |                           | **$449.95** • 10-Year Warranty |
+ * |                           | [[Shop Now]] [[Compare]]     |
+ *
+ * Variants:
+ * - reverse: Image on right side
+ * - dark: Dark background
+ *
+ * HTML structure after EDS processing:
+ * <div class="split-content reverse">
+ *   <div>                                  <!-- row -->
+ *     <div><picture>...</picture></div>    <!-- image cell -->
+ *     <div>                                <!-- content cell -->
+ *       <p>EYEBROW</p>
+ *       <h2>Headline</h2>
+ *       <p>Body text</p>
+ *       <p><strong>$449.95</strong> • Note</p>
+ *       <p><a href="...">CTA</a> <a href="...">Secondary</a></p>
+ *     </div>
+ *   </div>
+ * </div>
+ */
+function buildSplitContentHTML(content: any, variant: string, slug: string, blockId: string): string {
+  // Use predictable URL - image will be served once generated
+  // blockId comes from the content block (e.g., "block-3") to match image request IDs
+  const imageId = `split-content-${blockId}`;
+  const imageUrl = buildImageUrl(slug, imageId);
+
+  // Build content cell
+  let contentHtml = '';
+
+  // Eyebrow (optional)
+  if (content.eyebrow) {
+    contentHtml += `<p>${escapeHTML(content.eyebrow)}</p>`;
+  }
+
+  // Headline
+  contentHtml += `<h2>${escapeHTML(content.headline)}</h2>`;
+
+  // Body text
+  contentHtml += `<p>${escapeHTML(content.body)}</p>`;
+
+  // Price + note (optional)
+  if (content.price) {
+    const priceNote = content.priceNote ? ` • ${escapeHTML(content.priceNote)}` : '';
+    contentHtml += `<p><strong>${escapeHTML(content.price)}</strong>${priceNote}</p>`;
+  }
+
+  // CTAs
+  let ctaHtml = '';
+  if (content.primaryCtaText) {
+    ctaHtml += `<a href="${escapeHTML(content.primaryCtaUrl || '#')}">${escapeHTML(content.primaryCtaText)}</a>`;
+  }
+  if (content.secondaryCtaText) {
+    ctaHtml += ` <a href="${escapeHTML(content.secondaryCtaUrl || '#')}">${escapeHTML(content.secondaryCtaText)}</a>`;
+  }
+  if (ctaHtml) {
+    contentHtml += `<p>${ctaHtml}</p>`;
+  }
+
+  return `
+    <div class="split-content${variant !== 'default' ? ` ${variant}` : ''}">
+      <div>
+        <div>
+          <picture>
+            <img src="${imageUrl}" alt="${escapeHTML(content.headline)}" data-gen-image="${imageId}" loading="lazy">
+          </picture>
+        </div>
+        <div>
+          ${contentHtml}
+        </div>
+      </div>
     </div>
   `.trim();
 }
