@@ -95,7 +95,7 @@ async function renderGenerativePage() {
   const streamUrl = `${GENERATIVE_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}`;
   const eventSource = new EventSource(streamUrl);
   let blockCount = 0;
-  let generatedHtml = [];
+  let generatedBlocks = []; // Array of { html, sectionStyle }
 
   eventSource.onopen = () => {
     statusEl.textContent = 'Generating content...';
@@ -120,8 +120,8 @@ async function renderGenerativePage() {
     }
     blockCount += 1;
 
-    // Store HTML for persistence
-    generatedHtml.push(data.html);
+    // Store HTML and sectionStyle for persistence
+    generatedBlocks.push({ html: data.html, sectionStyle: data.sectionStyle });
 
     // Create section and add content
     const section = document.createElement('div');
@@ -196,14 +196,14 @@ async function renderGenerativePage() {
       // Update the src to the actual image URL (either R2 or fallback)
       img.src = resolvedUrl;
 
-      // Also update the generatedHtml array for persistence
+      // Also update the generatedBlocks array for persistence
       // Find which block contains this image and update its HTML
       const section = img.closest('.section');
       if (section && originalUrl) {
         const sectionIndex = Array.from(content.children).indexOf(section);
-        if (sectionIndex >= 0 && generatedHtml[sectionIndex]) {
+        if (sectionIndex >= 0 && generatedBlocks[sectionIndex]) {
           // Replace the placeholder URL with the actual URL in stored HTML
-          generatedHtml[sectionIndex] = generatedHtml[sectionIndex].replace(
+          generatedBlocks[sectionIndex].html = generatedBlocks[sectionIndex].html.replace(
             new RegExp(escapeRegExp(originalUrl), 'g'),
             resolvedUrl,
           );
@@ -249,13 +249,29 @@ async function renderGenerativePage() {
       saveStatus.textContent = '';
 
       try {
+        // Build HTML array with section-metadata for DA persistence
+        const htmlForPersistence = generatedBlocks.map((block) => {
+          let sectionHtml = block.html;
+          // Add section-metadata block if section has a non-default style
+          if (block.sectionStyle && block.sectionStyle !== 'default') {
+            sectionHtml += `
+<div class="section-metadata">
+  <div>
+    <div>style</div>
+    <div>${block.sectionStyle}</div>
+  </div>
+</div>`;
+          }
+          return sectionHtml;
+        });
+
         const response = await fetch(`${GENERATIVE_WORKER_URL}/api/persist`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             slug,
             query,
-            html: generatedHtml,
+            html: htmlForPersistence,
           }),
         });
 
