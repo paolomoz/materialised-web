@@ -19,6 +19,13 @@ import {
 const GENERATIVE_WORKER_URL = 'https://vitamix-generative.paolo-moz.workers.dev';
 
 /**
+ * Escape special regex characters in a string
+ */
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Check if this is a generation request (has ?generate= param)
  */
 function isGenerationRequest() {
@@ -122,6 +129,11 @@ async function renderGenerativePage() {
     section.dataset.sectionStatus = 'initialized';
     section.innerHTML = data.html;
 
+    // Store original src for each generated image (before any decoration)
+    section.querySelectorAll('img[data-gen-image]').forEach((img) => {
+      img.dataset.originalSrc = img.getAttribute('src');
+    });
+
     // Wrap block in a wrapper div (EDS pattern)
     const blockEl = section.querySelector('[class]');
     if (blockEl) {
@@ -157,19 +169,44 @@ async function renderGenerativePage() {
     section.style.display = null;
   });
 
-  // Handle image-ready events - images already have correct URLs in HTML
-  // This event just triggers the "loaded" animation
+  // Handle image-ready events - update image src and trigger loaded animation
   eventSource.addEventListener('image-ready', (e) => {
     const data = JSON.parse(e.data);
-    const { imageId } = data;
+    const { imageId, url } = data;
+
+    // Resolve relative URLs to absolute worker URLs
+    let resolvedUrl = url;
+    if (url && url.startsWith('/')) {
+      resolvedUrl = `${GENERATIVE_WORKER_URL}${url}`;
+    }
 
     // eslint-disable-next-line no-console
-    console.log('Image ready:', imageId);
+    console.log('Image ready:', imageId, resolvedUrl);
 
-    // Find the image with matching data-gen-image attribute and mark as loaded
-    // This triggers CSS transition from shimmer placeholder to actual image
+    // Find the image with matching data-gen-image attribute
     const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
-    if (img) {
+    if (img && resolvedUrl) {
+      // Get the original placeholder URL before updating
+      const originalUrl = img.dataset.originalSrc;
+
+      // Update the src to the actual image URL (either R2 or fallback)
+      img.src = resolvedUrl;
+
+      // Also update the generatedHtml array for persistence
+      // Find which block contains this image and update its HTML
+      const section = img.closest('.section');
+      if (section && originalUrl) {
+        const sectionIndex = Array.from(content.children).indexOf(section);
+        if (sectionIndex >= 0 && generatedHtml[sectionIndex]) {
+          // Replace the placeholder URL with the actual URL in stored HTML
+          generatedHtml[sectionIndex] = generatedHtml[sectionIndex].replace(
+            new RegExp(escapeRegExp(originalUrl), 'g'),
+            resolvedUrl,
+          );
+        }
+      }
+
+      // Mark as loaded - triggers CSS transition
       img.classList.add('loaded');
     }
   });
