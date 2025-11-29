@@ -1,0 +1,201 @@
+/**
+ * Product Recommendation Block Styles
+ *
+ * 50/50 split layout for product recommendations.
+ * Based on Split Content pattern from Vitamix design system.
+ */
+
+.product-recommendation {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 500px;
+}
+
+/* Image side */
+.product-recommendation-image {
+  position: relative;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.product-recommendation-image picture {
+  display: block;
+  height: 100%;
+}
+
+.product-recommendation-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Content side */
+.product-recommendation-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4rem;
+  background: #fff;
+}
+
+/* Eyebrow */
+.product-recommendation-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #c41230;
+  margin: 0 0 1rem;
+}
+
+/* Headline */
+.product-recommendation-headline {
+  font-size: 2.25rem;
+  font-weight: 300;
+  color: #1a1a1a;
+  margin: 0 0 1.5rem;
+  line-height: 1.2;
+}
+
+/* Body */
+.product-recommendation-body {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: #333;
+  margin: 0 0 1.5rem;
+}
+
+/* Price section */
+.product-recommendation-price {
+  margin-bottom: 2rem;
+}
+
+.product-recommendation-price .price {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  display: block;
+}
+
+.product-recommendation-price .price-note {
+  font-size: 0.875rem;
+  color: #666;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+/* CTAs */
+.product-recommendation-ctas {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.product-recommendation-ctas .button {
+  display: inline-block;
+  padding: 0.875rem 2rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.product-recommendation-ctas .button.primary {
+  background: #c41230;
+  color: #fff;
+  border: 2px solid #c41230;
+}
+
+.product-recommendation-ctas .button.primary:hover {
+  background: #a30f28;
+  border-color: #a30f28;
+}
+
+.product-recommendation-ctas .button.secondary {
+  background: transparent;
+  color: #1a1a1a;
+  border: 2px solid #1a1a1a;
+}
+
+.product-recommendation-ctas .button.secondary:hover {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+/* Reverse variant - image on right */
+.product-recommendation.reverse .product-recommendation-image {
+  order: 2;
+}
+
+/* Section style variants */
+
+/* Highlight section */
+.section.highlight .product-recommendation {
+  background: transparent;
+}
+
+.section.highlight .product-recommendation-content {
+  background: transparent;
+}
+
+/* Dark section */
+.section.dark .product-recommendation-content {
+  background: transparent;
+  color: #fff;
+}
+
+.section.dark .product-recommendation-eyebrow {
+  color: #fff;
+}
+
+.section.dark .product-recommendation-headline {
+  color: #fff;
+}
+
+.section.dark .product-recommendation-body {
+  color: rgb(255 255 255 / 80%);
+}
+
+.section.dark .product-recommendation-price .price {
+  color: #fff;
+}
+
+.section.dark .product-recommendation-price .price-note {
+  color: rgb(255 255 255 / 70%);
+}
+
+.section.dark .product-recommendation-ctas .button.secondary {
+  color: #fff;
+  border-color: #fff;
+}
+
+.section.dark .product-recommendation-ctas .button.secondary:hover {
+  background: #fff;
+  color: #1a1a1a;
+}
+
+/* Responsive */
+@media (width < 768px) {
+  .product-recommendation {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .product-recommendation-image {
+    min-height: 300px;
+  }
+
+  .product-recommendation.reverse .product-recommendation-image {
+    order: 0;
+  }
+
+  .product-recommendation-content {
+    padding: 2.5rem 1.5rem;
+  }
+
+  .product-recommendation-headline {
+    font-size: 1.75rem;
+  }
+}

@@ -1,0 +1,123 @@
+/**
+ * Benefits Grid Block Styles
+ *
+ * Icon-based feature/benefit highlights.
+ * Based on Feature Grid pattern from Vitamix design system.
+ */
+
+.benefits-grid {
+  padding: 5rem 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.benefits-grid-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.benefits-grid-item {
+  text-align: center;
+  padding: 2rem;
+}
+
+/* Icon styling */
+.benefits-grid-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 1.5rem;
+  color: #c41230;
+}
+
+.benefits-grid-icon .icon {
+  width: 100%;
+  height: 100%;
+}
+
+.benefits-grid-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: currentcolor;
+}
+
+/* Headline */
+.benefits-grid-headline {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 0.5rem;
+}
+
+/* Description */
+.benefits-grid-description {
+  font-size: 0.9375rem;
+  color: #666;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Section style variants */
+
+/* Highlight section background */
+.section.highlight .benefits-grid {
+  background: transparent;
+}
+
+.section.highlight .benefits-grid-item {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
+}
+
+/* Dark section background */
+.section.dark .benefits-grid {
+  background: transparent;
+}
+
+.section.dark .benefits-grid-headline {
+  color: #fff;
+}
+
+.section.dark .benefits-grid-description {
+  color: rgb(255 255 255 / 80%);
+}
+
+.section.dark .benefits-grid-icon {
+  color: #fff;
+}
+
+/* Clickable variant */
+.benefits-grid.clickable .benefits-grid-item {
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.benefits-grid.clickable .benefits-grid-item:hover {
+  border-color: #c41230;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 8%);
+}
+
+/* Responsive adjustments */
+@media (width < 768px) {
+  .benefits-grid {
+    padding: 3rem 1rem;
+  }
+
+  .benefits-grid-items {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .benefits-grid-item {
+    padding: 1.5rem;
+  }
+}
+
+@media (width >= 768px) and (width < 1024px) {
+  .benefits-grid-items {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

@@ -285,6 +285,36 @@ function buildImageRequests(
         }
         break;
 
+      case 'recipe-cards':
+        if (blockContent.recipes) {
+          blockContent.recipes.forEach((recipe: any, i: number) => {
+            if (recipe.imagePrompt || decision?.prompt) {
+              requests.push({
+                id: `recipe-${i}`,
+                blockId: block.id,
+                prompt: recipe.imagePrompt || decision?.prompt || `Appetizing ${recipe.title}`,
+                aspectRatio: '4:3',
+                size: 'card',
+              });
+            }
+          });
+        }
+        break;
+
+      case 'product-recommendation':
+        if (blockContent.imagePrompt || decision?.prompt) {
+          requests.push({
+            id: `product-rec-${block.id}`,
+            blockId: block.id,
+            prompt: decision?.prompt || blockContent.imagePrompt,
+            aspectRatio: '4:3',
+            size: 'card',
+          });
+        }
+        break;
+
+      // benefits-grid and tips-banner don't have images
+
       default:
         // Other block types - use generic image ID
         const imagePrompt = extractImagePrompt(blockContent);
@@ -428,6 +458,14 @@ function buildBlockHTML(
       return buildFAQHTML(content as any, variant);
     case 'split-content':
       return buildSplitContentHTML(content as any, variant, slug, block.id);
+    case 'benefits-grid':
+      return buildBenefitsGridHTML(content as any, variant);
+    case 'recipe-cards':
+      return buildRecipeCardsHTML(content as any, variant, slug);
+    case 'product-recommendation':
+      return buildProductRecommendationHTML(content as any, variant, slug, block.id);
+    case 'tips-banner':
+      return buildTipsBannerHTML(content as any, variant);
     default:
       return '';
   }
@@ -771,6 +809,210 @@ function buildSplitContentHTML(content: any, variant: string, slug: string, bloc
           ${contentHtml}
         </div>
       </div>
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Benefits Grid block HTML
+ *
+ * Benefits Grid is authored as a table block in DA:
+ * | Benefits Grid              |                    |                    |
+ * |----------------------------|--------------------|--------------------|
+ * | :icon-clock:               | :icon-heart:       | :icon-leaf:        |
+ * | **Quick & Easy**           | **Heart Healthy**  | **Whole Foods**    |
+ * | Ready in under 5 minutes   | Nutrient-rich...   | Use whole fruits...|
+ *
+ * HTML structure:
+ * <div class="benefits-grid">
+ *   <div>                                    <!-- row for all items -->
+ *     <div>                                   <!-- item 1 -->
+ *       <span class="icon icon-clock"></span>
+ *       <p><strong>Title</strong></p>
+ *       <p>Description</p>
+ *     </div>
+ *     ...
+ *   </div>
+ * </div>
+ */
+function buildBenefitsGridHTML(content: any, variant: string): string {
+  const itemsHtml = content.items.map((item: any) => {
+    const iconClass = item.icon ? `icon icon-${item.icon}` : '';
+    return `
+      <div>
+        ${item.icon ? `<p><span class="${iconClass}"></span></p>` : ''}
+        <p><strong>${escapeHTML(item.headline)}</strong></p>
+        <p>${escapeHTML(item.description)}</p>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="benefits-grid${variant !== 'default' ? ` ${variant}` : ''}">
+      <div>${itemsHtml}</div>
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Recipe Cards block HTML
+ *
+ * Recipe Cards is authored as a table block in DA:
+ * | Recipe Cards                |                    |                    |
+ * |-----------------------------|--------------------|--------------------|
+ * | [smoothie.jpg]              | [soup.jpg]         | [sauce.jpg]        |
+ * | **Green Smoothie**          | **Tomato Soup**    | **Pesto Sauce**    |
+ * | Simple • 5 min              | Easy • 20 min      | Simple • 10 min    |
+ *
+ * HTML structure:
+ * <div class="recipe-cards">
+ *   <div>                                     <!-- card row -->
+ *     <div><picture>...</picture></div>       <!-- image -->
+ *     <div>                                   <!-- body -->
+ *       <p><strong>Title</strong></p>
+ *       <p>Simple • 5 min</p>
+ *     </div>
+ *   </div>
+ *   ...
+ * </div>
+ */
+function buildRecipeCardsHTML(content: any, variant: string, slug: string): string {
+  // Add section title if present
+  let headerHtml = '';
+  if (content.sectionTitle) {
+    headerHtml = `<div><div><h2>${escapeHTML(content.sectionTitle)}</h2></div></div>`;
+  }
+
+  const recipesHtml = content.recipes.map((recipe: any, i: number) => {
+    const imageUrl = buildImageUrl(slug, `recipe-${i}`);
+    const meta = `${recipe.difficulty} • ${recipe.time}`;
+
+    return `
+      <div>
+        <div>
+          <picture>
+            <img src="${imageUrl}" alt="${escapeHTML(recipe.title)}" data-gen-image="recipe-${i}" loading="lazy">
+          </picture>
+        </div>
+        <div>
+          <p><strong>${escapeHTML(recipe.title)}</strong></p>
+          <p>${escapeHTML(meta)}</p>
+          ${recipe.linkUrl ? `<p><a href="${escapeHTML(recipe.linkUrl)}">View Recipe</a></p>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="recipe-cards${variant !== 'default' ? ` ${variant}` : ''}">
+      ${headerHtml}
+      ${recipesHtml}
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Product Recommendation block HTML
+ *
+ * Similar to Split-Content but specialized for product recommendations.
+ *
+ * | Product Recommendation (reverse) |                              |
+ * |----------------------------------|------------------------------|
+ * | [product-image.jpg]              | BEST FOR SMOOTHIES           |
+ * |                                  | ## Vitamix A3500             |
+ * |                                  | Perfect for daily smoothies. |
+ * |                                  | **$649.95** • 10-Year Warranty|
+ * |                                  | [[Shop Now]] [[Learn More]]  |
+ */
+function buildProductRecommendationHTML(content: any, variant: string, slug: string, blockId: string): string {
+  const imageId = `product-rec-${blockId}`;
+  const imageUrl = buildImageUrl(slug, imageId);
+
+  let contentHtml = '';
+
+  // Eyebrow
+  if (content.eyebrow) {
+    contentHtml += `<p>${escapeHTML(content.eyebrow)}</p>`;
+  }
+
+  // Headline (product name)
+  contentHtml += `<h2>${escapeHTML(content.headline)}</h2>`;
+
+  // Body text
+  contentHtml += `<p>${escapeHTML(content.body)}</p>`;
+
+  // Price + note
+  if (content.price) {
+    const priceNote = content.priceNote ? ` • ${escapeHTML(content.priceNote)}` : '';
+    contentHtml += `<p><strong>${escapeHTML(content.price)}</strong>${priceNote}</p>`;
+  }
+
+  // CTAs
+  let ctaHtml = '';
+  if (content.primaryCtaText) {
+    ctaHtml += `<a href="${escapeHTML(content.primaryCtaUrl || '#')}">${escapeHTML(content.primaryCtaText)}</a>`;
+  }
+  if (content.secondaryCtaText) {
+    ctaHtml += ` <a href="${escapeHTML(content.secondaryCtaUrl || '#')}">${escapeHTML(content.secondaryCtaText)}</a>`;
+  }
+  if (ctaHtml) {
+    contentHtml += `<p>${ctaHtml}</p>`;
+  }
+
+  return `
+    <div class="product-recommendation${variant !== 'default' ? ` ${variant}` : ''}">
+      <div>
+        <div>
+          <picture>
+            <img src="${imageUrl}" alt="${escapeHTML(content.headline)}" data-gen-image="${imageId}" loading="lazy">
+          </picture>
+        </div>
+        <div>
+          ${contentHtml}
+        </div>
+      </div>
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Tips Banner block HTML
+ *
+ * Tips Banner is authored as a table block in DA:
+ * | Tips Banner                 |                    |                    |
+ * |-----------------------------|--------------------|--------------------|
+ * | **Prep Ingredients**        | **Use Frozen Fruit**| **Start Slow**    |
+ * | Cut fruits into chunks...   | Frozen adds chill..| Begin on low...   |
+ *
+ * HTML structure:
+ * <div class="tips-banner">
+ *   <div>
+ *     <div>                                   <!-- tip 1 -->
+ *       <p><strong>Title</strong></p>
+ *       <p>Description</p>
+ *     </div>
+ *     ...
+ *   </div>
+ * </div>
+ */
+function buildTipsBannerHTML(content: any, variant: string): string {
+  // Section title if present
+  let headerHtml = '';
+  if (content.sectionTitle) {
+    headerHtml = `<div><div><h2>${escapeHTML(content.sectionTitle)}</h2></div></div>`;
+  }
+
+  const tipsHtml = content.tips.map((tip: any) => `
+    <div>
+      <p><strong>${escapeHTML(tip.headline)}</strong></p>
+      <p>${escapeHTML(tip.description)}</p>
+    </div>
+  `).join('');
+
+  return `
+    <div class="tips-banner${variant !== 'default' ? ` ${variant}` : ''}">
+      ${headerHtml}
+      <div>${tipsHtml}</div>
     </div>
   `.trim();
 }

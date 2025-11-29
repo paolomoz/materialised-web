@@ -1,0 +1,148 @@
+/**
+ * Tips Banner Block Styles
+ *
+ * Grid of numbered tips with headlines and descriptions.
+ */
+
+.tips-banner {
+  padding: 5rem 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.tips-banner-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.tips-banner-header h2 {
+  font-size: 2rem;
+  font-weight: 300;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.tips-banner-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.tips-banner-item {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: #fff;
+  border-radius: 8px;
+  transition: box-shadow 0.2s ease;
+}
+
+.tips-banner-item:hover {
+  box-shadow: 0 4px 12px rgb(0 0 0 / 8%);
+}
+
+/* Number badge */
+.tips-banner-number {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #c41230;
+  color: #fff;
+  font-size: 1.125rem;
+  font-weight: 600;
+  border-radius: 50%;
+}
+
+/* Content */
+.tips-banner-content {
+  flex: 1;
+}
+
+.tips-banner-headline {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 0.5rem;
+  line-height: 1.3;
+}
+
+.tips-banner-description {
+  font-size: 0.875rem;
+  color: #666;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Section style variants */
+
+/* Highlight section */
+.section.highlight .tips-banner {
+  background: transparent;
+}
+
+.section.highlight .tips-banner-item {
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
+}
+
+/* Dark section */
+.section.dark .tips-banner {
+  background: transparent;
+}
+
+.section.dark .tips-banner-header h2 {
+  color: #fff;
+}
+
+.section.dark .tips-banner-item {
+  background: rgb(255 255 255 / 10%);
+}
+
+.section.dark .tips-banner-number {
+  background: #fff;
+  color: #c41230;
+}
+
+.section.dark .tips-banner-headline {
+  color: #fff;
+}
+
+.section.dark .tips-banner-description {
+  color: rgb(255 255 255 / 70%);
+}
+
+/* Compact variant */
+.tips-banner.compact .tips-banner-item {
+  padding: 1rem;
+}
+
+.tips-banner.compact .tips-banner-number {
+  width: 32px;
+  height: 32px;
+  font-size: 0.875rem;
+}
+
+/* Responsive */
+@media (width < 768px) {
+  .tips-banner {
+    padding: 3rem 1rem;
+  }
+
+  .tips-banner-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .tips-banner-header h2 {
+    font-size: 1.5rem;
+  }
+}
+
+@media (width >= 768px) and (width < 1024px) {
+  .tips-banner-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

@@ -11,11 +11,12 @@
  */
 
 export interface BlockTemplate {
-  type: 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq';
+  type: 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq'
+    | 'benefits-grid' | 'recipe-cards' | 'product-recommendation' | 'tips-banner';
   variant?: string;
   width?: 'full' | 'contained';
   config?: {
-    itemCount?: number; // For cards, columns, faq
+    itemCount?: number; // For cards, columns, faq, benefits-grid, recipe-cards, tips-banner
     hasImage?: boolean;
     [key: string]: any;
   };
@@ -163,6 +164,12 @@ export const LAYOUT_RECIPE_COLLECTION: LayoutTemplate = {
  * Layout 4: Use Case Landing
  * Focused on a specific use case with recipes, tips, and product recommendation
  * Example: "I want to make smoothies every morning"
+ *
+ * Uses specialized blocks:
+ * - benefits-grid: Icon-based benefit highlights (replaces generic columns)
+ * - recipe-cards: Recipe cards with difficulty/time metadata (replaces generic cards)
+ * - product-recommendation: 50/50 split product feature (replaces split-content)
+ * - tips-banner: Numbered tips grid (replaces second columns block)
  */
 export const LAYOUT_USE_CASE_LANDING: LayoutTemplate = {
   id: 'use-case-landing',
@@ -182,28 +189,28 @@ export const LAYOUT_USE_CASE_LANDING: LayoutTemplate = {
       ],
     },
     {
-      // Benefits/features section
+      // Benefits section - icon-based feature highlights
       blocks: [
-        { type: 'columns', variant: 'highlight', config: { itemCount: 3 } },
+        { type: 'benefits-grid', config: { itemCount: 3 } },
       ],
     },
     {
-      // Recipe cards
+      // Recipe cards with metadata (difficulty, time)
       blocks: [
-        { type: 'cards', config: { itemCount: 3 } },
+        { type: 'recipe-cards', config: { itemCount: 3 } },
       ],
     },
     {
-      // Product recommendation - split content with image
+      // Product recommendation - 50/50 split with product details
       style: 'highlight',
       blocks: [
-        { type: 'split-content', variant: 'reverse', config: { hasImage: true } },
+        { type: 'product-recommendation', variant: 'reverse', config: { hasImage: true } },
       ],
     },
     {
-      // Tips section - text-only columns (highlight variant means no images)
+      // Tips section - numbered tips grid
       blocks: [
-        { type: 'columns', variant: 'highlight', config: { itemCount: 3 } },
+        { type: 'tips-banner', config: { itemCount: 3 } },
       ],
     },
     {
@@ -534,9 +541,12 @@ export function getLayoutForIntent(
  * Convert LayoutTemplate to LayoutDecision
  * This creates the block mapping used for HTML generation
  */
+export type BlockType = 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq'
+  | 'benefits-grid' | 'recipe-cards' | 'product-recommendation' | 'tips-banner';
+
 export function templateToLayoutDecision(layout: LayoutTemplate): {
   blocks: Array<{
-    blockType: 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq';
+    blockType: BlockType;
     contentIndex: number;
     variant: string;
     width: 'full' | 'contained';
@@ -545,7 +555,7 @@ export function templateToLayoutDecision(layout: LayoutTemplate): {
 } {
   let contentIndex = 0;
   const blocks: Array<{
-    blockType: 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq';
+    blockType: BlockType;
     contentIndex: number;
     variant: string;
     width: 'full' | 'contained';

@@ -33,7 +33,7 @@ Return a JSON object with this structure:
   "subheadline": "Supporting text (expand on headline)",
   "blocks": [
     {
-      "type": "hero" | "cards" | "columns" | "split-content" | "text" | "cta" | "faq",
+      "type": "hero" | "cards" | "columns" | "split-content" | "text" | "cta" | "faq" | "benefits-grid" | "recipe-cards" | "product-recommendation" | "tips-banner",
       "variant": "default" | "full-width" | "highlight" | "reverse" | etc.,
       "sectionStyle": "default" | "highlight" | "dark",
       "content": { /* block-specific content */ }
@@ -159,6 +159,91 @@ Return a JSON object with this structure:
     ]
   }
 }
+
+### Benefits Grid Block (Use Case Landing pages)
+{
+  "type": "benefits-grid",
+  "content": {
+    "items": [
+      {
+        "icon": "string (icon name like 'clock', 'heart', 'leaf', 'bolt', 'star')",
+        "headline": "string (short benefit title)",
+        "description": "string (1-2 sentences explaining the benefit)"
+      }
+    ]
+  }
+}
+
+**Benefits Grid Notes:**
+- Use for quick benefit/feature highlights on use-case landing pages
+- Icons should be simple, meaningful (clock for time, heart for health, leaf for natural, etc.)
+- Keep headlines short (3-5 words)
+- Descriptions should be benefit-focused, not feature-focused
+
+### Recipe Cards Block (Use Case Landing pages)
+{
+  "type": "recipe-cards",
+  "content": {
+    "sectionTitle": "string (optional, like 'Try These Recipes')",
+    "recipes": [
+      {
+        "title": "string (recipe name)",
+        "imagePrompt": "string (describe the finished dish)",
+        "difficulty": "string (Simple, Easy, Intermediate, Advanced)",
+        "time": "string (like '5 min', '20 min')",
+        "linkUrl": "string (optional recipe page URL)"
+      }
+    ]
+  }
+}
+
+**Recipe Cards Notes:**
+- Used on use-case landing pages to showcase relevant recipes
+- Always include difficulty and time for each recipe
+- Image prompts should describe the finished dish in appetizing detail
+
+### Product Recommendation Block (Use Case Landing pages)
+{
+  "type": "product-recommendation",
+  "variant": "default" | "reverse",
+  "content": {
+    "eyebrow": "string (like 'BEST FOR SMOOTHIES' or 'RECOMMENDED')",
+    "headline": "string (product name like 'Vitamix A3500')",
+    "body": "string (why this product is recommended for the use case)",
+    "price": "string (like '$649.95')",
+    "priceNote": "string (like '10-Year Warranty')",
+    "primaryCtaText": "string (like 'Shop Now')",
+    "primaryCtaUrl": "string",
+    "secondaryCtaText": "string (optional, like 'Learn More')",
+    "secondaryCtaUrl": "string (optional)",
+    "imagePrompt": "string (product in lifestyle setting)"
+  }
+}
+
+**Product Recommendation Notes:**
+- Use on use-case landing pages to recommend a specific product
+- Eyebrow should explain WHY this product fits the use case
+- Body should connect product features to user's goals
+- Always include price from RAG context if available
+
+### Tips Banner Block (Use Case Landing pages)
+{
+  "type": "tips-banner",
+  "content": {
+    "sectionTitle": "string (optional, like 'Pro Tips')",
+    "tips": [
+      {
+        "headline": "string (short tip title, 3-5 words)",
+        "description": "string (1-2 sentences explaining the tip)"
+      }
+    ]
+  }
+}
+
+**Tips Banner Notes:**
+- Numbered tips are displayed automatically (1, 2, 3...)
+- Keep tips actionable and specific
+- Headlines should be imperative ("Prep Ingredients", "Start Slow")
 
 ## Critical Instructions
 
