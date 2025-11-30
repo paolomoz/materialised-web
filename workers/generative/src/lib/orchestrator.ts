@@ -313,7 +313,48 @@ function buildImageRequests(
         }
         break;
 
-      // benefits-grid and tips-banner don't have images
+      case 'recipe-grid':
+        // Recipe grid has multiple recipes, each with their own image
+        if (blockContent.recipes) {
+          blockContent.recipes.forEach((recipe: any, i: number) => {
+            if (recipe.imagePrompt || decision?.prompt) {
+              requests.push({
+                id: `grid-recipe-${i}`,
+                blockId: block.id,
+                prompt: recipe.imagePrompt || decision?.prompt || `Appetizing ${recipe.title} smoothie`,
+                aspectRatio: '4:3',
+                size: 'card',
+              });
+            }
+          });
+        }
+        break;
+
+      case 'technique-spotlight':
+        // Technique spotlight always needs an image (unless using video)
+        // The HTML builder adds an image even without imagePrompt, so we must generate one
+        if (!blockContent.videoUrl) {
+          requests.push({
+            id: `technique-${block.id}`,
+            blockId: block.id,
+            prompt: decision?.prompt || blockContent.imagePrompt || `Professional blending technique demonstration: ${blockContent.title || 'blender technique'}`,
+            aspectRatio: '4:3',
+            size: 'card',
+          });
+        }
+        break;
+
+      // UI-only blocks that don't have images
+      case 'ingredient-search':
+      case 'recipe-filter-bar':
+      case 'quick-view-modal':
+      case 'benefits-grid':
+      case 'tips-banner':
+      case 'cta':
+      case 'text':
+      case 'faq':
+        // No images needed for these blocks
+        break;
 
       default:
         // Other block types - use generic image ID
@@ -466,6 +507,16 @@ function buildBlockHTML(
       return buildProductRecommendationHTML(content as any, variant, slug, block.id);
     case 'tips-banner':
       return buildTipsBannerHTML(content as any, variant);
+    case 'ingredient-search':
+      return buildIngredientSearchHTML(content as any, variant);
+    case 'recipe-filter-bar':
+      return buildRecipeFilterBarHTML(content as any, variant);
+    case 'recipe-grid':
+      return buildRecipeGridHTML(content as any, variant, slug);
+    case 'quick-view-modal':
+      return buildQuickViewModalHTML(content as any, variant);
+    case 'technique-spotlight':
+      return buildTechniqueSpotlightHTML(content as any, variant, slug, block.id);
     default:
       return '';
   }
@@ -877,36 +928,60 @@ function buildBenefitsGridHTML(content: any, variant: string): string {
  * </div>
  */
 function buildRecipeCardsHTML(content: any, variant: string, slug: string): string {
-  // Add section title if present
-  let headerHtml = '';
-  if (content.sectionTitle) {
-    headerHtml = `<div><div><h2>${escapeHTML(content.sectionTitle)}</h2></div></div>`;
+  // Build DA table structure: each row contains one attribute, columns are cards
+  // Row 1: Header (section title) - single cell spanning all
+  // Row 2: Images (one per card)
+  // Row 3: Titles (one per card)
+  // Row 4: Meta (one per card)
+  // Row 5: Links (one per card) - optional
+
+  const recipes = content.recipes || [];
+  if (recipes.length === 0) {
+    return `<div class="recipe-cards${variant !== 'default' ? ` ${variant}` : ''}"></div>`;
   }
 
-  const recipesHtml = content.recipes.map((recipe: any, i: number) => {
-    const imageUrl = buildImageUrl(slug, `recipe-${i}`);
-    const meta = `${recipe.difficulty} • ${recipe.time}`;
+  let rowsHtml = '';
 
-    return `
-      <div>
-        <div>
-          <picture>
-            <img src="${imageUrl}" alt="${escapeHTML(recipe.title)}" data-gen-image="recipe-${i}" loading="lazy">
-          </picture>
-        </div>
-        <div>
-          <p><strong>${escapeHTML(recipe.title)}</strong></p>
-          <p>${escapeHTML(meta)}</p>
-          ${recipe.linkUrl ? `<p><a href="${escapeHTML(recipe.linkUrl)}">View Recipe</a></p>` : ''}
-        </div>
-      </div>
-    `;
+  // Section title row (single cell)
+  if (content.sectionTitle) {
+    rowsHtml += `<div><div><h2>${escapeHTML(content.sectionTitle)}</h2></div></div>`;
+  }
+
+  // Row 1: Images - each cell is one card's image
+  const imagesRow = recipes.map((recipe: any, i: number) => {
+    const imageUrl = buildImageUrl(slug, `recipe-${i}`);
+    return `<div><picture><img src="${imageUrl}" alt="${escapeHTML(recipe.title)}" data-gen-image="recipe-${i}" loading="lazy"></picture></div>`;
   }).join('');
+  rowsHtml += `<div>${imagesRow}</div>`;
+
+  // Row 2: Titles - each cell is one card's title
+  const titlesRow = recipes.map((recipe: any) => {
+    return `<div><p><strong>${escapeHTML(recipe.title)}</strong></p></div>`;
+  }).join('');
+  rowsHtml += `<div>${titlesRow}</div>`;
+
+  // Row 3: Meta (difficulty • time) - each cell is one card's meta
+  const metaRow = recipes.map((recipe: any) => {
+    const meta = `${recipe.difficulty || 'Easy'} • ${recipe.time || '10 min'}`;
+    return `<div><p>${escapeHTML(meta)}</p></div>`;
+  }).join('');
+  rowsHtml += `<div>${metaRow}</div>`;
+
+  // Row 4: Links (optional) - each cell is one card's link
+  const hasLinks = recipes.some((r: any) => r.linkUrl);
+  if (hasLinks) {
+    const linksRow = recipes.map((recipe: any) => {
+      if (recipe.linkUrl) {
+        return `<div><p><a href="${escapeHTML(recipe.linkUrl)}">View Recipe</a></p></div>`;
+      }
+      return `<div></div>`;
+    }).join('');
+    rowsHtml += `<div>${linksRow}</div>`;
+  }
 
   return `
     <div class="recipe-cards${variant !== 'default' ? ` ${variant}` : ''}">
-      ${headerHtml}
-      ${recipesHtml}
+      ${rowsHtml}
     </div>
   `.trim();
 }
@@ -1018,8 +1093,275 @@ function buildTipsBannerHTML(content: any, variant: string): string {
 }
 
 /**
+ * Build Ingredient Search block HTML
+ *
+ * Ingredient Search is authored as a table block in DA:
+ * | Ingredient Search            |
+ * |------------------------------|
+ * | **Find Recipes by Ingredient** |
+ * | Enter ingredients you have   |
+ * | banana | spinach | berries   |
+ *
+ * The block JS handles all interactivity (tag input, search, results).
+ * HTML structure:
+ * <div class="ingredient-search">
+ *   <div>
+ *     <div><h2>Title</h2></div>
+ *   </div>
+ *   <div>
+ *     <div><p>Subtitle</p></div>
+ *   </div>
+ *   <div>
+ *     <div>suggestion1</div>
+ *     <div>suggestion2</div>
+ *   </div>
+ * </div>
+ */
+function buildIngredientSearchHTML(content: any, variant: string): string {
+  // Title row
+  const titleHtml = content.title
+    ? `<div><div><h2>${escapeHTML(content.title)}</h2></div></div>`
+    : '';
+
+  // Subtitle row
+  const subtitleHtml = content.subtitle
+    ? `<div><div><p>${escapeHTML(content.subtitle)}</p></div></div>`
+    : '';
+
+  // Suggestions row (each suggestion in a cell)
+  let suggestionsHtml = '';
+  if (content.suggestions && content.suggestions.length > 0) {
+    const cells = content.suggestions.map((s: string) => `<div>${escapeHTML(s)}</div>`).join('');
+    suggestionsHtml = `<div>${cells}</div>`;
+  }
+
+  return `
+    <div class="ingredient-search${variant !== 'default' ? ` ${variant}` : ''}">
+      ${titleHtml}
+      ${subtitleHtml}
+      ${suggestionsHtml}
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Recipe Filter Bar block HTML
+ *
+ * Recipe Filter Bar is authored as a table block in DA:
+ * | Recipe Filter Bar            |
+ * |------------------------------|
+ * | Difficulty                   |
+ * | All | Quick | Medium | Long  |
+ *
+ * The block JS generates all the interactive UI.
+ * HTML structure:
+ * <div class="recipe-filter-bar">
+ *   <div><div>Difficulty</div></div>
+ *   <div><div>All</div><div>Quick</div>...</div>
+ * </div>
+ */
+function buildRecipeFilterBarHTML(content: any, variant: string): string {
+  // The block JS generates the full UI, we just need the container
+  return `
+    <div class="recipe-filter-bar${variant !== 'default' ? ` ${variant}` : ''}">
+      <div><div>Difficulty</div></div>
+      <div><div>All</div><div>Quick</div><div>Medium</div><div>Long</div></div>
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Recipe Grid block HTML
+ *
+ * Recipe Grid is authored as a table block in DA:
+ * | Recipe Grid                    |                       |                       |
+ * |--------------------------------|-----------------------|-----------------------|
+ * | [smoothie.jpg]                 | [soup.jpg]            | [bowl.jpg]            |
+ * | **Green Power Smoothie**       | **Tomato Basil Soup** | **Acai Bowl**         |
+ * | Easy • 5 min                   | Medium • 20 min       | Easy • 10 min         |
+ * | 1                              | 3                     | 2                     |
+ * | banana,spinach,milk            | tomato,basil,garlic   | acai,banana,berries   |
+ * | /recipes/green-smoothie        | /recipes/tomato-soup  | /recipes/acai-bowl    |
+ *
+ * Row structure: images, titles, meta, difficulty level (1-5), ingredients, links
+ *
+ * HTML structure:
+ * <div class="recipe-grid">
+ *   <div><div>[img1]</div><div>[img2]</div>...</div>
+ *   <div><div>Title1</div><div>Title2</div>...</div>
+ *   ...
+ * </div>
+ */
+function buildRecipeGridHTML(content: any, variant: string, slug: string): string {
+  const recipes = content.recipes || [];
+  if (recipes.length === 0) {
+    return `<div class="recipe-grid${variant !== 'default' ? ` ${variant}` : ''}"></div>`;
+  }
+
+  let rowsHtml = '';
+
+  // Row 1: Images
+  const imagesRow = recipes.map((recipe: any, i: number) => {
+    const imageUrl = buildImageUrl(slug, `grid-recipe-${i}`);
+    return `<div><picture><img src="${imageUrl}" alt="${escapeHTML(recipe.title)}" data-gen-image="grid-recipe-${i}" loading="lazy"></picture></div>`;
+  }).join('');
+  rowsHtml += `<div>${imagesRow}</div>`;
+
+  // Row 2: Titles
+  const titlesRow = recipes.map((recipe: any) => {
+    return `<div><p><strong>${escapeHTML(recipe.title)}</strong></p></div>`;
+  }).join('');
+  rowsHtml += `<div>${titlesRow}</div>`;
+
+  // Row 3: Meta (difficulty • time)
+  const metaRow = recipes.map((recipe: any) => {
+    const meta = `${recipe.difficulty || 'Easy'} • ${recipe.time || '10 min'}`;
+    return `<div><p>${escapeHTML(meta)}</p></div>`;
+  }).join('');
+  rowsHtml += `<div>${metaRow}</div>`;
+
+  // Row 4: Difficulty levels (1-5)
+  const difficultyRow = recipes.map((recipe: any) => {
+    return `<div><p>${recipe.difficultyLevel || 1}</p></div>`;
+  }).join('');
+  rowsHtml += `<div>${difficultyRow}</div>`;
+
+  // Row 5: Ingredients (comma-separated)
+  const ingredientsRow = recipes.map((recipe: any) => {
+    const ingredients = (recipe.ingredients || []).join(',');
+    return `<div><p>${escapeHTML(ingredients)}</p></div>`;
+  }).join('');
+  rowsHtml += `<div>${ingredientsRow}</div>`;
+
+  // Row 6: Links
+  const linksRow = recipes.map((recipe: any) => {
+    return `<div><p><a href="${escapeHTML(recipe.linkUrl || '/recipes')}">${escapeHTML(recipe.linkUrl || '/recipes')}</a></p></div>`;
+  }).join('');
+  rowsHtml += `<div>${linksRow}</div>`;
+
+  return `
+    <div class="recipe-grid${variant !== 'default' ? ` ${variant}` : ''}">
+      ${rowsHtml}
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Quick View Modal block HTML
+ *
+ * Quick View Modal is a container that listens for recipe-quick-view events.
+ * It doesn't need authored content - the block JS creates the UI.
+ *
+ * | Quick View Modal |
+ * |------------------|
+ * | enabled          |
+ *
+ * HTML structure:
+ * <div class="quick-view-modal">
+ *   <div><div>enabled</div></div>
+ * </div>
+ */
+function buildQuickViewModalHTML(content: any, variant: string): string {
+  return `
+    <div class="quick-view-modal${variant !== 'default' ? ` ${variant}` : ''}">
+      <div><div>enabled</div></div>
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Technique Spotlight block HTML
+ *
+ * Technique Spotlight is authored as a table block in DA:
+ * | Technique Spotlight                                           |
+ * |---------------------------------------------------------------|
+ * | [technique-image.jpg]                                         |
+ * | **Layering Technique**                                        |
+ * | Master the art of layering ingredients for perfect blends.    |
+ * | Liquid first • Soft ingredients • Frozen on top               |
+ * | Start slow, increase speed                                    |
+ * | Blend for 60 seconds                                          |
+ * | /learn/layering-technique                                     |
+ *
+ * HTML structure:
+ * <div class="technique-spotlight">
+ *   <div><div>[image]</div></div>
+ *   <div><div><strong>Title</strong></div></div>
+ *   <div><div>Description</div></div>
+ *   <div><div>tip1 • tip2 • tip3</div></div>
+ *   <div><div>tip4</div></div>
+ *   <div><div>tip5</div></div>
+ *   <div><div><a href="...">link</a></div></div>
+ * </div>
+ */
+function buildTechniqueSpotlightHTML(content: any, variant: string, slug: string, blockId: string): string {
+  const imageId = `technique-${blockId}`;
+  const imageUrl = buildImageUrl(slug, imageId);
+
+  let rowsHtml = '';
+
+  // Row 1: Image/Video
+  if (content.videoUrl) {
+    rowsHtml += `<div><div><a href="${escapeHTML(content.videoUrl)}">${escapeHTML(content.videoUrl)}</a></div></div>`;
+  } else {
+    rowsHtml += `<div><div><picture><img src="${imageUrl}" alt="${escapeHTML(content.title || 'Technique')}" data-gen-image="${imageId}" loading="lazy"></picture></div></div>`;
+  }
+
+  // Row 2: Title
+  if (content.title) {
+    rowsHtml += `<div><div><p><strong>${escapeHTML(content.title)}</strong></p></div></div>`;
+  }
+
+  // Row 3: Description
+  if (content.description) {
+    rowsHtml += `<div><div><p>${escapeHTML(content.description)}</p></div></div>`;
+  }
+
+  // Row 4+: Tips (each tip as bullet points or separate rows)
+  if (content.tips && content.tips.length > 0) {
+    // First tip row with bullet points
+    if (content.tips.length >= 3) {
+      const firstThree = content.tips.slice(0, 3).join(' • ');
+      rowsHtml += `<div><div><p>${escapeHTML(firstThree)}</p></div></div>`;
+    }
+    // Remaining tips as separate rows
+    for (let i = 3; i < content.tips.length; i++) {
+      rowsHtml += `<div><div><p>${escapeHTML(content.tips[i])}</p></div></div>`;
+    }
+  }
+
+  // Link row
+  if (content.linkUrl) {
+    rowsHtml += `<div><div><p><a href="${escapeHTML(content.linkUrl)}">${escapeHTML(content.linkUrl)}</a></p></div></div>`;
+  }
+
+  return `
+    <div class="technique-spotlight${variant !== 'default' ? ` ${variant}` : ''}">
+      ${rowsHtml}
+    </div>
+  `.trim();
+}
+
+/**
  * Build complete EDS-compatible HTML
  * Images already have predictable URLs built into the block HTML
+ *
+ * EDS Section Structure Rules:
+ * 1. Each section is a <div> directly inside <main>
+ * 2. NO <hr> separators - sections are defined by the wrapping divs
+ * 3. section-metadata block must be INSIDE the same div as the content block
+ *    (not in a separate wrapper div)
+ *
+ * Correct structure:
+ * <main>
+ *   <div>                                    <!-- section 1 -->
+ *     <div class="block-name">...</div>      <!-- block content -->
+ *     <div class="section-metadata">...</div> <!-- metadata inside same section -->
+ *   </div>
+ *   <div>                                    <!-- section 2 -->
+ *     <div class="block-name">...</div>
+ *   </div>
+ * </main>
  */
 function buildEDSHTML(
   content: GeneratedContent,
@@ -1032,14 +1374,25 @@ function buildEDSHTML(
     if (!contentBlock) return '';
 
     const blockHtml = buildBlockHTML(contentBlock, layoutBlock, slug);
-    const width = layoutBlock.width === 'full' ? '' : 'contained';
 
+    // Build section-metadata if section has a style
+    let sectionMetadataHtml = '';
+    if (layoutBlock.sectionStyle && layoutBlock.sectionStyle !== 'default') {
+      sectionMetadataHtml = `
+      <div class="section-metadata">
+        <div>
+          <div>style</div>
+          <div>${layoutBlock.sectionStyle}</div>
+        </div>
+      </div>`;
+    }
+
+    // Return section with block + section-metadata inside the same div
+    // NO <hr> separator - sections are defined by the wrapping divs
     return `
-    <div${width ? ` class="${width}"` : ''}>
-      ${blockHtml}
-    </div>
-    <hr>
-    `;
+    <div>
+      ${blockHtml}${sectionMetadataHtml}
+    </div>`;
   }).join('\n');
 
   return `

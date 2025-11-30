@@ -289,6 +289,9 @@ function getImageType(imageId: string): string {
   if (imageId === 'hero') return 'hero';
   if (imageId.startsWith('card-')) return 'card';
   if (imageId.startsWith('col-')) return 'column';
+  if (imageId.startsWith('recipe-')) return 'card';
+  if (imageId.startsWith('grid-recipe-')) return 'card';
+  if (imageId.startsWith('technique-')) return 'card';
   return 'card'; // default
 }
 

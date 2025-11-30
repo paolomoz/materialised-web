@@ -12,11 +12,12 @@
 
 export interface BlockTemplate {
   type: 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq'
-    | 'benefits-grid' | 'recipe-cards' | 'product-recommendation' | 'tips-banner';
+    | 'benefits-grid' | 'recipe-cards' | 'product-recommendation' | 'tips-banner'
+    | 'ingredient-search' | 'recipe-filter-bar' | 'recipe-grid' | 'quick-view-modal' | 'technique-spotlight';
   variant?: string;
   width?: 'full' | 'contained';
   config?: {
-    itemCount?: number; // For cards, columns, faq, benefits-grid, recipe-cards, tips-banner
+    itemCount?: number; // For cards, columns, faq, benefits-grid, recipe-cards, tips-banner, recipe-grid
     hasImage?: boolean;
     [key: string]: any;
   };
@@ -123,36 +124,68 @@ export const LAYOUT_PRODUCT_COMPARISON: LayoutTemplate = {
 
 /**
  * Layout 3: Recipe Collection
- * Multiple recipes with tips and techniques
+ * Interactive recipe collection with filtering, search, and quick view modal.
+ *
+ * Uses specialized blocks:
+ * - ingredient-search: AI-powered ingredient input with tag chips
+ * - recipe-filter-bar: Difficulty slider + time filter buttons
+ * - recipe-grid: Filterable cards with favorites toggle
+ * - quick-view-modal: Recipe preview overlay (triggered by card click)
+ * - technique-spotlight: 50/50 split with tips and video/image
  */
 export const LAYOUT_RECIPE_COLLECTION: LayoutTemplate = {
   id: 'recipe-collection',
   name: 'Recipe Collection',
-  description: 'Collection of related recipes',
+  description: 'Interactive recipe collection with filtering and AI-powered ingredient search',
   useCases: [
     'Soup recipes',
     'Smoothie ideas',
     'Healthy breakfast recipes',
+    'Recipes with bananas',
+    'Quick dinner ideas',
   ],
   sections: [
     {
+      // Hero section - full width with collection title
       blocks: [
         { type: 'hero', variant: 'full-width', width: 'full', config: { hasImage: true } },
       ],
     },
     {
-      blocks: [
-        { type: 'cards', config: { itemCount: 4 } },
-      ],
-    },
-    {
+      // AI-powered ingredient search
       style: 'highlight',
       blocks: [
-        { type: 'columns', config: { itemCount: 3 } },
+        { type: 'ingredient-search' },
       ],
     },
     {
+      // Filter bar (sticky) - difficulty slider + time buttons
+      blocks: [
+        { type: 'recipe-filter-bar' },
+      ],
+    },
+    {
+      // Recipe grid - filterable cards with favorites
+      blocks: [
+        { type: 'recipe-grid', config: { itemCount: 6 } },
+      ],
+    },
+    {
+      // Technique spotlight - 50/50 split with tips
       style: 'dark',
+      blocks: [
+        { type: 'technique-spotlight', config: { hasImage: true } },
+      ],
+    },
+    {
+      // Quick view modal container (hidden, triggered by card clicks)
+      blocks: [
+        { type: 'quick-view-modal' },
+      ],
+    },
+    {
+      // CTA section
+      style: 'highlight',
       blocks: [
         { type: 'cta' },
       ],
@@ -542,7 +575,8 @@ export function getLayoutForIntent(
  * This creates the block mapping used for HTML generation
  */
 export type BlockType = 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq'
-  | 'benefits-grid' | 'recipe-cards' | 'product-recommendation' | 'tips-banner';
+  | 'benefits-grid' | 'recipe-cards' | 'product-recommendation' | 'tips-banner'
+  | 'ingredient-search' | 'recipe-filter-bar' | 'recipe-grid' | 'quick-view-modal' | 'technique-spotlight';
 
 export function templateToLayoutDecision(layout: LayoutTemplate): {
   blocks: Array<{

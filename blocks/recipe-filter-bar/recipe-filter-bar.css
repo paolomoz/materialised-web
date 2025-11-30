@@ -1,0 +1,219 @@
+/**
+ * Recipe Filter Bar Block Styles
+ *
+ * Horizontal filter bar with difficulty slider and time buttons.
+ */
+
+.recipe-filter-bar {
+  background: #fff;
+  border-bottom: 1px solid #e5e5e5;
+  padding: 1rem 1.5rem;
+  position: sticky;
+  top: 64px; /* Below header */
+  z-index: 100;
+}
+
+.recipe-filter-bar-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.filter-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  white-space: nowrap;
+}
+
+.filter-divider {
+  width: 1px;
+  height: 32px;
+  background: #e5e5e5;
+}
+
+/* Difficulty slider */
+.filter-difficulty {
+  flex: 0 1 auto;
+  min-width: 280px;
+  max-width: 400px;
+}
+
+.slider-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.slider-label {
+  font-size: 0.75rem;
+  color: #666;
+  white-space: nowrap;
+}
+
+.difficulty-slider {
+  flex: 1;
+  height: 6px;
+  appearance: none;
+  background: #e5e5e5;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.difficulty-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #c41230;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgb(196 18 48 / 30%);
+  transition: transform 0.15s ease;
+}
+
+.difficulty-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+.difficulty-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: #c41230;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgb(196 18 48 / 30%);
+}
+
+.slider-value {
+  min-width: 70px;
+  text-align: right;
+}
+
+.difficulty-display {
+  font-size: 0.75rem;
+  color: #666;
+  background: #f5f5f5;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* Time buttons */
+.time-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.time-btn {
+  padding: 0.5rem 1rem;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.time-btn:hover {
+  border-color: #c41230;
+  color: #c41230;
+}
+
+.time-btn.active {
+  background: #c41230;
+  border-color: #c41230;
+  color: #fff;
+}
+
+/* Recipe count */
+.filter-count {
+  margin-left: auto;
+  gap: 1rem;
+}
+
+.recipe-count {
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.count-number {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.reset-filters {
+  background: none;
+  border: none;
+  color: #c41230;
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.reset-filters:hover {
+  color: #a30f28;
+}
+
+/* Responsive */
+@media (width < 900px) {
+  .recipe-filter-bar {
+    padding: 1rem;
+  }
+
+  .recipe-filter-bar-inner {
+    gap: 1rem;
+  }
+
+  .filter-divider {
+    display: none;
+  }
+
+  .filter-difficulty {
+    order: 1;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .slider-wrapper {
+    width: 100%;
+  }
+
+  .filter-time {
+    order: 2;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .time-buttons {
+    flex-wrap: wrap;
+  }
+
+  .filter-count {
+    order: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (width < 640px) {
+  .time-btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+  }
+}

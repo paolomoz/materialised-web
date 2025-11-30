@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Smoothie Recipes Collection - Layout 3 Test</title>
+  <meta name="description" content="Test page for Layout 3 Recipe Collection blocks">
+  <meta name="template" content="generative">
+  <link rel="stylesheet" href="/styles/styles.css">
+  <script src="/scripts/scripts.js" type="module"></script>
+</head>
+<body>
+  <header></header>
+  <main>
+    <!-- Hero Section -->
+    <div>
+      <div class="hero full-width">
+        <div>
+          <div>
+            <picture>
+              <img src="https://images.unsplash.com/photo-1638176066666-ffb2f013c7dd?w=1600&h=600&fit=crop" alt="Smoothie Collection" loading="lazy">
+            </picture>
+          </div>
+          <div>
+            <h1>Smoothie Recipes Collection</h1>
+            <p>Discover delicious and nutritious smoothie recipes for every taste and occasion.</p>
+            <p><a href="#recipes" class="button">Explore Recipes</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ingredient Search Section (highlight) -->
+    <div>
+      <div class="ingredient-search">
+        <div>
+          <div><h2>Find Recipes by Ingredient</h2></div>
+        </div>
+        <div>
+          <div><p>Enter ingredients you have on hand and we'll find matching recipes</p></div>
+        </div>
+        <div>
+          <div>banana</div>
+          <div>spinach</div>
+          <div>berries</div>
+          <div>mango</div>
+          <div>protein powder</div>
+        </div>
+      </div>
+      <div class="section-metadata">
+        <div>
+          <div>style</div>
+          <div>highlight</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recipe Filter Bar Section -->
+    <div>
+      <div class="recipe-filter-bar">
+        <div>
+          <div>Difficulty</div>
+        </div>
+        <div>
+          <div>All</div>
+          <div>Quick</div>
+          <div>Medium</div>
+          <div>Long</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recipe Grid Section -->
+    <div id="recipes">
+      <div class="recipe-grid">
+        <!-- Row 1: Images -->
+        <div>
+          <div>
+            <picture>
+              <img src="https://images.unsplash.com/photo-1505252585461-04db1eb84625?w=400&h=300&fit=crop" alt="Green Power Smoothie" loading="lazy">
+            </picture>
+          </div>
+          <div>
+            <picture>
+              <img src="https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=400&h=300&fit=crop" alt="Berry Blast" loading="lazy">
+            </picture>
+          </div>
+          <div>
+            <picture>
+              <img src="https://images.unsplash.com/photo-1546173159-315724a31696?w=400&h=300&fit=crop" alt="Tropical Paradise" loading="lazy">
+            </picture>
+          </div>
+          <div>
+            <picture>
+              <img src="https://images.unsplash.com/photo-1590301157890-4810ed352733?w=400&h=300&fit=crop" alt="Chocolate Protein" loading="lazy">
+            </picture>
+          </div>
+          <div>
+            <picture>
+              <img src="https://images.unsplash.com/photo-1623065422902-30a2d299bbe4?w=400&h=300&fit=crop" alt="Morning Energizer" loading="lazy">
+            </picture>
+          </div>
+          <div>
+            <picture>
+              <img src="https://images.unsplash.com/photo-1577805947697-89e18249d767?w=400&h=300&fit=crop" alt="Acai Bowl Smoothie" loading="lazy">
+            </picture>
+          </div>
+        </div>
+        <!-- Row 2: Titles -->
+        <div>
+          <div><p><strong>Green Power Smoothie</strong></p></div>
+          <div><p><strong>Berry Blast</strong></p></div>
+          <div><p><strong>Tropical Paradise</strong></p></div>
+          <div><p><strong>Chocolate Protein</strong></p></div>
+          <div><p><strong>Morning Energizer</strong></p></div>
+          <div><p><strong>Acai Bowl Smoothie</strong></p></div>
+        </div>
+        <!-- Row 3: Meta (difficulty + time) -->
+        <div>
+          <div><p>Easy • 5 min</p></div>
+          <div><p>Easy • 5 min</p></div>
+          <div><p>Easy • 10 min</p></div>
+          <div><p>Medium • 10 min</p></div>
+          <div><p>Easy • 5 min</p></div>
+          <div><p>Medium • 15 min</p></div>
+        </div>
+        <!-- Row 4: Difficulty levels (1-5) -->
+        <div>
+          <div><p>1</p></div>
+          <div><p>1</p></div>
+          <div><p>2</p></div>
+          <div><p>3</p></div>
+          <div><p>2</p></div>
+          <div><p>3</p></div>
+        </div>
+        <!-- Row 5: Ingredients (comma-separated) -->
+        <div>
+          <div><p>spinach,banana,almond milk,chia seeds</p></div>
+          <div><p>strawberry,blueberry,raspberry,yogurt</p></div>
+          <div><p>mango,pineapple,coconut milk,lime</p></div>
+          <div><p>chocolate,banana,protein powder,almond butter</p></div>
+          <div><p>orange,carrot,ginger,turmeric</p></div>
+          <div><p>acai,banana,granola,honey</p></div>
+        </div>
+        <!-- Row 6: Links -->
+        <div>
+          <div><p><a href="/recipes/green-power-smoothie">/recipes/green-power-smoothie</a></p></div>
+          <div><p><a href="/recipes/berry-blast">/recipes/berry-blast</a></p></div>
+          <div><p><a href="/recipes/tropical-paradise">/recipes/tropical-paradise</a></p></div>
+          <div><p><a href="/recipes/chocolate-protein">/recipes/chocolate-protein</a></p></div>
+          <div><p><a href="/recipes/morning-energizer">/recipes/morning-energizer</a></p></div>
+          <div><p><a href="/recipes/acai-bowl-smoothie">/recipes/acai-bowl-smoothie</a></p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Technique Spotlight Section (dark) -->
+    <div>
+      <div class="technique-spotlight">
+        <div>
+          <div>
+            <picture>
+              <img src="https://images.unsplash.com/photo-1589733955941-5eeaf752f6dd?w=600&h=600&fit=crop" alt="Layering Technique" loading="lazy">
+            </picture>
+          </div>
+        </div>
+        <div>
+          <div><p><strong>The Perfect Layering Technique</strong></p></div>
+        </div>
+        <div>
+          <div><p>Master the art of layering ingredients for smooth, consistent blends every time.</p></div>
+        </div>
+        <div>
+          <div><p>Liquid first • Soft ingredients • Frozen on top</p></div>
+        </div>
+        <div>
+          <div><p>Start on low speed and gradually increase</p></div>
+        </div>
+        <div>
+          <div><p>Blend for 60 seconds for optimal texture</p></div>
+        </div>
+        <div>
+          <div><p><a href="/learn/layering-technique">/learn/layering-technique</a></p></div>
+        </div>
+      </div>
+      <div class="section-metadata">
+        <div>
+          <div>style</div>
+          <div>dark</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick View Modal Container -->
+    <div>
+      <div class="quick-view-modal">
+        <div>
+          <div>enabled</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA Section (highlight) -->
+    <div>
+      <div class="cta">
+        <div>
+          <div>
+            <h2>Ready to Blend?</h2>
+            <p>Find the perfect Vitamix blender for your smoothie journey.</p>
+            <p><a href="/products/blenders" class="button primary">Shop Blenders</a></p>
+          </div>
+        </div>
+      </div>
+      <div class="section-metadata">
+        <div>
+          <div>style</div>
+          <div>highlight</div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer></footer>
+</body>
+</html>

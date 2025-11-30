@@ -37,6 +37,11 @@ export default {
       return handleSetupHomepage(request, env);
     }
 
+    // AI-powered ingredient search
+    if (url.pathname === '/api/ingredient-match' && request.method === 'POST') {
+      return handleIngredientMatch(request, env);
+    }
+
     // Proxy to EDS or serve generated page
     if (url.pathname.startsWith('/discover/')) {
       return handleDiscover(request, env);
@@ -654,6 +659,109 @@ function escapeHTML(str: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/**
+ * Handle AI-powered ingredient matching
+ * Uses Claude to suggest recipes based on user's ingredients
+ */
+async function handleIngredientMatch(request: Request, env: Env): Promise<Response> {
+  try {
+    const { ingredients } = await request.json() as { ingredients: string };
+
+    if (!ingredients || ingredients.trim().length === 0) {
+      return new Response(JSON.stringify({ error: 'Ingredients required' }), {
+        status: 400,
+        headers: corsHeaders({ 'Content-Type': 'application/json' }),
+      });
+    }
+
+    // Call Claude to generate recipe suggestions based on ingredients
+    const systemPrompt = `You are a Vitamix recipe expert. Given a list of ingredients, suggest 3-6 smoothie or blender recipes that can be made with those ingredients.
+
+For each recipe, provide:
+- title: A catchy recipe name
+- difficulty: "Easy", "Medium", or "Hard"
+- time: Prep time like "5 min", "10 min", etc.
+- matchPercent: How well the user's ingredients match (70-100)
+- description: One sentence describing the recipe
+- missingIngredients: Array of 0-2 common ingredients they might need to add
+
+Return ONLY valid JSON in this exact format:
+{
+  "recipes": [
+    {
+      "title": "Green Power Smoothie",
+      "difficulty": "Easy",
+      "time": "5 min",
+      "matchPercent": 95,
+      "description": "A nutrient-packed green smoothie with spinach and banana.",
+      "missingIngredients": ["almond milk"]
+    }
+  ]
+}`;
+
+    const userPrompt = `Suggest Vitamix recipes using these ingredients: ${ingredients}
+
+Consider:
+- Prioritize recipes where the user has most ingredients
+- Include a mix of smoothies and other blender recipes if possible
+- Be creative but practical
+- Higher matchPercent for recipes needing fewer additional ingredients`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        messages: [
+          { role: 'user', content: userPrompt },
+        ],
+        system: systemPrompt,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Claude API error:', errorText);
+      throw new Error(`Claude API error: ${response.status}`);
+    }
+
+    const data = await response.json() as {
+      content: Array<{ type: string; text?: string }>;
+    };
+
+    const textContent = data.content.find(c => c.type === 'text');
+    if (!textContent?.text) {
+      throw new Error('No text response from Claude');
+    }
+
+    // Parse the JSON response (strip markdown code blocks if present)
+    let jsonText = textContent.text.trim();
+    if (jsonText.startsWith('```')) {
+      // Remove markdown code block wrapper
+      jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+    }
+    const recipeData = JSON.parse(jsonText);
+
+    return new Response(JSON.stringify(recipeData), {
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  } catch (error) {
+    console.error('Ingredient match error:', error);
+    return new Response(JSON.stringify({
+      error: 'Failed to find recipes',
+      message: (error as Error).message,
+    }), {
+      status: 500,
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  }
 }
 
 /**
