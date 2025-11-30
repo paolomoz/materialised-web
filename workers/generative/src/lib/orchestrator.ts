@@ -344,6 +344,23 @@ function buildImageRequests(
         }
         break;
 
+      case 'troubleshooting-steps':
+        // Troubleshooting steps may have images for each step
+        if (blockContent.steps) {
+          blockContent.steps.forEach((step: any, i: number) => {
+            if (step.imagePrompt || decision?.prompt) {
+              requests.push({
+                id: `step-${block.id}-${i}`,
+                blockId: block.id,
+                prompt: step.imagePrompt || decision?.prompt || `Illustration for troubleshooting step: ${step.title}`,
+                aspectRatio: '4:3',
+                size: 'card',
+              });
+            }
+          });
+        }
+        break;
+
       // UI-only blocks that don't have images
       case 'ingredient-search':
       case 'recipe-filter-bar':
@@ -353,6 +370,9 @@ function buildImageRequests(
       case 'cta':
       case 'text':
       case 'faq':
+      case 'support-hero':
+      case 'diagnosis-card':
+      case 'support-cta':
         // No images needed for these blocks
         break;
 
@@ -517,6 +537,14 @@ function buildBlockHTML(
       return buildQuickViewModalHTML(content as any, variant);
     case 'technique-spotlight':
       return buildTechniqueSpotlightHTML(content as any, variant, slug, block.id);
+    case 'support-hero':
+      return buildSupportHeroHTML(content as any, variant);
+    case 'diagnosis-card':
+      return buildDiagnosisCardHTML(content as any, variant);
+    case 'troubleshooting-steps':
+      return buildTroubleshootingStepsHTML(content as any, variant, slug, block.id);
+    case 'support-cta':
+      return buildSupportCTAHTML(content as any, variant);
     default:
       return '';
   }
@@ -1338,6 +1366,194 @@ function buildTechniqueSpotlightHTML(content: any, variant: string, slug: string
   return `
     <div class="technique-spotlight${variant !== 'default' ? ` ${variant}` : ''}">
       ${rowsHtml}
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Support Hero block HTML
+ *
+ * Support Hero is authored as a table block in DA:
+ * | Support Hero                                    |
+ * |-------------------------------------------------|
+ * | :icon-warning:                                  |
+ * | Troubleshooting: Grinding Noise                 |
+ * | Let's get your Vitamix back to peak performance |
+ *
+ * HTML structure:
+ * <div class="support-hero">
+ *   <div><div>:icon-warning:</div></div>
+ *   <div><div>Title</div></div>
+ *   <div><div>Subtitle</div></div>
+ * </div>
+ */
+function buildSupportHeroHTML(content: any, variant: string): string {
+  let rowsHtml = '';
+
+  // Row 1: Icon
+  if (content.icon) {
+    rowsHtml += `<div><div><span class="icon icon-${escapeHTML(content.icon)}"></span></div></div>`;
+  }
+
+  // Row 2: Title
+  if (content.title) {
+    rowsHtml += `<div><div>${escapeHTML(content.title)}</div></div>`;
+  }
+
+  // Row 3: Subtitle
+  if (content.subtitle) {
+    rowsHtml += `<div><div>${escapeHTML(content.subtitle)}</div></div>`;
+  }
+
+  return `
+    <div class="support-hero${variant !== 'default' ? ` ${variant}` : ''}">
+      ${rowsHtml}
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Diagnosis Card block HTML
+ *
+ * Diagnosis Card is authored as a table block in DA:
+ * | Diagnosis Card                |                        |                      |
+ * |-------------------------------|------------------------|----------------------|
+ * | minor                         | moderate               | serious              |
+ * | Ice or frozen ingredients     | Blade wear or buildup  | Motor issue          |
+ * | Normal during hard blending   | May need cleaning      | Requires service     |
+ *
+ * HTML structure:
+ * <div class="diagnosis-card">
+ *   <div><div>minor</div><div>moderate</div><div>serious</div></div>
+ *   <div><div>cause1</div><div>cause2</div><div>cause3</div></div>
+ *   <div><div>impl1</div><div>impl2</div><div>impl3</div></div>
+ * </div>
+ */
+function buildDiagnosisCardHTML(content: any, variant: string): string {
+  const items = content.items || [];
+  if (items.length === 0) {
+    return `<div class="diagnosis-card${variant !== 'default' ? ` ${variant}` : ''}"></div>`;
+  }
+
+  // Row 1: Severity levels
+  const severityRow = items.map((item: any) => `<div>${escapeHTML(item.severity || 'minor')}</div>`).join('');
+
+  // Row 2: Causes
+  const causeRow = items.map((item: any) => `<div>${escapeHTML(item.cause || '')}</div>`).join('');
+
+  // Row 3: Implications
+  const implicationRow = items.map((item: any) => `<div>${escapeHTML(item.implication || '')}</div>`).join('');
+
+  return `
+    <div class="diagnosis-card${variant !== 'default' ? ` ${variant}` : ''}">
+      <div>${severityRow}</div>
+      <div>${causeRow}</div>
+      <div>${implicationRow}</div>
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Troubleshooting Steps block HTML
+ *
+ * Troubleshooting Steps is authored as a table block in DA:
+ * | Troubleshooting Steps                                            |
+ * |------------------------------------------------------------------|
+ * | 1                                                                |
+ * | Check for trapped ingredients                                    |
+ * | Unplug your blender and remove the container. Look under...      |
+ * |------------------------------------------------------------------|
+ * | 2                                                                |
+ * | Inspect the blade assembly                                       |
+ * | With the container removed, check for any visible damage...      |
+ *
+ * HTML structure:
+ * <div class="troubleshooting-steps">
+ *   <div><div>1</div></div>
+ *   <div><div>Title</div></div>
+ *   <div><div>Instructions</div></div>
+ *   <div><div>2</div></div>
+ *   ...
+ * </div>
+ */
+function buildTroubleshootingStepsHTML(content: any, variant: string, slug: string, blockId: string): string {
+  const steps = content.steps || [];
+  if (steps.length === 0) {
+    return `<div class="troubleshooting-steps${variant !== 'default' ? ` ${variant}` : ''}"></div>`;
+  }
+
+  let rowsHtml = '';
+
+  steps.forEach((step: any, index: number) => {
+    // Each step is ONE row with cells: | number | title | instructions | safety? |
+    let instructionsContent = escapeHTML(step.instructions || '');
+    if (step.imagePrompt) {
+      const imageId = `step-${blockId}-${index}`;
+      const imageUrl = buildImageUrl(slug, imageId);
+      instructionsContent += `<br><picture><img src="${imageUrl}" alt="${escapeHTML(step.title || '')}" data-gen-image="${imageId}" loading="lazy"></picture>`;
+    }
+
+    // Build the row with all cells for this step
+    rowsHtml += `
+      <div>
+        <div>${step.stepNumber || index + 1}</div>
+        <div>${escapeHTML(step.title || '')}</div>
+        <div>${instructionsContent}</div>
+        ${step.safetyNote ? `<div>safety:${escapeHTML(step.safetyNote)}</div>` : ''}
+      </div>
+    `;
+  });
+
+  return `
+    <div class="troubleshooting-steps${variant !== 'default' ? ` ${variant}` : ''}">
+      ${rowsHtml}
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Support CTA block HTML
+ *
+ * Support CTA is authored as a table block in DA:
+ * | Support CTA                   |                              |
+ * |-------------------------------|------------------------------|
+ * | Contact Support               | Order Parts                  |
+ * | Still need help? We're here.  | Replacement blades & more    |
+ * | /support/contact              | /shop/parts                  |
+ * | primary                       | secondary                    |
+ *
+ * HTML structure:
+ * <div class="support-cta">
+ *   <div><div>Title1</div><div>Title2</div></div>
+ *   <div><div>Desc1</div><div>Desc2</div></div>
+ *   <div><div>url1</div><div>url2</div></div>
+ *   <div><div>primary</div><div>secondary</div></div>
+ * </div>
+ */
+function buildSupportCTAHTML(content: any, variant: string): string {
+  const ctas = content.ctas || [];
+  if (ctas.length === 0) {
+    return `<div class="support-cta${variant !== 'default' ? ` ${variant}` : ''}"></div>`;
+  }
+
+  // Row 1: Titles
+  const titlesRow = ctas.map((cta: any) => `<div>${escapeHTML(cta.title || '')}</div>`).join('');
+
+  // Row 2: Descriptions
+  const descRow = ctas.map((cta: any) => `<div>${escapeHTML(cta.description || '')}</div>`).join('');
+
+  // Row 3: URLs
+  const urlRow = ctas.map((cta: any) => `<div>${escapeHTML(cta.url || '#')}</div>`).join('');
+
+  // Row 4: Styles
+  const styleRow = ctas.map((cta: any) => `<div>${escapeHTML(cta.style || 'secondary')}</div>`).join('');
+
+  return `
+    <div class="support-cta${variant !== 'default' ? ` ${variant}` : ''}">
+      <div>${titlesRow}</div>
+      <div>${descRow}</div>
+      <div>${urlRow}</div>
+      <div>${styleRow}</div>
     </div>
   `.trim();
 }

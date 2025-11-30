@@ -1,0 +1,234 @@
+/**
+ * Support CTA Block Styles
+ *
+ * Two-column action cards for support escalation.
+ * Follows Vitamix design system patterns.
+ */
+
+.support-cta {
+  padding: var(--spacing-section-md) var(--spacing-lg);
+  max-width: var(--max-width-content);
+  margin: 0 auto;
+}
+
+.support-cta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-xl);
+}
+
+/* CTA Card base */
+.support-cta-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: var(--spacing-2xl);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+  position: relative;
+}
+
+.support-cta-card:hover {
+  transform: translateY(-4px);
+  text-decoration: none;
+}
+
+/* Primary CTA (Contact Support) - uses brand red */
+.support-cta-primary {
+  background: var(--color-brand-red);
+  color: var(--color-white);
+  box-shadow: var(--shadow-lg);
+}
+
+.support-cta-primary:hover {
+  box-shadow: var(--shadow-xl);
+}
+
+.support-cta-primary:any-link {
+  color: var(--color-white);
+}
+
+/* Secondary CTA (Order Parts) - outlined style */
+.support-cta-secondary {
+  background: var(--color-white);
+  color: var(--color-brand-dark);
+  border: 1px solid var(--color-light-gray);
+  box-shadow: var(--shadow-sm);
+}
+
+.support-cta-secondary:hover {
+  border-color: var(--color-brand-red);
+  box-shadow: var(--shadow-md);
+}
+
+.support-cta-secondary:any-link {
+  color: var(--color-brand-dark);
+}
+
+/* Icon */
+.support-cta-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.support-cta-primary .support-cta-icon {
+  background: rgb(255 255 255 / 20%);
+}
+
+.support-cta-secondary .support-cta-icon {
+  background: var(--color-off-white);
+}
+
+.support-cta-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.support-cta-primary .support-cta-icon svg {
+  color: var(--color-white);
+}
+
+.support-cta-secondary .support-cta-icon svg {
+  color: var(--color-brand-red);
+}
+
+/* Title */
+.support-cta-title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  margin: 0 0 var(--spacing-sm);
+  line-height: 1.3;
+}
+
+.support-cta-primary .support-cta-title {
+  color: var(--color-white);
+}
+
+.support-cta-secondary .support-cta-title {
+  color: var(--color-brand-dark);
+}
+
+/* Description */
+.support-cta-description {
+  font-size: var(--font-size-base);
+  margin: 0;
+  line-height: 1.6;
+  flex: 1;
+}
+
+.support-cta-primary .support-cta-description {
+  color: rgb(255 255 255 / 80%);
+}
+
+.support-cta-secondary .support-cta-description {
+  color: var(--color-dark-gray);
+}
+
+/* Arrow */
+.support-cta-arrow {
+  position: absolute;
+  top: var(--spacing-2xl);
+  right: var(--spacing-2xl);
+  width: 24px;
+  height: 24px;
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity var(--transition-normal), transform var(--transition-normal);
+}
+
+.support-cta-card:hover .support-cta-arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.support-cta-arrow svg {
+  width: 100%;
+  height: 100%;
+}
+
+.support-cta-primary .support-cta-arrow svg {
+  color: var(--color-white);
+}
+
+.support-cta-secondary .support-cta-arrow svg {
+  color: var(--color-brand-red);
+}
+
+/* Section variants */
+.section.highlight .support-cta {
+  background: transparent;
+}
+
+.section.highlight .support-cta-secondary {
+  background: var(--color-white);
+  box-shadow: var(--shadow-md);
+}
+
+.section.dark .support-cta {
+  background: transparent;
+}
+
+.section.dark .support-cta-secondary {
+  background: rgb(255 255 255 / 10%);
+  border-color: rgb(255 255 255 / 20%);
+}
+
+.section.dark .support-cta-secondary .support-cta-title {
+  color: var(--color-white);
+}
+
+.section.dark .support-cta-secondary .support-cta-description {
+  color: rgb(255 255 255 / 70%);
+}
+
+.section.dark .support-cta-secondary .support-cta-icon {
+  background: rgb(255 255 255 / 10%);
+}
+
+.section.dark .support-cta-secondary .support-cta-icon svg {
+  color: var(--color-white);
+}
+
+.section.dark .support-cta-secondary .support-cta-arrow svg {
+  color: var(--color-white);
+}
+
+/* Responsive */
+@media (width < 768px) {
+  .support-cta {
+    padding: var(--spacing-section-sm) var(--spacing-md);
+  }
+
+  .support-cta-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+
+  .support-cta-card {
+    padding: var(--spacing-xl);
+  }
+
+  .support-cta-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .support-cta-icon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .support-cta-title {
+    font-size: var(--font-size-xl);
+  }
+
+  .support-cta-arrow {
+    display: none;
+  }
+}

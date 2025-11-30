@@ -96,7 +96,10 @@ export interface RAGContext {
 /**
  * Block types supported by EDS
  */
-export type BlockType = 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq';
+export type BlockType = 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq'
+  | 'benefits-grid' | 'recipe-cards' | 'product-recommendation' | 'tips-banner'
+  | 'ingredient-search' | 'recipe-filter-bar' | 'recipe-grid' | 'quick-view-modal' | 'technique-spotlight'
+  | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta';
 
 /**
  * Generated content structure
@@ -257,7 +260,7 @@ export interface GeneratedImage {
 export type SSEEvent =
   | { event: 'layout'; data: { blocks: BlockType[] } }
   | { event: 'block-start'; data: { blockId: string; blockType: BlockType; position: number } }
-  | { event: 'block-content'; data: { blockId: string; html: string; partial: boolean } }
+  | { event: 'block-content'; data: { blockId: string; html: string; partial: boolean; sectionStyle?: 'default' | 'highlight' | 'dark' } }
   | { event: 'block-complete'; data: { blockId: string } }
   | { event: 'image-placeholder'; data: { imageId: string; blockId: string } }
   | { event: 'image-ready'; data: { imageId: string; url: string } }

@@ -33,7 +33,7 @@ Return a JSON object with this structure:
   "subheadline": "Supporting text (expand on headline)",
   "blocks": [
     {
-      "type": "hero" | "cards" | "columns" | "split-content" | "text" | "cta" | "faq" | "benefits-grid" | "recipe-cards" | "product-recommendation" | "tips-banner" | "ingredient-search" | "recipe-filter-bar" | "recipe-grid" | "quick-view-modal" | "technique-spotlight",
+      "type": "hero" | "cards" | "columns" | "split-content" | "text" | "cta" | "faq" | "benefits-grid" | "recipe-cards" | "product-recommendation" | "tips-banner" | "ingredient-search" | "recipe-filter-bar" | "recipe-grid" | "quick-view-modal" | "technique-spotlight" | "support-hero" | "diagnosis-card" | "troubleshooting-steps" | "support-cta",
       "variant": "default" | "full-width" | "highlight" | "reverse" | etc.,
       "sectionStyle": "default" | "highlight" | "dark",
       "content": { /* block-specific content */ }
@@ -331,6 +331,86 @@ Return a JSON object with this structure:
 - Use videoUrl for video content, imagePrompt for static images
 - Tips displayed as numbered list with animations
 - Dark theme by default, use 'light' variant for light backgrounds
+
+### Support Hero Block (Support/Troubleshooting pages)
+{
+  "type": "support-hero",
+  "content": {
+    "icon": "string (icon name like 'warning', 'info', 'tool')",
+    "title": "string (issue-specific headline like 'Troubleshooting: Grinding Noise')",
+    "subtitle": "string (empathetic message like 'Let's get your Vitamix back to peak performance')"
+  }
+}
+
+**Support Hero Notes:**
+- Empathetic, text-focused hero for troubleshooting pages
+- No image - uses icon to acknowledge the issue
+- Title should include "Troubleshooting:" prefix for clarity
+- Subtitle should be reassuring and solution-oriented
+
+### Diagnosis Card Block (Support/Troubleshooting pages)
+{
+  "type": "diagnosis-card",
+  "content": {
+    "items": [
+      {
+        "severity": "string (minor | moderate | serious)",
+        "cause": "string (likely cause of the issue)",
+        "implication": "string (what this means for the user)"
+      }
+    ]
+  }
+}
+
+**Diagnosis Card Notes:**
+- Always provide exactly 3 items: minor, moderate, serious
+- Color-coded display: green (minor), yellow (moderate), red (serious)
+- Cause should be concise (3-5 words)
+- Implication should explain next steps or urgency
+
+### Troubleshooting Steps Block (Support/Troubleshooting pages)
+{
+  "type": "troubleshooting-steps",
+  "content": {
+    "steps": [
+      {
+        "stepNumber": number (1, 2, 3...),
+        "title": "string (action title like 'Check for trapped ingredients')",
+        "instructions": "string (detailed step instructions)",
+        "safetyNote": "string (optional, safety warning like 'Always unplug first')",
+        "imagePrompt": "string (optional, describe illustration for this step)"
+      }
+    ]
+  }
+}
+
+**Troubleshooting Steps Notes:**
+- Provide 3-5 steps in logical order (easiest fixes first)
+- Always start with safety-related steps (unplug, etc.)
+- Include safetyNote for steps involving blades or electrical components
+- Instructions should be detailed but actionable
+- imagePrompt optional - use for steps that benefit from visual guidance
+
+### Support CTA Block (Support/Troubleshooting pages)
+{
+  "type": "support-cta",
+  "content": {
+    "ctas": [
+      {
+        "title": "string (button title like 'Contact Support')",
+        "description": "string (supporting text like 'Still need help? We're here.')",
+        "url": "string (destination URL)",
+        "style": "string (primary | secondary)"
+      }
+    ]
+  }
+}
+
+**Support CTA Notes:**
+- Always provide exactly 2 CTAs: one primary (contact), one secondary (parts/resources)
+- Primary should be for human support escalation
+- Secondary should be for self-service (parts, warranty, etc.)
+- Descriptions should be encouraging and helpful
 
 ## Critical Instructions
 

@@ -13,11 +13,12 @@
 export interface BlockTemplate {
   type: 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq'
     | 'benefits-grid' | 'recipe-cards' | 'product-recommendation' | 'tips-banner'
-    | 'ingredient-search' | 'recipe-filter-bar' | 'recipe-grid' | 'quick-view-modal' | 'technique-spotlight';
+    | 'ingredient-search' | 'recipe-filter-bar' | 'recipe-grid' | 'quick-view-modal' | 'technique-spotlight'
+    | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta';
   variant?: string;
   width?: 'full' | 'contained';
   config?: {
-    itemCount?: number; // For cards, columns, faq, benefits-grid, recipe-cards, tips-banner, recipe-grid
+    itemCount?: number; // For cards, columns, faq, benefits-grid, recipe-cards, tips-banner, recipe-grid, troubleshooting-steps
     hasImage?: boolean;
     [key: string]: any;
   };
@@ -257,38 +258,58 @@ export const LAYOUT_USE_CASE_LANDING: LayoutTemplate = {
 };
 
 /**
- * Layout 5: Support/Troubleshooting
- * Help content with FAQ focus
+ * Layout 5: Support/Troubleshooting (Enhanced)
+ *
+ * Specialized support layout with empathetic design:
+ * - support-hero: Acknowledges the user's issue with icon
+ * - diagnosis-card: Color-coded severity assessment (minor/moderate/serious)
+ * - troubleshooting-steps: Numbered step-by-step fix instructions
+ * - faq: Common questions about the issue
+ * - support-cta: Dual CTAs for escalation (contact support + order parts)
  */
 export const LAYOUT_SUPPORT: LayoutTemplate = {
   id: 'support',
   name: 'Support & Troubleshooting',
-  description: 'Help and troubleshooting content',
+  description: 'Empathetic troubleshooting with step-by-step guidance',
   useCases: [
     'My Vitamix is making a grinding noise',
     'How to fix leaking',
     'Blender not turning on',
+    'Vitamix smells like burning',
+    'Container won\'t lock in place',
   ],
   sections: [
     {
+      // Support hero - empathetic, text-focused with icon
       blocks: [
-        { type: 'hero', variant: 'light', config: { hasImage: false } },
+        { type: 'support-hero' },
       ],
     },
     {
-      blocks: [
-        { type: 'faq', config: { itemCount: 5 } },
-      ],
-    },
-    {
-      blocks: [
-        { type: 'text' },
-      ],
-    },
-    {
+      // Diagnosis card - quick severity assessment
       style: 'highlight',
       blocks: [
-        { type: 'cta' },
+        { type: 'diagnosis-card', config: { itemCount: 3 } },
+      ],
+    },
+    {
+      // Troubleshooting steps - numbered instructions
+      blocks: [
+        { type: 'troubleshooting-steps', config: { itemCount: 3, hasImage: true } },
+      ],
+    },
+    {
+      // FAQ - common questions about the issue
+      style: 'highlight',
+      blocks: [
+        { type: 'faq', config: { itemCount: 4 } },
+      ],
+    },
+    {
+      // Support CTA - dual escalation options
+      style: 'dark',
+      blocks: [
+        { type: 'support-cta' },
       ],
     },
   ],
@@ -576,7 +597,8 @@ export function getLayoutForIntent(
  */
 export type BlockType = 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq'
   | 'benefits-grid' | 'recipe-cards' | 'product-recommendation' | 'tips-banner'
-  | 'ingredient-search' | 'recipe-filter-bar' | 'recipe-grid' | 'quick-view-modal' | 'technique-spotlight';
+  | 'ingredient-search' | 'recipe-filter-bar' | 'recipe-grid' | 'quick-view-modal' | 'technique-spotlight'
+  | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta';
 
 export function templateToLayoutDecision(layout: LayoutTemplate): {
   blocks: Array<{

@@ -1,0 +1,153 @@
+/**
+ * Diagnosis Card Block Styles
+ *
+ * Color-coded severity assessment cards.
+ * Follows Vitamix design system patterns.
+ */
+
+.diagnosis-card {
+  padding: var(--spacing-section-md) var(--spacing-lg);
+  max-width: var(--max-width-content);
+  margin: 0 auto;
+}
+
+.diagnosis-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-lg);
+}
+
+.diagnosis-card-item {
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-light-gray);
+  background: var(--color-white);
+  transition: box-shadow var(--transition-normal), transform var(--transition-normal);
+}
+
+.diagnosis-card-item:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+/* Severity indicator */
+.diagnosis-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.diagnosis-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.diagnosis-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Minor - Subtle green */
+.diagnosis-minor {
+  border-left: 4px solid #22c55e;
+}
+
+.diagnosis-minor .diagnosis-dot {
+  background: #22c55e;
+}
+
+.diagnosis-minor .diagnosis-label {
+  color: #16a34a;
+}
+
+/* Moderate - Amber warning */
+.diagnosis-moderate {
+  border-left: 4px solid #eab308;
+}
+
+.diagnosis-moderate .diagnosis-dot {
+  background: #eab308;
+}
+
+.diagnosis-moderate .diagnosis-label {
+  color: #ca8a04;
+}
+
+/* Serious - Brand red */
+.diagnosis-serious {
+  border-left: 4px solid var(--color-brand-red);
+}
+
+.diagnosis-serious .diagnosis-dot {
+  background: var(--color-brand-red);
+}
+
+.diagnosis-serious .diagnosis-label {
+  color: var(--color-brand-red);
+}
+
+/* Content */
+.diagnosis-cause {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-brand-dark);
+  margin: 0 0 var(--spacing-sm);
+  line-height: 1.3;
+}
+
+.diagnosis-implication {
+  font-size: var(--font-size-sm);
+  color: var(--color-dark-gray);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Section variants */
+.section.highlight .diagnosis-card {
+  background: transparent;
+}
+
+.section.highlight .diagnosis-card-item {
+  background: var(--color-white);
+  box-shadow: var(--shadow-sm);
+}
+
+.section.dark .diagnosis-card {
+  background: transparent;
+}
+
+.section.dark .diagnosis-card-item {
+  background: rgb(255 255 255 / 5%);
+  border-color: rgb(255 255 255 / 20%);
+}
+
+.section.dark .diagnosis-cause {
+  color: var(--color-white);
+}
+
+.section.dark .diagnosis-implication {
+  color: rgb(255 255 255 / 70%);
+}
+
+/* Responsive */
+@media (width < 900px) {
+  .diagnosis-card-grid {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+}
+
+@media (width < 600px) {
+  .diagnosis-card {
+    padding: var(--spacing-section-sm) var(--spacing-md);
+  }
+
+  .diagnosis-card-item {
+    padding: var(--spacing-lg);
+  }
+}
