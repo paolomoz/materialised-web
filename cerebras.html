@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Vitamix | Cerebras AI Experiment</title>
+  <meta name="description" content="Ultra-fast AI content generation powered by Cerebras.">
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <script src="/scripts/aem.js" type="module"></script>
+  <script src="/scripts/cerebras-scripts.js" type="module"></script>
+  <link rel="stylesheet" href="/styles/styles.css"/>
+  <link rel="stylesheet" href="/styles/cerebras.css"/>
+</head>
+<body>
+  <header></header>
+  <main>
+    <div class="section hero cerebras-hero">
+      <div class="default-content-wrapper">
+        <h1>Cerebras AI Experiment</h1>
+        <p>Ultra-fast content generation powered by Llama 3.3 70B at 2000+ tokens/sec</p>
+      </div>
+      <div class="cerebras-query-form">
+        <form id="cerebras-form">
+          <div class="query-input-wrapper">
+            <input
+              type="text"
+              id="cerebras-query"
+              name="query"
+              placeholder="What would you like to discover?"
+              autocomplete="off"
+              required
+            />
+            <button type="submit" class="button cerebras-btn">Generate</button>
+          </div>
+          <div class="query-examples">
+            <span class="examples-label">Try:</span>
+            <button type="button" class="example-btn">green smoothie recipes</button>
+            <button type="button" class="example-btn">Vitamix A3500 vs E310</button>
+            <button type="button" class="example-btn">cleaning my Vitamix</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="section">
+      <div class="columns">
+        <div>
+          <div>
+            <h2>Why Cerebras?</h2>
+            <p>Cerebras offers the fastest LLM inference available - over 2000 tokens per second. This experiment tests whether ultra-fast generation can deliver a better user experience.</p>
+          </div>
+          <div>
+            <h2>What's Different</h2>
+            <p>Uses Llama 3.3 70B instead of Claude. Same RAG retrieval, same block architecture, but potentially much faster content generation.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="section highlight">
+      <div class="default-content-wrapper">
+        <p><a href="/">Back to main experience</a></p>
+      </div>
+    </div>
+  </main>
+  <footer></footer>
+</body>
+</html>

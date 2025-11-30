@@ -2,7 +2,12 @@
  * Query Form Block
  *
  * A form for submitting queries that generate personalized pages.
- * Handles query submission, slug generation, and navigation.
+ * Supports three modes:
+ * - Standard: ?generate=query (current batch flow, main worker)
+ * - Experiment: ?experiment=query (progressive rendering, main worker)
+ * - Fast: ?fast=query (two-phase generation, fast worker)
+ *
+ * The mode is configured via block variant or defaults to standard.
  */
 
 /**
@@ -47,12 +52,14 @@ function simpleHash(str) {
  * Handle form submission
  * @param {Event} event - Submit event
  * @param {HTMLFormElement} form - The form element
+ * @param {string} mode - 'standard', 'experiment', or 'fast'
  */
-async function handleSubmit(event, form) {
+async function handleSubmit(event, form, mode = 'standard') {
   event.preventDefault();
 
   const input = form.querySelector('input[type="text"]');
   const submitButton = form.querySelector('button[type="submit"]');
+  const imageToggle = form.querySelector('.query-form-image-toggle input');
   const query = input.value.trim();
 
   if (!query) {
@@ -67,8 +74,17 @@ async function handleSubmit(event, form) {
   submitButton.textContent = 'Generating...';
 
   try {
-    // Navigate to generation URL (same page with ?generate= param)
-    const url = `/?generate=${encodeURIComponent(query)}`;
+    // Navigate to generation URL based on mode
+    let param = 'generate';
+    if (mode === 'experiment') {
+      param = 'experiment';
+    } else if (mode === 'fast') {
+      param = 'fast';
+    }
+
+    // Add image provider param if fast mode is selected (fal instead of lora)
+    const imageParam = imageToggle && !imageToggle.checked ? '&images=fal' : '';
+    const url = `/?${param}=${encodeURIComponent(query)}${imageParam}`;
 
     // Navigate to generate
     window.location.href = url;
@@ -108,12 +124,27 @@ function setupExamples(block, input) {
 /**
  * Decorate the query-form block
  * @param {HTMLElement} block - The block element
+ *
+ * Block variants:
+ * - query-form (default): Standard generation flow (?generate=)
+ * - query-form experiment: Progressive rendering flow (?experiment=)
+ * - query-form fast: Two-phase generation flow (?fast=)
  */
 export default function decorate(block) {
+  // Check for variants
+  const isExperiment = block.classList.contains('experiment');
+  const isFast = block.classList.contains('fast');
+
+  let mode = 'standard';
+  if (isExperiment) mode = 'experiment';
+  if (isFast) mode = 'fast';
+
   // Get configuration from block content
   const rows = [...block.children];
   let placeholder = 'What would you like to discover?';
   let buttonText = 'Generate';
+  if (isExperiment) buttonText = 'Try Progressive';
+  if (isFast) buttonText = 'Try Fast';
   let examples = [];
 
   rows.forEach((row) => {
@@ -144,6 +175,18 @@ export default function decorate(block) {
   // Create form
   const form = document.createElement('form');
   form.className = 'query-form-container';
+  if (isExperiment) {
+    form.classList.add('experiment-mode');
+  }
+  if (isFast) {
+    form.classList.add('fast-mode');
+  }
+
+  // Determine button style
+  let buttonClass = 'primary';
+  if (isExperiment) buttonClass = 'secondary';
+  if (isFast) buttonClass = 'accent';
+
   form.innerHTML = `
     <div class="query-form-input-wrapper">
       <input
@@ -153,9 +196,17 @@ export default function decorate(block) {
         autocomplete="off"
         required
       />
-      <button type="submit" class="button primary">
+      <button type="submit" class="button ${buttonClass}">
         ${buttonText}
       </button>
+    </div>
+    <div class="query-form-options">
+      <label class="query-form-image-toggle">
+        <input type="checkbox" checked />
+        <span class="toggle-switch"></span>
+        <span class="toggle-label">Brand-style images</span>
+        <span class="toggle-hint">(slower but on-brand)</span>
+      </label>
     </div>
     <div class="query-form-error" style="display: none;"></div>
   `;
@@ -171,16 +222,31 @@ export default function decorate(block) {
     form.appendChild(examplesDiv);
   }
 
+  // Add badge for experiment modes
+  if (isExperiment) {
+    const badge = document.createElement('div');
+    badge.className = 'query-form-badge';
+    badge.textContent = 'Experiment: Progressive Rendering';
+    form.insertBefore(badge, form.firstChild);
+  }
+
+  if (isFast) {
+    const badge = document.createElement('div');
+    badge.className = 'query-form-badge fast';
+    badge.textContent = 'Fast: Two-Phase Generation';
+    form.insertBefore(badge, form.firstChild);
+  }
+
   block.appendChild(form);
 
   // Set up event listeners
   const input = form.querySelector('input[type="text"]');
 
-  form.addEventListener('submit', (event) => handleSubmit(event, form));
+  form.addEventListener('submit', (event) => handleSubmit(event, form, mode));
   setupExamples(block, input);
 
-  // Focus input on page load if this is the main CTA
-  if (block.closest('.section')?.classList.contains('hero')) {
+  // Focus input on page load if this is the main CTA (only for standard mode)
+  if (!isExperiment && !isFast && block.closest('.section')?.classList.contains('hero')) {
     setTimeout(() => input.focus(), 100);
   }
 }

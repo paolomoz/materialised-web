@@ -1,55 +1,56 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Vitamix | Personalized Recipes & Tips</title>
+  <title>Vitamix | AI-Powered Recipe Discovery</title>
   <meta name="description" content="Discover personalized Vitamix recipes, tips, and product recommendations tailored to your needs.">
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="preconnect" href="https://use.typekit.net">
+  <link rel="stylesheet" href="/styles/fonts.css"/>
+  <link rel="stylesheet" href="/styles/styles.css"/>
   <script src="/scripts/aem.js" type="module"></script>
   <script src="/scripts/scripts.js" type="module"></script>
-  <link rel="stylesheet" href="/styles/styles.css"/>
-  <link rel="stylesheet" href="/styles/skeleton.css"/>
+  <script src="/scripts/cerebras-scripts.js" type="module"></script>
 </head>
 <body>
   <header></header>
   <main>
-    <div class="section hero">
-      <div class="default-content-wrapper">
-        <h1>Discover Your Perfect Vitamix Experience</h1>
-        <p>Get personalized recipes, tips, and product recommendations powered by AI</p>
-      </div>
-      <div class="query-form">
-        <div>
-          <div>Placeholder</div>
-          <div>What would you like to make with your Vitamix?</div>
-        </div>
-        <div>
-          <div>Button</div>
-          <div>Generate</div>
-        </div>
-        <div>
-          <div>Examples</div>
-          <div>best smoothie for energy, healthy soup recipes, cleaning my Vitamix</div>
-        </div>
-      </div>
-    </div>
-    <div class="section">
-      <div class="columns">
-        <div>
-          <div>
-            <h2>Personalized Recipes</h2>
-            <p>Tell us what ingredients you have, your dietary preferences, or health goals - and we'll create custom recipes just for you.</p>
+    <div class="homepage-hero">
+      <video class="homepage-hero-video" autoplay muted loop playsinline aria-hidden="true">
+        <source src="https://player.vimeo.com/progressive_redirect/playback/742715169/rendition/1080p/file.mp4?loc=external&signature=af88564d33ef1f252232f6f7448a3939c80664afacb4a865588b5d1bb4fc9bfe" type="video/mp4">
+      </video>
+      <div class="homepage-hero-overlay"></div>
+      <div class="homepage-hero-content">
+        <h1>Discover Your Perfect Vitamix</h1>
+        <p>Explore recipes, blending techniques, and product recommendations tailored to your interests.</p>
+        <form class="homepage-search-form" id="cerebras-form">
+          <div class="homepage-search-container">
+            <input type="text" id="cerebras-query" name="query" placeholder="What would you like to explore?" aria-label="Search query" autocomplete="off" required>
+            <button type="submit">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path>
+                <path d="M20 3v4"></path>
+                <path d="M22 5h-4"></path>
+                <path d="M4 17v2"></path>
+                <path d="M5 18H3"></path>
+              </svg>
+              <span>Explore</span>
+            </button>
           </div>
-          <div>
-            <h2>Product Guidance</h2>
-            <p>Not sure which Vitamix is right for you? Describe your cooking habits and we'll help you find the perfect match.</p>
+        </form>
+        <div class="image-quality-toggle">
+          <span class="toggle-label">Images:</span>
+          <button type="button" class="toggle-option active" data-value="fast">Fast</button>
+          <button type="button" class="toggle-option" data-value="best">Best</button>
+        </div>
+        <div class="homepage-suggestions">
+          <span class="suggestions-label">Or try:</span>
+          <div class="suggestions-chips">
+            <button class="suggestion-chip" type="button" data-query="Green Smoothie Recipes">Green Smoothie Recipes</button>
+            <button class="suggestion-chip" type="button" data-query="Vitamix A3500 vs E310">Vitamix A3500 vs E310</button>
+            <button class="suggestion-chip" type="button" data-query="Hot Soup Recipes">Hot Soup Recipes</button>
+            <button class="suggestion-chip" type="button" data-query="Cleaning My Vitamix">Cleaning My Vitamix</button>
           </div>
         </div>
-      </div>
-    </div>
-    <div class="section">
-      <div class="default-content-wrapper">
-        <h2>Why Use AI-Powered Discovery?</h2>
-        <p>Our intelligent system understands your unique needs and creates content specifically for you. Whether you're looking for recipes, product comparisons, or usage tips, just ask and we'll generate a personalized page in seconds.</p>
       </div>
     </div>
   </main>

@@ -126,10 +126,13 @@ export default async function decorate(block) {
   });
 
   const navBrand = nav.querySelector('.nav-brand');
-  const brandLink = navBrand.querySelector('.button');
-  if (brandLink) {
-    brandLink.className = '';
-    brandLink.closest('.button-container').className = '';
+  // Replace brand content with Vitamix logo
+  if (navBrand) {
+    navBrand.innerHTML = `
+      <a href="/" aria-label="Vitamix Home">
+        <img src="/icons/vitamix-logo.svg" alt="Vitamix" width="160" height="35">
+      </a>
+    `;
   }
 
   const navSections = nav.querySelector('.nav-sections');
@@ -158,6 +161,41 @@ export default async function decorate(block) {
   // prevent mobile nav behavior on window resize
   toggleMenu(nav, navSections, isDesktop.matches);
   isDesktop.addEventListener('change', () => toggleMenu(nav, navSections, isDesktop.matches));
+
+  // Add search bar to header
+  const searchContainer = document.createElement('div');
+  searchContainer.className = 'nav-search';
+  searchContainer.innerHTML = `
+    <div class="header-search-container">
+      <input type="text" placeholder="What would you like to explore?" aria-label="Search query">
+      <button type="submit">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path>
+        </svg>
+        <span>Explore</span>
+      </button>
+    </div>
+  `;
+
+  // Add search interactivity
+  const searchInput = searchContainer.querySelector('input');
+  const searchButton = searchContainer.querySelector('button');
+
+  const handleSearchSubmit = (e) => {
+    e?.preventDefault();
+    const query = searchInput.value.trim();
+    if (query) {
+      // Navigate to Cerebras generation URL
+      window.location.href = `/?cerebras=${encodeURIComponent(query)}`;
+    }
+  };
+
+  searchButton.addEventListener('click', handleSearchSubmit);
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') handleSearchSubmit(e);
+  });
+
+  nav.appendChild(searchContainer);
 
   const navWrapper = document.createElement('div');
   navWrapper.className = 'nav-wrapper';

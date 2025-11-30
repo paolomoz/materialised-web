@@ -2,6 +2,14 @@ import type { Env, CrawlJob, CrawlStats, TextChunk, ExtractedContent } from './t
 import { fetchWithBrowser, canCrawl, extractCrawlableLinks } from './browser';
 import { extractContent } from './extractor';
 import { createChunks } from './chunker';
+import {
+  curateImagesForTraining,
+  verifyImageDimensions,
+  downloadImagesForTraining,
+  generateTrainingConfig,
+  createTrainingZip,
+  type CuratedImage,
+} from './image-curator';
 
 export default {
   /**
@@ -43,6 +51,21 @@ export default {
     // Start crawl from sitemap URLs
     if (url.pathname === '/crawl/sitemap' && request.method === 'POST') {
       return handleSitemapCrawl(request, env);
+    }
+
+    // Image curation for LoRA training
+    if (url.pathname === '/images/curate') {
+      return handleCurateImages(request, env);
+    }
+
+    // Download curated images as ZIP
+    if (url.pathname === '/images/download') {
+      return handleDownloadImages(request, env);
+    }
+
+    // Generate training ZIP for fal.ai LoRA training
+    if (url.pathname === '/images/training-zip') {
+      return handleTrainingZip(request, env);
     }
 
     return new Response('Not Found', { status: 404 });
@@ -476,6 +499,189 @@ function urlToKey(url: string): string {
  */
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Curate images from RAG for LoRA training
+ */
+async function handleCurateImages(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const minQuality = parseFloat(url.searchParams.get('minQuality') || '0.5');
+  const maxImages = parseInt(url.searchParams.get('maxImages') || '50', 10);
+  const verify = url.searchParams.get('verify') === 'true';
+
+  try {
+    console.log('Starting image curation...');
+
+    // Curate images from RAG
+    const result = await curateImagesForTraining(env, {
+      minQualityScore: minQuality,
+      maxImages,
+    });
+
+    // Optionally verify dimensions by fetching images
+    let heroImages = result.heroImages;
+    let cardImages = result.cardImages;
+
+    if (verify) {
+      console.log('Verifying image dimensions...');
+      heroImages = await verifyImageDimensions(result.heroImages);
+      cardImages = await verifyImageDimensions(result.cardImages);
+    }
+
+    // Generate training config
+    const trainingConfig = generateTrainingConfig(heroImages, cardImages);
+
+    return new Response(JSON.stringify({
+      success: true,
+      stats: result.stats,
+      trainingConfig,
+      heroImages: heroImages.map(img => ({
+        url: img.url,
+        alt: img.alt,
+        qualityScore: img.qualityScore,
+        sourceUrl: img.sourceUrl,
+        fileSize: img.fileSize,
+      })),
+      cardImages: cardImages.map(img => ({
+        url: img.url,
+        alt: img.alt,
+        qualityScore: img.qualityScore,
+        sourceUrl: img.sourceUrl,
+        fileSize: img.fileSize,
+      })),
+    }, null, 2), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Image curation failed:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: (error as Error).message,
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+/**
+ * Generate a training ZIP file for fal.ai LoRA training
+ * Downloads images, creates captions, and packages as ZIP
+ */
+async function handleTrainingZip(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const maxImages = parseInt(url.searchParams.get('maxImages') || '20', 10);
+  const triggerWord = url.searchParams.get('triggerWord') || 'vitamixstyle';
+
+  try {
+    console.log(`Creating training ZIP: maxImages=${maxImages}, triggerWord=${triggerWord}`);
+
+    // Curate images
+    const result = await curateImagesForTraining(env, {
+      maxImages: maxImages * 2, // Get extra to filter
+      minQualityScore: 0.6, // Higher quality threshold for training
+    });
+
+    // Use card images (most food images are card format)
+    const images = result.cardImages.slice(0, maxImages);
+
+    if (images.length === 0) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'No suitable images found for training',
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Create ZIP
+    const { zip, manifest } = await createTrainingZip(images, triggerWord);
+
+    console.log(`Training ZIP created: ${zip.byteLength} bytes, ${images.length} images`);
+
+    // Return ZIP file
+    return new Response(zip, {
+      headers: {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="vitamix-lora-training-${Date.now()}.zip"`,
+        'X-Image-Count': images.length.toString(),
+        'X-Trigger-Word': triggerWord,
+      },
+    });
+  } catch (error) {
+    console.error('Training ZIP creation failed:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: (error as Error).message,
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+/**
+ * Download curated images as individual files with URLs for fal.ai
+ */
+async function handleDownloadImages(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const category = url.searchParams.get('category') as 'hero' | 'card' || 'card';
+  const maxImages = parseInt(url.searchParams.get('maxImages') || '30', 10);
+
+  try {
+    // First curate images
+    const result = await curateImagesForTraining(env, {
+      maxImages: maxImages * 2, // Get more to filter
+      minQualityScore: 0.5,
+    });
+
+    const images = category === 'hero' ? result.heroImages : result.cardImages;
+
+    // Verify dimensions
+    const verifiedImages = await verifyImageDimensions(images.slice(0, maxImages));
+
+    // Download images
+    const downloaded = await downloadImagesForTraining(
+      verifiedImages.map(img => ({ ...img, category })),
+      category
+    );
+
+    // Generate training instructions
+    const trainingConfig = generateTrainingConfig(
+      category === 'hero' ? verifiedImages : [],
+      category === 'card' ? verifiedImages : []
+    );
+
+    // Return as JSON with base64 encoded images and instructions
+    return new Response(JSON.stringify({
+      success: true,
+      category,
+      imageCount: downloaded.images.length,
+      captions: downloaded.captions,
+      trainingConfig: trainingConfig.dataset_info,
+      images: downloaded.images.map(img => ({
+        filename: img.filename,
+        size: img.data.byteLength,
+        // Note: For large datasets, you'd want to upload these to R2 or another storage
+        // and return URLs instead of base64 data
+      })),
+      // Provide direct URLs for fal.ai training (it can fetch from these URLs)
+      imageUrls: verifiedImages.map(img => img.url),
+    }, null, 2), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Image download failed:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: (error as Error).message,
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 }
 
 /**

@@ -1,9 +1,11 @@
-/* header and nav layout */
+/* header and nav layout - Vitamix light style */
 header .nav-wrapper {
-  background-color: var(--background-color);
+  background-color: #FAFAFA;
   width: 100%;
-  z-index: 2;
+  z-index: 1000;
   position: fixed;
+  color: var(--text-color);
+  border-bottom: 1px solid var(--color-light-gray);
 }
 
 header nav {
@@ -15,10 +17,10 @@ header nav {
   align-items: center;
   gap: 0 24px;
   margin: auto;
-  max-width: 1248px;
   height: var(--nav-height);
   padding: 0 24px;
   font-family: var(--body-font-family);
+  position: relative;
 }
 
 header nav[aria-expanded='true'] {
@@ -33,10 +35,11 @@ header nav[aria-expanded='true'] {
 @media (width >= 900px) {
   header nav {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
+    align-items: center;
     gap: 0 32px;
-    max-width: 1264px;
     padding: 0 32px;
+    position: relative;
   }
 
   header nav[aria-expanded='true'] {
@@ -54,11 +57,11 @@ header nav a:any-link {
   color: currentcolor;
 }
 
-/* hamburger */
+/* hamburger - hidden */
 header nav .nav-hamburger {
   grid-area: hamburger;
   height: 22px;
-  display: flex;
+  display: none;
   align-items: center;
 }
 
@@ -68,7 +71,7 @@ header nav .nav-hamburger button {
   border: 0;
   border-radius: 0;
   padding: 0;
-  background-color: var(--background-color);
+  background-color: transparent;
   color: inherit;
   overflow: initial;
   text-overflow: initial;
@@ -138,131 +141,120 @@ header nav[aria-expanded='true'] .nav-hamburger-icon::after {
 /* brand */
 header .nav-brand {
   grid-area: brand;
-  flex-basis: 128px;
+  flex-basis: 160px;
   font-size: var(--heading-font-size-s);
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 header nav .nav-brand img {
-  width: 128px;
+  width: 160px;
   height: auto;
 }
 
-/* sections */
+/* sections - hidden */
 header nav .nav-sections {
   grid-area: sections;
   flex: 1 1 auto;
-  display: none;
-  visibility: hidden;
+  display: none !important;
+  visibility: hidden !important;
 }
 
-header nav[aria-expanded='true'] .nav-sections {
-  display: block;
-  visibility: visible;
-  align-self: start;
-}
-
-header nav .nav-sections ul {
-  list-style: none;
-  padding-left: 0;
-  font-size: var(--body-font-size-s);
-}
-
-header nav .nav-sections ul > li {
-  font-weight: 500;
-}
-
-header nav .nav-sections ul > li > ul {
-  margin-top: 0;
-}
-
-header nav .nav-sections ul > li > ul > li {
-  font-weight: 400;
-}
-
-@media (width >= 900px) {
-  header nav .nav-sections {
-    display: block;
-    visibility: visible;
-    white-space: nowrap;
-  }
-
-  header nav[aria-expanded='true'] .nav-sections {
-    align-self: unset;
-  }
-
-  header nav .nav-sections .nav-drop {
-    position: relative;
-    padding-right: 16px;
-    cursor: pointer;
-  }
-
-  header nav .nav-sections .nav-drop::after {
-    content: '';
-    display: inline-block;
-    position: absolute;
-    top: 0.5em;
-    right: 2px;
-    transform: rotate(135deg);
-    width: 6px;
-    height: 6px;
-    border: 2px solid currentcolor;
-    border-radius: 0 1px 0 0;
-    border-width: 2px 2px 0 0;
-  }
-
-  header nav .nav-sections .nav-drop[aria-expanded='true']::after {
-    top: unset;
-    bottom: 0.5em;
-    transform: rotate(315deg);
-  }
-
-  header nav .nav-sections ul {
-    display: flex;
-    gap: 24px;
-    margin: 0;
-  }
-
-  header nav .nav-sections .default-content-wrapper > ul > li {
-    flex: 0 1 auto;
-    position: relative;
-  }
-
-  header nav .nav-sections .default-content-wrapper > ul > li > ul {
-    display: none;
-    position: relative;
-  }
-
-  header nav .nav-sections .default-content-wrapper > ul > li[aria-expanded='true'] > ul {
-    display: block;
-    position: absolute;
-    left: -24px;
-    width: 200px;
-    top: 150%;
-    padding: 16px;
-    background-color: var(--light-color);
-    white-space: initial;
-  }
-
-  header nav .nav-sections .default-content-wrapper > ul > li > ul::before {
-    content: '';
-    position: absolute;
-    top: -8px;
-    left: 16px;
-    width: 0;
-    height: 0;
-    border-left: 8px solid transparent;
-    border-right: 8px solid transparent;
-    border-bottom: 8px solid var(--light-color);
-  }
-
-  header nav .nav-sections .default-content-wrapper > ul > li > ul > li {
-    padding: 8px 0;
-  }
-}
-
-/* tools */
+/* tools - hidden */
 header nav .nav-tools {
   grid-area: tools;
+  display: none !important;
+}
+
+/* Header search bar */
+header nav .nav-search {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 500px;
+}
+
+.header-search-container {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  background: var(--color-charcoal);
+  border: 1px solid var(--color-light-gray);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.header-search-container:focus-within {
+  border-color: var(--color-medium-gray);
+}
+
+.header-search-container input {
+  flex: 1;
+  border: none;
+  outline: none;
+  padding: 10px 14px;
+  font-size: var(--body-font-size-s);
+  background: white;
+  min-width: 0;
+  border-radius: 0;
+  font-family: var(--body-font-family);
+}
+
+.header-search-container input::placeholder {
+  color: var(--color-medium-gray);
+}
+
+.header-search-container button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 0;
+  background-color: var(--color-charcoal);
+  color: white;
+  font-size: var(--body-font-size-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+  font-family: var(--body-font-family);
+}
+
+.header-search-container button:hover:not(:disabled) {
+  background-color: var(--color-dark-gray);
+}
+
+.header-search-container button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.header-search-container button svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Mobile adjustments for header search */
+@media (width < 600px) {
+  header nav .nav-search {
+    display: none;
+  }
+}
+
+@media (width >= 600px) and (width < 900px) {
+  header nav .nav-search {
+    max-width: 280px;
+  }
+
+  .header-search-container button span {
+    display: none;
+  }
 }

@@ -1,0 +1,148 @@
+/**
+ * Progressive Rendering Experiment Styles
+ *
+ * Styles for the experimental ?experiment= generation flow
+ */
+
+/* Loading state */
+.experiment-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+  text-align: center;
+  padding: var(--spacing-section-lg);
+}
+
+.experiment-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.experiment-pulse {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--color-brand-red, #c00);
+  animation: experiment-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes experiment-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
+.experiment-query {
+  font-size: var(--font-size-lg);
+  color: var(--color-text-secondary, #666);
+  font-style: italic;
+  margin: 0;
+}
+
+.experiment-message {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary, #999);
+  margin: 0;
+}
+
+/* Progressive content area */
+#progressive-content {
+  max-width: var(--layout-max-width, 1200px);
+  margin: 0 auto;
+}
+
+#progressive-content .section {
+  /* Enable smooth appearance animation */
+  will-change: opacity, transform;
+}
+
+/* Generated images loading state */
+#progressive-content img[data-gen-image] {
+  background: linear-gradient(
+    90deg,
+    var(--color-background-tertiary, #f0f0f0) 0%,
+    var(--color-background-secondary, #e8e8e8) 50%,
+    var(--color-background-tertiary, #f0f0f0) 100%
+  );
+  background-size: 200% 100%;
+  animation: image-shimmer 1.5s ease-in-out infinite;
+  min-height: 200px;
+  object-fit: cover;
+}
+
+#progressive-content img[data-gen-image].loaded {
+  animation: none;
+  background: none;
+}
+
+@keyframes image-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Completion indicator */
+.experiment-complete {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg);
+  text-align: center;
+  transition: opacity 0.4s ease-out;
+}
+
+.experiment-complete-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--color-success, #28a745);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.experiment-complete p {
+  color: var(--color-text-secondary, #666);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+/* Error state */
+.experiment-error {
+  text-align: center;
+  padding: var(--spacing-section-lg);
+}
+
+.experiment-error h2 {
+  color: var(--color-error, #c00);
+  margin-bottom: var(--spacing-md);
+}
+
+.experiment-error p {
+  color: var(--color-text-secondary, #666);
+  margin: var(--spacing-sm) 0;
+}
+
+.experiment-error a {
+  color: var(--color-brand-red, #c00);
+  text-decoration: underline;
+}
+
+/* Body class for experiment mode */
+body.experiment-mode main {
+  padding-top: var(--spacing-lg);
+}

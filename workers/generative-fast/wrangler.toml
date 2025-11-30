@@ -1,0 +1,37 @@
+name = "vitamix-generative-fast"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+EDS_ORIGIN = "https://main--materialised-web--paolomoz.aem.live"
+DA_ORG = "paolomoz"
+DA_REPO = "materialised-web"
+VERTEX_AI_REGION = "us-east4"
+
+# Workers AI for embeddings
+[ai]
+binding = "AI"
+
+# Vectorize for RAG retrieval
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "vitamix-content"
+
+# R2 for generated images
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "vitamix-generated-images"
+preview_bucket_name = "vitamix-generated-images-preview"
+
+# KV for caching and generation state
+[[kv_namespaces]]
+binding = "CACHE"
+id = "a840e9485e304b40920f01eaebd46de9"
+preview_id = "4d776a13335d4c6a837b6a22c8e30cfd"
+
+# Secrets (set via wrangler secret put):
+# - ANTHROPIC_API_KEY
+# - GOOGLE_API_KEY
+# - GOOGLE_SERVICE_ACCOUNT_JSON
+# - DA_TOKEN

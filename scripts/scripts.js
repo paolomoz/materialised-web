@@ -15,8 +15,12 @@ import {
   loadCSS,
 } from './aem.js';
 
-// Generative worker URL
+// Experiment mode (progressive rendering)
+import { isExperimentRequest, initExperiment } from './experiment.js';
+
+// Worker URLs
 const GENERATIVE_WORKER_URL = 'https://vitamix-generative.paolo-moz.workers.dev';
+const FAST_WORKER_URL = 'https://vitamix-generative-fast.paolo-moz.workers.dev';
 
 /**
  * Escape special regex characters in a string
@@ -30,6 +34,13 @@ function escapeRegExp(string) {
  */
 function isGenerationRequest() {
   return new URLSearchParams(window.location.search).has('generate');
+}
+
+/**
+ * Check if this is a fast generation request (has ?fast= param)
+ */
+function isFastRequest() {
+  return new URLSearchParams(window.location.search).has('fast');
 }
 
 /**
@@ -69,7 +80,9 @@ async function renderGenerativePage() {
   const main = document.querySelector('main');
   if (!main) return;
 
-  const query = new URLSearchParams(window.location.search).get('generate');
+  const params = new URLSearchParams(window.location.search);
+  const query = params.get('generate');
+  const images = params.get('images'); // 'fal' for fast, null/undefined for LoRA (default)
   const slug = generateSlug(query);
 
   // Clear main and show loading state
@@ -91,8 +104,9 @@ async function renderGenerativePage() {
   const statusEl = main.querySelector('.generation-status');
   const content = main.querySelector('#generation-content');
 
-  // Connect to SSE stream
-  const streamUrl = `${GENERATIVE_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}`;
+  // Connect to SSE stream (include images param if specified)
+  const imageParam = images ? `&images=${encodeURIComponent(images)}` : '';
+  const streamUrl = `${GENERATIVE_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}${imageParam}`;
   const eventSource = new EventSource(streamUrl);
   let blockCount = 0;
   let generatedBlocks = []; // Array of { html, sectionStyle }
@@ -323,6 +337,268 @@ async function renderGenerativePage() {
 }
 
 /**
+ * Render a fast generative page from ?fast= parameter
+ * Uses the two-phase worker (vitamix-generative-fast)
+ */
+async function renderFastGenerativePage() {
+  // Load skeleton styles
+  await loadCSS(`${window.hlx.codeBasePath}/styles/skeleton.css`);
+
+  const main = document.querySelector('main');
+  if (!main) return;
+
+  const params = new URLSearchParams(window.location.search);
+  const query = params.get('fast');
+  const images = params.get('images'); // 'fal' for fast, null/undefined for LoRA (default)
+  const slug = generateSlug(query);
+
+  // Clear main and show loading state with fast branding
+  main.innerHTML = `
+    <div class="section generating-container fast-mode">
+      <div class="fast-badge">Fast Mode</div>
+      <h1 class="generating-title">Creating Your Page</h1>
+      <p class="generating-query">"${query}"</p>
+      <div class="progress-indicator">
+        <div class="progress-dot"></div>
+        <div class="progress-dot"></div>
+        <div class="progress-dot"></div>
+      </div>
+      <p class="generation-status">Hero appears in ~3 seconds...</p>
+    </div>
+    <div id="generation-content"></div>
+  `;
+
+  const loadingState = main.querySelector('.generating-container');
+  const statusEl = main.querySelector('.generation-status');
+  const content = main.querySelector('#generation-content');
+
+  // Connect to FAST worker SSE stream (include images param if specified)
+  const imageParam = images ? `&images=${encodeURIComponent(images)}` : '';
+  const streamUrl = `${FAST_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}${imageParam}`;
+  const eventSource = new EventSource(streamUrl);
+  let blockCount = 0;
+  const generatedBlocks = []; // Array of { html, sectionStyle }
+  const startTime = Date.now();
+
+  eventSource.onopen = () => {
+    statusEl.textContent = 'Connected, generating hero...';
+  };
+
+  eventSource.addEventListener('layout', (e) => {
+    const data = JSON.parse(e.data);
+    statusEl.textContent = `Layout ready: ${data.blocks.length} sections`;
+  });
+
+  eventSource.addEventListener('block-start', (e) => {
+    const data = JSON.parse(e.data);
+    if (data.position === 0) {
+      statusEl.textContent = 'Hero incoming...';
+    } else {
+      statusEl.textContent = `Creating ${data.blockType}...`;
+    }
+  });
+
+  eventSource.addEventListener('block-content', async (e) => {
+    const data = JSON.parse(e.data);
+    const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
+
+    // Hide loading state after first block (hero)
+    if (blockCount === 0) {
+      loadingState.style.display = 'none';
+      // eslint-disable-next-line no-console
+      console.log(`[Fast] Hero appeared in ${elapsedSec}s`);
+    }
+    blockCount += 1;
+
+    // Store HTML and sectionStyle for persistence
+    generatedBlocks.push({ html: data.html, sectionStyle: data.sectionStyle });
+
+    // Create section and add content
+    const section = document.createElement('div');
+    section.className = 'section';
+    if (data.sectionStyle && data.sectionStyle !== 'default') {
+      section.classList.add(data.sectionStyle);
+    }
+    section.dataset.sectionStatus = 'initialized';
+    section.innerHTML = data.html;
+
+    // Store original src for each generated image
+    section.querySelectorAll('img[data-gen-image]').forEach((img) => {
+      img.dataset.originalSrc = img.getAttribute('src');
+    });
+
+    // Wrap block in a wrapper div (EDS pattern)
+    const blockEl = section.querySelector('[class]');
+    if (blockEl) {
+      const blockName = blockEl.classList[0];
+      const wrapper = document.createElement('div');
+      wrapper.className = `${blockName}-wrapper`;
+      blockEl.parentNode.insertBefore(wrapper, blockEl);
+      wrapper.appendChild(blockEl);
+      decorateBlock(blockEl);
+      section.classList.add(`${blockName}-container`);
+    }
+
+    // Decorate buttons and icons
+    decorateButtons(section);
+    decorateIcons(section);
+
+    // Append to DOM
+    content.appendChild(section);
+
+    // Load the block (CSS + JS module)
+    const block = section.querySelector('.block');
+    if (block) {
+      await loadBlock(block);
+    }
+
+    // Mark section as loaded
+    section.dataset.sectionStatus = 'loaded';
+    section.style.display = null;
+  });
+
+  // Handle image-ready events
+  eventSource.addEventListener('image-ready', (e) => {
+    const data = JSON.parse(e.data);
+    const { imageId, url } = data;
+
+    let resolvedUrl = url;
+    if (url && url.startsWith('/')) {
+      resolvedUrl = `${FAST_WORKER_URL}${url}`;
+    }
+
+    const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
+    if (img && resolvedUrl) {
+      const originalUrl = img.dataset.originalSrc;
+      img.src = resolvedUrl;
+
+      // Update stored HTML for persistence
+      const section = img.closest('.section');
+      if (section && originalUrl) {
+        const sectionIndex = Array.from(content.children).indexOf(section);
+        if (sectionIndex >= 0 && generatedBlocks[sectionIndex]) {
+          generatedBlocks[sectionIndex].html = generatedBlocks[sectionIndex].html.replace(
+            new RegExp(escapeRegExp(originalUrl), 'g'),
+            resolvedUrl,
+          );
+        }
+      }
+      img.classList.add('loaded');
+    }
+  });
+
+  eventSource.addEventListener('generation-complete', (e) => {
+    eventSource.close();
+    const data = JSON.parse(e.data);
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+
+    // eslint-disable-next-line no-console
+    console.log(`[Fast] Complete in ${totalTime}s`, data);
+
+    // Update document title
+    const h1 = content.querySelector('h1');
+    if (h1) {
+      document.title = `${h1.textContent} | Vitamix`;
+    }
+
+    // Add save section (reuse same pattern as standard flow)
+    const saveSection = document.createElement('div');
+    saveSection.className = 'section save-page-section';
+    saveSection.innerHTML = `
+      <div class="save-page-container">
+        <div class="fast-complete-badge">Generated in ${totalTime}s</div>
+        <h3>Like this page?</h3>
+        <p>Save it to get a permanent link you can share and revisit.</p>
+        <button class="button save-page-btn" data-slug="${slug}" data-query="${encodeURIComponent(query)}">
+          Save & Get Permanent Link
+        </button>
+        <div class="save-status"></div>
+      </div>
+    `;
+    content.appendChild(saveSection);
+
+    // Handle save button click (uses fast worker's persist endpoint)
+    const saveBtn = saveSection.querySelector('.save-page-btn');
+    const saveStatus = saveSection.querySelector('.save-status');
+
+    saveBtn.addEventListener('click', async () => {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+      saveStatus.textContent = '';
+
+      try {
+        const htmlForPersistence = generatedBlocks.map((block) => {
+          let sectionHtml = block.html;
+          if (block.sectionStyle && block.sectionStyle !== 'default') {
+            sectionHtml += `
+<div class="section-metadata">
+  <div>
+    <div>style</div>
+    <div>${block.sectionStyle}</div>
+  </div>
+</div>`;
+          }
+          return sectionHtml;
+        });
+
+        const response = await fetch(`${FAST_WORKER_URL}/api/persist`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            slug,
+            query,
+            html: htmlForPersistence,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          const permanentUrl = `${window.location.origin}/discover/${slug}`;
+          saveSection.innerHTML = `
+            <div class="save-page-container save-success">
+              <h3>Page Saved!</h3>
+              <p>Your permanent link:</p>
+              <a href="/discover/${slug}" class="permanent-link">${permanentUrl}</a>
+              <button class="button copy-link-btn" onclick="navigator.clipboard.writeText('${permanentUrl}'); this.textContent='Copied!'">
+                Copy Link
+              </button>
+            </div>
+          `;
+        } else {
+          throw new Error(result.error || 'Failed to save');
+        }
+      } catch (error) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save & Get Permanent Link';
+        saveStatus.textContent = `Error: ${error.message}. Please try again.`;
+        saveStatus.style.color = '#c00';
+      }
+    });
+  });
+
+  eventSource.addEventListener('error', (e) => {
+    if (e.data) {
+      const data = JSON.parse(e.data);
+      loadingState.innerHTML = `
+        <h1>Something went wrong</h1>
+        <p style="color: #c00;">${data.message}</p>
+        <p><a href="/">Return to homepage</a></p>
+      `;
+    }
+    eventSource.close();
+  });
+
+  eventSource.onerror = () => {
+    if (eventSource.readyState === EventSource.CLOSED) {
+      if (blockCount === 0) {
+        statusEl.textContent = 'Connection failed. Please try again.';
+      }
+    }
+  };
+}
+
+/**
  * Builds hero block from default content pattern (picture + h1 without block wrapper).
  * This is the standard EDS auto-blocking behavior for pages where hero is not explicitly authored.
  * If a .hero block already exists, this function does nothing.
@@ -456,7 +732,24 @@ function loadDelayed() {
 }
 
 async function loadPage() {
-  // Check if this is a generation request (?generate=query)
+  // Check if this is an experiment request (?experiment=query) - progressive rendering
+  if (isExperimentRequest()) {
+    const handled = await initExperiment();
+    if (handled) return;
+  }
+
+  // Check if this is a fast request (?fast=query) - two-phase generation
+  if (isFastRequest()) {
+    document.documentElement.lang = 'en';
+    decorateTemplateAndTheme();
+    document.body.classList.add('appear', 'fast-mode');
+    loadHeader(document.querySelector('header'));
+    loadFooter(document.querySelector('footer'));
+    await renderFastGenerativePage();
+    return;
+  }
+
+  // Check if this is a generation request (?generate=query) - current flow
   if (isGenerationRequest()) {
     document.documentElement.lang = 'en';
     decorateTemplateAndTheme();
