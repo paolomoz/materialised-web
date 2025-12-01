@@ -507,7 +507,7 @@ function addPublishButton() {
   if (header.querySelector('.publish-btn')) return;
 
   // Find the quality toggle container to place button nearby
-  const qualityToggle = header.querySelector('.nav-quality-toggle');
+  const qualityToggle = header.querySelector('.image-quality-toggle');
   if (!qualityToggle) return;
 
   // Create publish button
