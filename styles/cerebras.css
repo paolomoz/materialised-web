@@ -266,7 +266,7 @@ picture:has(img[data-gen-image].loaded) {
   font-weight: 500;
   background: transparent;
   color: #9ca3af;
-  border: 1px solid #6b7280;
+  border: 1px solid #9ca3af;
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.2s, color 0.2s, border-color 0.2s;
