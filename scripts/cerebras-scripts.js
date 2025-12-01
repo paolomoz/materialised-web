@@ -273,13 +273,13 @@ function getImageQuality() {
 }
 
 /**
- * Start generation from homepage using the categorized path flow
+ * Start generation from homepage using SSE streaming flow
  *
  * Flow:
- * 1. Call worker API to create DA page
- * 2. Worker returns the path
- * 3. Frontend redirects to the DA page on current origin
- * 4. DA page's cerebras-generated block streams content from worker
+ * 1. Start SSE connection to worker
+ * 2. Cache blocks in sessionStorage as they arrive
+ * 3. Navigate to /?cerebras=query&cached=1 after first block
+ * 4. New page reads cache and renders immediately
  */
 async function startGeneration(query) {
   // Get image quality setting (fast = fal, best = imagen)
@@ -300,7 +300,7 @@ async function startGeneration(query) {
     submitBtn.disabled = true;
     submitBtn.innerHTML = `
       <div class="generating-spinner"></div>
-      <span>Creating page...</span>
+      <span>Generating...</span>
     `;
   }
   if (input) {
@@ -312,7 +312,7 @@ async function startGeneration(query) {
     headerBtn.disabled = true;
     headerBtn.innerHTML = `
       <div class="generating-spinner"></div>
-      <span>Creating...</span>
+      <span>Generating...</span>
     `;
   }
   if (headerInput) {
@@ -329,26 +329,67 @@ async function startGeneration(query) {
   console.log(`[Cerebras] Starting generation`);
   console.log(`[Cerebras] Query: "${query}", Images: ${imageProvider}`);
 
-  try {
-    // Call worker API to create the DA page
-    const response = await fetch(`${CEREBRAS_WORKER_URL}/api/create-page`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, images: imageProvider }),
-    });
+  const slug = generateSlug(query);
+  const startTime = Date.now();
+  const blocks = [];
+  let expectedBlocks = 0;
+  let hasNavigated = false;
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to create page');
+  // Connect to SSE stream
+  const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}&images=${imageProvider}`;
+  const eventSource = new EventSource(streamUrl);
+
+  eventSource.addEventListener('layout', (e) => {
+    const data = JSON.parse(e.data);
+    expectedBlocks = data.blocks.length;
+    console.log(`[Cerebras] Layout: ${expectedBlocks} blocks`);
+  });
+
+  eventSource.addEventListener('block-content', (e) => {
+    const data = JSON.parse(e.data);
+    blocks.push(data);
+    console.log(`[Cerebras] Block ${blocks.length}/${expectedBlocks}: ${data.blockType}`);
+
+    // Navigate after first block arrives
+    if (!hasNavigated) {
+      hasNavigated = true;
+      // Store blocks in sessionStorage for the new page to read
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+        blocks,
+        query,
+        slug,
+        startTime,
+        expectedBlocks,
+        imageProvider,
+      }));
+      // Navigate with cached flag
+      window.location.href = `/?cerebras=${encodeURIComponent(query)}&images=${imageProvider}&cached=1`;
+    } else {
+      // Update cache with new block
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+        blocks,
+        query,
+        slug,
+        startTime,
+        expectedBlocks,
+        imageProvider,
+      }));
     }
+  });
 
-    const { path } = await response.json();
-    console.log(`[Cerebras] Page created at ${path}, redirecting...`);
+  eventSource.addEventListener('error', (e) => {
+    let errorMessage = 'Something went wrong during generation.';
+    if (e.data) {
+      try {
+        const data = JSON.parse(e.data);
+        errorMessage = data.message || errorMessage;
+      } catch {
+        // Not JSON error
+      }
+    }
+    console.error('[Cerebras] Error:', errorMessage);
+    eventSource.close();
 
-    // Redirect to the DA page on current origin
-    window.location.href = path;
-  } catch (error) {
-    console.error('[Cerebras] Error:', error);
     // Re-enable UI on error
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -369,8 +410,35 @@ async function startGeneration(query) {
       chip.style.pointerEvents = '';
       chip.style.opacity = '';
     });
-    alert(`Error: ${error.message}`);
-  }
+    // eslint-disable-next-line no-alert
+    alert(`Error: ${errorMessage}`);
+  });
+
+  eventSource.onerror = () => {
+    if (eventSource.readyState === EventSource.CLOSED && !hasNavigated) {
+      console.error('[Cerebras] Connection closed before navigation');
+      // Re-enable UI
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = `<span>Explore</span>`;
+      }
+      if (input) {
+        input.disabled = false;
+      }
+      if (headerBtn) {
+        headerBtn.disabled = false;
+        headerBtn.innerHTML = `<span>Explore</span>`;
+      }
+      if (headerInput) {
+        headerInput.disabled = false;
+      }
+      document.querySelectorAll('.suggestion-chip').forEach((chip) => {
+        chip.disabled = false;
+        chip.style.pointerEvents = '';
+        chip.style.opacity = '';
+      });
+    }
+  };
 }
 
 /**
