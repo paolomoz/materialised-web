@@ -164,6 +164,8 @@ async function renderCachedPage() {
   eventSource.addEventListener('generation-complete', () => {
     eventSource.close();
     console.log('[Cerebras] All images loaded');
+    // Show publish button now that all images are ready
+    addPublishButton();
   });
 
   eventSource.onerror = () => {
@@ -250,6 +252,9 @@ async function renderWithSSE(query, imageProvider) {
     if (h1) {
       document.title = `${h1.textContent} | Vitamix (Cerebras)`;
     }
+
+    // Show publish button now that all images are ready
+    addPublishButton();
   });
 
   eventSource.addEventListener('error', (e) => {
@@ -807,8 +812,7 @@ async function init() {
   if (isCerebrasGeneration()) {
     await loadCSS('/styles/cerebras.css');
     await renderCerebrasPage();
-    // Add publish button after rendering
-    addPublishButton();
+    // Publish button will be added when generation-complete fires (all images loaded)
   } else {
     // Setup the form on the homepage
     setupCerebrasForm();
