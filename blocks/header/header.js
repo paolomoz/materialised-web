@@ -177,16 +177,38 @@ export default async function decorate(block) {
     </div>
   `;
 
+  // Add image quality toggle to the right of the header
+  const qualityToggle = document.createElement('div');
+  qualityToggle.className = 'nav-quality-toggle';
+  qualityToggle.innerHTML = `
+    <span class="quality-label">Images:</span>
+    <button type="button" class="quality-option active" data-value="fast">Fast</button>
+    <button type="button" class="quality-option" data-value="best">Best</button>
+  `;
+
   // Add search interactivity
   const searchInput = searchContainer.querySelector('input');
-  const searchButton = searchContainer.querySelector('button');
+  const searchButton = searchContainer.querySelector('button[type="submit"]');
+
+  // Toggle option click handler
+  const toggleOptions = qualityToggle.querySelectorAll('.quality-option');
+  toggleOptions.forEach((option) => {
+    option.addEventListener('click', () => {
+      toggleOptions.forEach((opt) => opt.classList.remove('active'));
+      option.classList.add('active');
+    });
+  });
 
   const handleSearchSubmit = (e) => {
     e?.preventDefault();
     const query = searchInput.value.trim();
     if (query) {
-      // Navigate to Cerebras generation URL
-      window.location.href = `/?cerebras=${encodeURIComponent(query)}`;
+      // Get image quality setting from the quality toggle
+      const activeOption = qualityToggle.querySelector('.quality-option.active');
+      const imageQuality = activeOption ? activeOption.dataset.value : 'fast';
+      const imageProvider = imageQuality === 'best' ? 'imagen' : 'fal';
+      // Navigate to Cerebras generation URL with image provider
+      window.location.href = `/?cerebras=${encodeURIComponent(query)}&imageProvider=${imageProvider}`;
     }
   };
 
@@ -196,6 +218,7 @@ export default async function decorate(block) {
   });
 
   nav.appendChild(searchContainer);
+  nav.appendChild(qualityToggle);
 
   const navWrapper = document.createElement('div');
   navWrapper.className = 'nav-wrapper';

@@ -399,11 +399,17 @@ main .section.hero-video .hero-video-bg {
   z-index: 0;
 }
 
+/* 1. Overlay covers whole background */
 main .section.hero-video .hero-video-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.65);
   z-index: 1;
+  max-width: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
 }
 
 main .section.hero-video > .default-content-wrapper,
@@ -412,29 +418,29 @@ main .section.hero-video > .query-form-cerebras-wrapper {
   z-index: 2;
 }
 
+/* Content wrapper with dark background for text contrast */
 main .section.hero-video .hero-video-content {
   position: relative;
   z-index: 2;
   text-align: center;
   color: white;
-  padding: 40px 60px;
-  max-width: 800px;
+  padding: 60px 40px;
+  max-width: 700px;
   margin: 0 auto;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 16px;
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.65);
+  border-radius: 8px;
 }
 
 main .section.hero-video .hero-video-content h1 {
   font-size: var(--heading-font-size-xxl);
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   margin-top: 0;
   color: white;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   font-weight: 300;
 }
 
-main .section.hero-video .hero-video-content > p:first-of-type {
+main .section.hero-video .hero-video-content > .default-content-wrapper > p:first-of-type {
   font-size: var(--body-font-size-m);
   color: rgba(255, 255, 255, 0.9);
   max-width: 600px;
@@ -442,52 +448,97 @@ main .section.hero-video .hero-video-content > p:first-of-type {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
+/* 4. Two columns for Personalized Recipes and Product Guidance */
+main .section.hero-video .hero-video-content .hero-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  margin-top: 40px;
+  text-align: left;
+}
+
 main .section.hero-video .hero-video-content h3 {
   font-size: var(--font-size-lg);
   color: white;
-  margin: 24px 0 8px;
+  margin: 0 0 8px;
   font-weight: 600;
+  text-align: left;
 }
 
 main .section.hero-video .hero-video-content p {
   font-size: var(--font-size-sm);
   color: rgba(255, 255, 255, 0.85);
-  margin: 0 0 16px;
+  margin: 0;
   line-height: 1.5;
+  text-align: left;
+}
+
+/* Bottom "Why Use" section - left aligned */
+main .section.hero-video .hero-video-content .hero-why {
+  margin-top: 32px;
+  text-align: left;
 }
 
 main .section.hero-video .hero-video-content .query-form-cerebras {
-  margin: 24px 0;
+  margin: 24px 0 0;
 }
 
-/* Override block styles for hero-video context */
-main .section.hero-video .query-form-cerebras-toggle .toggle-label {
-  color: rgba(255, 255, 255, 0.7);
+/* 2. Input and button matching header style */
+main .section.hero-video .query-form-cerebras-input-wrapper {
+  background: var(--color-charcoal);
+  border: 1px solid var(--color-light-gray);
+  border-radius: 4px;
+  box-shadow: none;
 }
 
-main .section.hero-video .query-form-cerebras-toggle .image-toggle-option {
-  border-color: rgba(255, 255, 255, 0.3);
-  color: rgba(255, 255, 255, 0.7);
+main .section.hero-video .query-form-cerebras input[type="text"] {
+  background: white;
+  color: var(--color-brand-dark);
+  border: none;
+  border-radius: 0;
+  padding: 12px 16px;
+  font-size: var(--body-font-size-s);
 }
 
-main .section.hero-video .query-form-cerebras-toggle .image-toggle-option:hover {
-  background: rgba(255, 255, 255, 0.1);
+main .section.hero-video .query-form-cerebras input[type="text"]::placeholder {
+  color: var(--color-medium-gray);
 }
 
-main .section.hero-video .query-form-cerebras-toggle .image-toggle-option.active {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.5);
+main .section.hero-video .query-form-cerebras button[type="submit"] {
+  background: var(--color-charcoal);
   color: white;
+  border-radius: 0;
+  padding: 12px 24px;
+  font-size: var(--body-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 500;
+}
+
+main .section.hero-video .query-form-cerebras button[type="submit"]:hover {
+  background: var(--color-dark-gray);
+}
+
+/* 3. "Or try" and chips in one row */
+main .section.hero-video .query-form-cerebras-examples {
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  margin-top: 16px;
+  gap: 10px;
 }
 
 main .section.hero-video .query-form-cerebras-examples .examples-label {
   color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
 }
 
 main .section.hero-video .query-form-cerebras-examples button {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.2);
   color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  padding: 6px 12px;
+  font-size: var(--font-size-xs);
 }
 
 main .section.hero-video .query-form-cerebras-examples button:hover {
@@ -509,6 +560,15 @@ main .section.hero-video .query-form-cerebras-examples button:hover {
 
   main .section.hero-video .hero-video-content h1 {
     font-size: var(--heading-font-size-l);
+  }
+
+  main .section.hero-video .hero-video-content .hero-features {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  main .section.hero-video .query-form-cerebras-examples {
+    flex-wrap: wrap;
   }
 }
 

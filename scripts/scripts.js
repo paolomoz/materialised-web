@@ -710,6 +710,62 @@ function decorateHeroVideoSections(main) {
       }
     });
 
+    // Restructure h3/p pairs into feature columns and why section
+    const h3Elements = contentWrapper.querySelectorAll('h3');
+    if (h3Elements.length >= 2) {
+      // Create features container for first two h3/p pairs (Personalized Recipes, Product Guidance)
+      const featuresContainer = document.createElement('div');
+      featuresContainer.className = 'hero-features';
+
+      // First two h3 elements with their following p
+      for (let i = 0; i < 2 && i < h3Elements.length; i += 1) {
+        const h3 = h3Elements[i];
+        const featureDiv = document.createElement('div');
+        featureDiv.className = 'hero-feature';
+        featureDiv.appendChild(h3.cloneNode(true));
+
+        // Get the p that follows this h3
+        let nextEl = h3.nextElementSibling;
+        while (nextEl && nextEl.tagName !== 'P' && nextEl.tagName !== 'H3') {
+          nextEl = nextEl.nextElementSibling;
+        }
+        if (nextEl && nextEl.tagName === 'P') {
+          featureDiv.appendChild(nextEl.cloneNode(true));
+          nextEl.remove();
+        }
+        h3.remove();
+        featuresContainer.appendChild(featureDiv);
+      }
+
+      // Handle the third h3 (Why Use AI-Powered Discovery) - wrap in hero-why
+      if (h3Elements.length >= 3) {
+        const whyH3 = h3Elements[2];
+        const whyContainer = document.createElement('div');
+        whyContainer.className = 'hero-why';
+        whyContainer.appendChild(whyH3.cloneNode(true));
+
+        let nextEl = whyH3.nextElementSibling;
+        while (nextEl && nextEl.tagName !== 'H3') {
+          const nextNext = nextEl.nextElementSibling;
+          if (nextEl.tagName === 'P') {
+            whyContainer.appendChild(nextEl.cloneNode(true));
+            nextEl.remove();
+          }
+          nextEl = nextNext;
+        }
+        whyH3.remove();
+        contentWrapper.appendChild(whyContainer);
+      }
+
+      // Insert features container after the form
+      const form = contentWrapper.querySelector('.query-form-cerebras-wrapper');
+      if (form) {
+        form.after(featuresContainer);
+      } else {
+        contentWrapper.appendChild(featuresContainer);
+      }
+    }
+
     // Insert video, overlay, and content wrapper
     section.insertBefore(video, section.firstChild);
     section.insertBefore(overlay, video.nextSibling);

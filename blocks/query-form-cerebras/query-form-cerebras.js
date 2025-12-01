@@ -49,9 +49,9 @@ function startGeneration(block, query) {
   let expectedBlockCount = 0;
   let hasNavigated = false;
 
-  // Get image quality setting
-  const activeOption = block.querySelector('.image-toggle-option.active');
-  const imageQuality = activeOption ? activeOption.dataset.value : 'fast';
+  // Get image quality setting from header toggle (default to fast)
+  const headerToggle = document.querySelector('.nav-quality-toggle .quality-option.active');
+  const imageQuality = headerToggle ? headerToggle.dataset.value : 'fast';
   const imageProvider = imageQuality === 'best' ? 'imagen' : 'fal';
 
   // Get UI elements
@@ -235,11 +235,6 @@ export default function decorate(block) {
         <span>${buttonText}</span>
       </button>
     </div>
-    <div class="query-form-cerebras-toggle">
-      <span class="toggle-label">Images:</span>
-      <button type="button" class="image-toggle-option active" data-value="fast">Fast</button>
-      <button type="button" class="image-toggle-option" data-value="best">Best</button>
-    </div>
     <div class="query-form-cerebras-error" style="display: none;"></div>
   `;
 
@@ -276,15 +271,6 @@ export default function decorate(block) {
     btn.addEventListener('click', () => {
       const query = btn.dataset.query || btn.textContent;
       startGeneration(block, query);
-    });
-  });
-
-  // Image toggle
-  const toggleOptions = block.querySelectorAll('.image-toggle-option');
-  toggleOptions.forEach((option) => {
-    option.addEventListener('click', () => {
-      toggleOptions.forEach((opt) => opt.classList.remove('active'));
-      option.classList.add('active');
     });
   });
 }

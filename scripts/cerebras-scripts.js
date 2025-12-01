@@ -135,19 +135,6 @@ async function renderCachedPage() {
     document.title = `${h1.textContent} | Vitamix (Cerebras)`;
   }
 
-  const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-
-  // Add completion badge
-  const completionSection = document.createElement('div');
-  completionSection.className = 'section cerebras-complete';
-  completionSection.innerHTML = `
-    <div class="cerebras-complete-container">
-      <div class="cerebras-complete-badge">Generated in ${totalTime}s with Cerebras</div>
-      <p><a href="/">Try another query</a></p>
-    </div>
-  `;
-  content.appendChild(completionSection);
-
   // Reconnect to SSE to receive image-ready events
   const imagesParam = imageProvider ? `&images=${imageProvider}` : '';
   const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}${imagesParam}`;
@@ -254,17 +241,6 @@ async function renderWithSSE(query, imageProvider) {
     if (h1) {
       document.title = `${h1.textContent} | Vitamix (Cerebras)`;
     }
-
-    // Add completion badge
-    const completionSection = document.createElement('div');
-    completionSection.className = 'section cerebras-complete';
-    completionSection.innerHTML = `
-      <div class="cerebras-complete-container">
-        <div class="cerebras-complete-badge">Generated in ${totalTime}s with Cerebras</div>
-        <p><a href="/">Try another query</a></p>
-      </div>
-    `;
-    content.appendChild(completionSection);
   });
 
   eventSource.addEventListener('error', (e) => {
