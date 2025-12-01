@@ -497,58 +497,63 @@ function setupCerebrasForm() {
 }
 
 /**
- * Add Save to DA button in header for generated pages
+ * Add Publish button in header for generated pages
  */
-function addSaveButton() {
+function addPublishButton() {
   const header = document.querySelector('header');
   if (!header) return;
 
   // Check if button already exists
-  if (header.querySelector('.save-to-da-btn')) return;
+  if (header.querySelector('.publish-btn')) return;
 
   // Find the quality toggle container to place button nearby
   const qualityToggle = header.querySelector('.nav-quality-toggle');
   if (!qualityToggle) return;
 
-  // Create save button
-  const saveBtn = document.createElement('button');
-  saveBtn.className = 'save-to-da-btn';
-  saveBtn.innerHTML = `
+  // Create publish button
+  const publishBtn = document.createElement('button');
+  publishBtn.className = 'publish-btn';
+  publishBtn.innerHTML = `
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-      <polyline points="17 21 17 13 7 13 7 21"></polyline>
-      <polyline points="7 3 7 8 15 8"></polyline>
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+      <polyline points="16 6 12 2 8 6"></polyline>
+      <line x1="12" y1="2" x2="12" y2="15"></line>
     </svg>
-    <span>Save</span>
+    <span>Publish</span>
   `;
 
-  saveBtn.addEventListener('click', saveToDA);
+  publishBtn.addEventListener('click', publishToDA);
 
   // Insert before quality toggle
-  qualityToggle.parentNode.insertBefore(saveBtn, qualityToggle);
+  qualityToggle.parentNode.insertBefore(publishBtn, qualityToggle);
 }
 
 /**
- * Save current generated page to DA
+ * Published page URL - stored after successful publish
  */
-async function saveToDA() {
-  const saveBtn = document.querySelector('.save-to-da-btn');
-  if (!saveBtn) return;
+let publishedPageUrl = null;
+
+/**
+ * Publish current generated page to DA
+ */
+async function publishToDA() {
+  const publishBtn = document.querySelector('.publish-btn');
+  if (!publishBtn) return;
 
   const params = new URLSearchParams(window.location.search);
   const query = params.get('cerebras');
   if (!query) {
     // eslint-disable-next-line no-alert
-    alert('No generated content to save.');
+    alert('No generated content to publish.');
     return;
   }
 
-  // Show saving state
-  const originalHTML = saveBtn.innerHTML;
-  saveBtn.disabled = true;
-  saveBtn.innerHTML = `
+  // Show publishing state
+  const originalHTML = publishBtn.innerHTML;
+  publishBtn.disabled = true;
+  publishBtn.innerHTML = `
     <div class="generating-spinner"></div>
-    <span>Saving...</span>
+    <span>Publishing...</span>
   `;
 
   try {
@@ -561,50 +566,117 @@ async function saveToDA() {
       throw new Error('No generated content found');
     }
 
-    // Generate slug from query
-    const slug = generateSlug(query);
-
-    // Call worker API to persist
+    // Call worker API to persist (worker will classify and generate path)
     const response = await fetch(`${CEREBRAS_WORKER_URL}/api/persist`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug, query, html: htmlBlocks }),
+      body: JSON.stringify({ query, html: htmlBlocks }),
     });
 
     const result = await response.json();
 
     if (!result.success) {
-      throw new Error(result.error || 'Failed to save');
+      throw new Error(result.error || 'Failed to publish');
     }
 
-    // Show success state
-    saveBtn.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="20 6 9 17 4 12"></polyline>
-      </svg>
-      <span>Saved!</span>
-    `;
-    saveBtn.classList.add('saved');
+    // Store the published URL
+    publishedPageUrl = result.urls?.live;
 
     // eslint-disable-next-line no-console
-    console.log('[Cerebras] Page saved to DA:', result.urls);
+    console.log('[Cerebras] Page published to DA:', result.path, result.urls);
 
-    // Optionally redirect to the saved page after a delay
+    // Transform to Share button
+    publishBtn.className = 'publish-btn published';
+    publishBtn.disabled = false;
+    publishBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="18" cy="5" r="3"></circle>
+        <circle cx="6" cy="12" r="3"></circle>
+        <circle cx="18" cy="19" r="3"></circle>
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+      </svg>
+      <span>Share</span>
+    `;
+
+    // Change click handler to share
+    publishBtn.removeEventListener('click', publishToDA);
+    publishBtn.addEventListener('click', sharePublishedPage);
+
+    // Redirect to the published page after a short delay
     setTimeout(() => {
-      if (result.urls?.live) {
-        window.location.href = result.urls.live;
+      if (publishedPageUrl) {
+        window.location.href = publishedPageUrl;
       }
-    }, 1500);
+    }, 1000);
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('[Cerebras] Failed to save:', error);
+    console.error('[Cerebras] Failed to publish:', error);
     // eslint-disable-next-line no-alert
-    alert(`Failed to save: ${error.message}`);
+    alert(`Failed to publish: ${error.message}`);
 
     // Restore button
-    saveBtn.disabled = false;
-    saveBtn.innerHTML = originalHTML;
+    publishBtn.disabled = false;
+    publishBtn.innerHTML = originalHTML;
   }
+}
+
+/**
+ * Share the published page URL (copy to clipboard)
+ */
+async function sharePublishedPage() {
+  if (!publishedPageUrl) {
+    // eslint-disable-next-line no-alert
+    alert('No published page to share.');
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(publishedPageUrl);
+    showCopyNotification('Link copied to clipboard!');
+  } catch (error) {
+    // Fallback for browsers that don't support clipboard API
+    const textArea = document.createElement('textarea');
+    textArea.value = publishedPageUrl;
+    textArea.style.position = 'fixed';
+    textArea.style.opacity = '0';
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    showCopyNotification('Link copied to clipboard!');
+  }
+}
+
+/**
+ * Show a brief notification when URL is copied
+ */
+function showCopyNotification(message) {
+  // Remove any existing notification
+  const existing = document.querySelector('.copy-notification');
+  if (existing) existing.remove();
+
+  const notification = document.createElement('div');
+  notification.className = 'copy-notification';
+  notification.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+    <span>${message}</span>
+  `;
+
+  document.body.appendChild(notification);
+
+  // Trigger animation
+  requestAnimationFrame(() => {
+    notification.classList.add('show');
+  });
+
+  // Remove after 2 seconds
+  setTimeout(() => {
+    notification.classList.remove('show');
+    setTimeout(() => notification.remove(), 300);
+  }, 2000);
 }
 
 /**
@@ -701,8 +773,8 @@ async function init() {
   if (isCerebrasGeneration()) {
     await loadCSS('/styles/cerebras.css');
     await renderCerebrasPage();
-    // Add save button after rendering
-    addSaveButton();
+    // Add publish button after rendering
+    addPublishButton();
   } else {
     // Setup the form on the homepage
     setupCerebrasForm();
