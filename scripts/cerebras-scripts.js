@@ -514,7 +514,7 @@ function addPublishButton() {
   const publishBtn = document.createElement('button');
   publishBtn.className = 'publish-btn';
   publishBtn.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
       <polyline points="16 6 12 2 8 6"></polyline>
       <line x1="12" y1="2" x2="12" y2="15"></line>
@@ -589,7 +589,7 @@ async function publishToDA() {
     publishBtn.className = 'publish-btn published';
     publishBtn.disabled = false;
     publishBtn.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="18" cy="5" r="3"></circle>
         <circle cx="6" cy="12" r="3"></circle>
         <circle cx="18" cy="19" r="3"></circle>
@@ -603,12 +603,11 @@ async function publishToDA() {
     publishBtn.removeEventListener('click', publishToDA);
     publishBtn.addEventListener('click', sharePublishedPage);
 
-    // Redirect to the published page after a short delay
-    setTimeout(() => {
-      if (publishedPageUrl) {
-        window.location.href = publishedPageUrl;
-      }
-    }, 1000);
+    // Open published page in new tab and redirect current to homepage
+    if (publishedPageUrl) {
+      window.open(publishedPageUrl, '_blank');
+      window.location.href = '/';
+    }
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('[Cerebras] Failed to publish:', error);

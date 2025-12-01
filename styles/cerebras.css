@@ -255,51 +255,53 @@ picture:has(img[data-gen-image].loaded) {
   }
 }
 
-/* Publish button in header */
+/* Publish button in header - matches toggle button styling */
 .publish-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  margin-right: 16px;
-  font-size: 14px;
+  gap: 5px;
+  padding: 6px 14px;
+  margin-right: 12px;
+  font-size: 12px;
   font-weight: 500;
-  background: var(--cerebras-primary, #6366f1);
-  color: white;
-  border: none;
-  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
   cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 
 .publish-btn:hover {
-  background: var(--cerebras-dark, #4f46e5);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
 }
 
 .publish-btn:disabled {
-  background: #94a3b8;
+  opacity: 0.6;
   cursor: wait;
-  transform: none;
 }
 
 .publish-btn.published {
-  background: #10b981;
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #10b981;
 }
 
 .publish-btn.published:hover {
-  background: #059669;
+  background: rgba(16, 185, 129, 0.3);
+  color: #34d399;
 }
 
 .publish-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
 
 .publish-btn .generating-spinner {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: white;
   border-radius: 50%;
@@ -360,11 +362,17 @@ picture:has(img[data-gen-image].loaded) {
   }
 
   .publish-btn {
-    padding: 6px 12px;
+    padding: 6px 10px;
     margin-right: 8px;
   }
 
   .publish-btn span {
     display: none;
+  }
+
+  .copy-notification {
+    bottom: 16px;
+    padding: 10px 16px;
+    font-size: 13px;
   }
 }
