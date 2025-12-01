@@ -239,7 +239,8 @@ export async function createPlaceholderPage(
   query: string,
   slug: string,
   env: Env,
-  sourceOrigin: string
+  sourceOrigin: string,
+  imageProvider: 'fal' | 'imagen' = 'fal'
 ): Promise<{ success: boolean; urls?: { preview: string; live: string }; error?: string }> {
   // Build minimal HTML with cerebras-generated block
   // EDS blocks use nested divs: outer div with class, inner divs for rows/cells
@@ -253,6 +254,7 @@ export async function createPlaceholderPage(
   <meta name="cerebras-query" content="${escapeHtml(query)}">
   <meta name="cerebras-slug" content="${escapeHtml(slug)}">
   <meta name="cerebras-source" content="${escapeHtml(sourceOrigin)}">
+  <meta name="cerebras-images" content="${imageProvider}">
 </head>
 <body>
   <header></header>

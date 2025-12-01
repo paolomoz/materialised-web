@@ -152,7 +152,7 @@ async function handleCreatePage(request: Request, env: Env): Promise<Response> {
     }), { expirationTtl: 600 });
 
     // 4. Create placeholder DA page with cerebras-generated block
-    const daResult = await createPlaceholderPage(path, query, slug, env, sourceOrigin);
+    const daResult = await createPlaceholderPage(path, query, slug, env, sourceOrigin, imageProvider);
 
     if (!daResult.success) {
       console.error('[handleCreatePage] DA page creation failed:', daResult.error);
