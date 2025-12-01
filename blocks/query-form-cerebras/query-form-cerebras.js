@@ -64,6 +64,9 @@ function startGeneration(block, query) {
 
   // Show loading state
   if (submitBtn) {
+    // Preserve button width when showing spinner
+    const btnWidth = submitBtn.offsetWidth;
+    submitBtn.style.minWidth = `${btnWidth}px`;
     submitBtn.disabled = true;
     submitBtn.innerHTML = `
       <div class="generating-spinner"></div>
@@ -147,6 +150,7 @@ function startGeneration(block, query) {
   const restoreButtons = () => {
     if (submitBtn) {
       submitBtn.disabled = false;
+      submitBtn.style.minWidth = '';
       submitBtn.innerHTML = originalBtnHTML;
     }
     if (input) {

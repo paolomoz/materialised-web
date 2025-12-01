@@ -540,6 +540,14 @@ function setupHeaderSearch() {
     if (query) {
       e.preventDefault();
       e.stopImmediatePropagation();
+
+      // Show spinner on button (preserve width)
+      const btnWidth = button.offsetWidth;
+      button.disabled = true;
+      input.disabled = true;
+      button.style.minWidth = `${btnWidth}px`;
+      button.innerHTML = '<div class="header-search-spinner"></div>';
+
       startGeneration(query);
     }
   }, true); // true = capturing phase
@@ -558,6 +566,17 @@ function setupHeaderSearch() {
     if (query) {
       e.preventDefault();
       e.stopImmediatePropagation();
+
+      // Show spinner on button (preserve width)
+      const button = header.querySelector('button');
+      if (button) {
+        const btnWidth = button.offsetWidth;
+        button.disabled = true;
+        button.style.minWidth = `${btnWidth}px`;
+        button.innerHTML = '<div class="header-search-spinner"></div>';
+      }
+      input.disabled = true;
+
       startGeneration(query);
     }
   }, true); // true = capturing phase
