@@ -364,23 +364,33 @@ async function handleCategoryPage(request: Request, env: Env): Promise<Response>
 
 /**
  * Handle persist request - save generated content to DA
+ * Classifies the query to generate meaningful paths like /recipes/smoothies/green
  */
 async function handlePersist(request: Request, env: Env): Promise<Response> {
   try {
-    const { slug, query, html } = await request.json() as {
-      slug: string;
+    const { query, html } = await request.json() as {
       query: string;
       html: string[];
     };
 
-    if (!slug || !html || !Array.isArray(html)) {
+    if (!query || !html || !Array.isArray(html)) {
       return new Response(JSON.stringify({ success: false, error: 'Missing required fields' }), {
         status: 400,
         headers: corsHeaders({ 'Content-Type': 'application/json' }),
       });
     }
 
-    const path = `/discover/${slug}`;
+    // Classify intent to determine category and generate semantic path
+    console.log(`[handlePersist] Classifying query: "${query}"`);
+    const intent = await classifyIntent(query, env);
+    console.log(`[handlePersist] Intent: ${intent.intentType}, Entities:`, intent.entities);
+
+    // Determine category and generate semantic slug
+    const category = classifyCategory(intent, query);
+    const slug = generateSemanticSlug(query, intent);
+    const path = buildCategorizedPath(category, slug);
+
+    console.log(`[handlePersist] Generated path: ${path}`);
 
     // Build the full HTML page for DA
     const pageHtml = buildDAPageHtml(query, html);
@@ -403,6 +413,7 @@ async function handlePersist(request: Request, env: Env): Promise<Response> {
       headers: corsHeaders({ 'Content-Type': 'application/json' }),
     });
   } catch (error) {
+    console.error('[handlePersist] Error:', error);
     return new Response(JSON.stringify({ success: false, error: (error as Error).message }), {
       status: 500,
       headers: corsHeaders({ 'Content-Type': 'application/json' }),
