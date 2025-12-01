@@ -16,11 +16,12 @@ export default function decorate(block) {
   block.innerHTML = `
     <div class="recipe-filter-bar-inner">
       <div class="filter-group filter-difficulty">
-        <label class="filter-label">Difficulty</label>
+        <label class="filter-label" for="difficulty-slider">Difficulty</label>
         <div class="slider-wrapper">
           <span class="slider-label slider-label-min">Easy</span>
           <input
             type="range"
+            id="difficulty-slider"
             class="difficulty-slider"
             min="1"
             max="5"
