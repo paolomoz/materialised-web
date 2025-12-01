@@ -265,8 +265,8 @@ picture:has(img[data-gen-image].loaded) {
   font-size: 14px;
   font-weight: 500;
   background: transparent;
-  color: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #9ca3af;
+  border: 1px solid #6b7280;
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.2s, color 0.2s, border-color 0.2s;
@@ -274,8 +274,8 @@ picture:has(img[data-gen-image].loaded) {
 
 .publish-btn:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: white;
-  border-color: rgba(255, 255, 255, 0.6);
+  color: #e5e7eb;
+  border-color: #9ca3af;
 }
 
 .publish-btn:disabled {
