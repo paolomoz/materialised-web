@@ -607,10 +607,9 @@ async function publishToDA() {
     publishBtn.removeEventListener('click', publishToDA);
     publishBtn.addEventListener('click', sharePublishedPage);
 
-    // Open published page in new tab and redirect current to homepage
+    // Open published page in new tab
     if (publishedPageUrl) {
       window.open(publishedPageUrl, '_blank');
-      window.location.href = '/';
     }
   } catch (error) {
     // eslint-disable-next-line no-console
