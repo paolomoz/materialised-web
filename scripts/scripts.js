@@ -44,6 +44,14 @@ function isFastRequest() {
 }
 
 /**
+ * Check if this is a Cerebras generation request (has ?cerebras= param)
+ * These are handled by cerebras-scripts.js
+ */
+function isCerebrasRequest() {
+  return new URLSearchParams(window.location.search).has('cerebras');
+}
+
+/**
  * Generate a URL-safe slug from a query
  */
 function generateSlug(query) {
@@ -732,6 +740,17 @@ function loadDelayed() {
 }
 
 async function loadPage() {
+  // Check if this is a Cerebras request (?cerebras=query) - handled by cerebras-scripts.js
+  if (isCerebrasRequest()) {
+    // cerebras-scripts.js handles this, just load header/footer
+    document.documentElement.lang = 'en';
+    decorateTemplateAndTheme();
+    document.body.classList.add('appear');
+    loadHeader(document.querySelector('header'));
+    loadFooter(document.querySelector('footer'));
+    return;
+  }
+
   // Check if this is an experiment request (?experiment=query) - progressive rendering
   if (isExperimentRequest()) {
     const handled = await initExperiment();
