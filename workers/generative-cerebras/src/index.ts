@@ -25,10 +25,10 @@ export default {
       return new Response('OK', { status: 200 });
     }
 
-    // Query redirect: /?q=query -> creates DA page, redirects to it
-    // This is the main entry point for the new categorized path flow
-    if (url.pathname === '/' && url.searchParams.has('q')) {
-      return handleQueryRedirect(request, env);
+    // Create page API: POST /api/create-page
+    // Creates DA page and returns the path (frontend redirects)
+    if (url.pathname === '/api/create-page' && request.method === 'POST') {
+      return handleCreatePage(request, env);
     }
 
     // Generate page endpoint (POST with query)
@@ -90,56 +90,54 @@ function handleCORS(): Response {
 }
 
 /**
- * Handle query redirect: /?q=query
+ * Handle create page API: POST /api/create-page
  *
- * This is the main entry point for the categorized path flow:
+ * Creates a DA page and returns the path for frontend redirect:
  * 1. Classify intent using Cerebras
  * 2. Determine category and generate semantic slug
  * 3. Create placeholder DA page with cerebras-generated block
- * 4. Redirect user to the DA page URL
+ * 4. Return path for frontend to redirect
  */
-async function handleQueryRedirect(request: Request, env: Env): Promise<Response> {
-  const url = new URL(request.url);
-  const query = url.searchParams.get('q')?.trim();
-  const imageProvider = url.searchParams.get('images') as 'fal' | 'imagen' | null;
+async function handleCreatePage(request: Request, env: Env): Promise<Response> {
+  const { query, images } = await request.json() as { query: string; images?: string };
+  const imageProvider = (images || 'fal') as 'fal' | 'imagen';
 
-  // Determine where the user came from to redirect back to same origin
-  const referer = request.headers.get('Referer');
+  // Determine source origin from request
+  const origin = request.headers.get('Origin');
   let sourceOrigin = env.EDS_ORIGIN;
-  if (referer) {
+  if (origin) {
     try {
-      const refererUrl = new URL(referer);
-      // Only accept known AEM origins
-      if (refererUrl.hostname.includes('aem.page') ||
-          refererUrl.hostname.includes('aem.live') ||
-          refererUrl.hostname === 'localhost') {
-        sourceOrigin = refererUrl.origin;
+      const originUrl = new URL(origin);
+      if (originUrl.hostname.includes('aem.page') ||
+          originUrl.hostname.includes('aem.live') ||
+          originUrl.hostname === 'localhost') {
+        sourceOrigin = origin;
       }
     } catch {
       // Use default
     }
   }
 
-  if (!query) {
-    return new Response(JSON.stringify({ error: 'Missing query parameter' }), {
+  if (!query || query.trim().length === 0) {
+    return new Response(JSON.stringify({ error: 'Missing query' }), {
       status: 400,
       headers: corsHeaders({ 'Content-Type': 'application/json' }),
     });
   }
 
-  console.log(`[handleQueryRedirect] Query: "${query}", Source: ${sourceOrigin}`);
+  console.log(`[handleCreatePage] Query: "${query}", Images: ${imageProvider}, Source: ${sourceOrigin}`);
 
   try {
     // 1. Classify intent using Cerebras (fast ~200ms)
     const intent = await classifyIntent(query, env);
-    console.log(`[handleQueryRedirect] Intent: ${intent.intentType}, Layout: ${intent.layoutId}`);
+    console.log(`[handleCreatePage] Intent: ${intent.intentType}, Layout: ${intent.layoutId}`);
 
     // 2. Determine category and generate slug
     const category = classifyCategory(intent, query);
     const slug = generateSemanticSlug(query, intent);
     const path = buildCategorizedPath(category, slug);
 
-    console.log(`[handleQueryRedirect] Path: ${path}`);
+    console.log(`[handleCreatePage] Path: ${path}`);
 
     // 3. Store generation state in KV (so the stream knows what to generate)
     await env.CACHE.put(`generation:${path}`, JSON.stringify({
@@ -147,7 +145,7 @@ async function handleQueryRedirect(request: Request, env: Env): Promise<Response
       query,
       slug,
       path,
-      imageProvider: imageProvider || 'fal',
+      imageProvider,
       intent,
       sourceOrigin,
       createdAt: new Date().toISOString(),
@@ -157,21 +155,24 @@ async function handleQueryRedirect(request: Request, env: Env): Promise<Response
     const daResult = await createPlaceholderPage(path, query, slug, env, sourceOrigin);
 
     if (!daResult.success) {
-      console.error('[handleQueryRedirect] DA page creation failed:', daResult.error);
+      console.error('[handleCreatePage] DA page creation failed:', daResult.error);
       return new Response(JSON.stringify({ error: 'Failed to create page', details: daResult.error }), {
         status: 500,
         headers: corsHeaders({ 'Content-Type': 'application/json' }),
       });
     }
 
-    console.log(`[handleQueryRedirect] DA page created, redirecting to ${sourceOrigin}${path}`);
+    console.log(`[handleCreatePage] DA page created at ${path}`);
 
-    // 5. Redirect to the DA page URL (user's origin, not worker)
-    return Response.redirect(`${sourceOrigin}${path}`, 302);
+    // 5. Return the path for frontend to redirect
+    return new Response(JSON.stringify({ path, slug }), {
+      status: 200,
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
   } catch (error) {
-    console.error('[handleQueryRedirect] Error:', error);
+    console.error('[handleCreatePage] Error:', error);
     return new Response(JSON.stringify({
-      error: 'Failed to process query',
+      error: 'Failed to create page',
       message: (error as Error).message,
     }), {
       status: 500,

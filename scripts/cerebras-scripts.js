@@ -273,15 +273,15 @@ function getImageQuality() {
 }
 
 /**
- * Start generation from homepage using the new categorized path flow
+ * Start generation from homepage using the categorized path flow
  *
- * New flow:
- * 1. Redirect to worker's /?q= endpoint
- * 2. Worker creates DA page with cerebras-generated block
- * 3. Worker redirects to the DA page URL
+ * Flow:
+ * 1. Call worker API to create DA page
+ * 2. Worker returns the path
+ * 3. Frontend redirects to the DA page on current origin
  * 4. DA page's cerebras-generated block streams content from worker
  */
-function startGeneration(query) {
+async function startGeneration(query) {
   // Get image quality setting (fast = fal, best = imagen)
   const imageQuality = getImageQuality();
   const imageProvider = imageQuality === 'best' ? 'imagen' : 'fal';
@@ -300,7 +300,7 @@ function startGeneration(query) {
     submitBtn.disabled = true;
     submitBtn.innerHTML = `
       <div class="generating-spinner"></div>
-      <span>Preparing page...</span>
+      <span>Creating page...</span>
     `;
   }
   if (input) {
@@ -312,7 +312,7 @@ function startGeneration(query) {
     headerBtn.disabled = true;
     headerBtn.innerHTML = `
       <div class="generating-spinner"></div>
-      <span>Preparing...</span>
+      <span>Creating...</span>
     `;
   }
   if (headerInput) {
@@ -326,15 +326,51 @@ function startGeneration(query) {
     chip.style.opacity = '0.5';
   });
 
-  console.log(`[Cerebras] Starting generation with categorized path flow`);
+  console.log(`[Cerebras] Starting generation`);
   console.log(`[Cerebras] Query: "${query}", Images: ${imageProvider}`);
 
-  // Redirect to worker which will:
-  // 1. Classify intent
-  // 2. Create DA page with placeholder block
-  // 3. Redirect to DA page URL
-  const workerUrl = `${CEREBRAS_WORKER_URL}/?q=${encodeURIComponent(query)}&images=${imageProvider}`;
-  window.location.href = workerUrl;
+  try {
+    // Call worker API to create the DA page
+    const response = await fetch(`${CEREBRAS_WORKER_URL}/api/create-page`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, images: imageProvider }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to create page');
+    }
+
+    const { path } = await response.json();
+    console.log(`[Cerebras] Page created at ${path}, redirecting...`);
+
+    // Redirect to the DA page on current origin
+    window.location.href = path;
+  } catch (error) {
+    console.error('[Cerebras] Error:', error);
+    // Re-enable UI on error
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `<span>Explore</span>`;
+    }
+    if (input) {
+      input.disabled = false;
+    }
+    if (headerBtn) {
+      headerBtn.disabled = false;
+      headerBtn.innerHTML = `<span>Explore</span>`;
+    }
+    if (headerInput) {
+      headerInput.disabled = false;
+    }
+    document.querySelectorAll('.suggestion-chip').forEach((chip) => {
+      chip.disabled = false;
+      chip.style.pointerEvents = '';
+      chip.style.opacity = '';
+    });
+    alert(`Error: ${error.message}`);
+  }
 }
 
 /**
