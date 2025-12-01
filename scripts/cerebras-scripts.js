@@ -273,15 +273,15 @@ function getImageQuality() {
 }
 
 /**
- * Start generation from homepage and navigate when ready
+ * Start generation from homepage using the new categorized path flow
+ *
+ * New flow:
+ * 1. Redirect to worker's /?q= endpoint
+ * 2. Worker creates DA page with cerebras-generated block
+ * 3. Worker redirects to the DA page URL
+ * 4. DA page's cerebras-generated block streams content from worker
  */
 function startGeneration(query) {
-  const slug = generateSlug(query);
-  const startTime = Date.now();
-  const generatedBlocks = [];
-  let expectedBlockCount = 0;
-  let hasNavigated = false;
-
   // Get image quality setting (fast = fal, best = imagen)
   const imageQuality = getImageQuality();
   const imageProvider = imageQuality === 'best' ? 'imagen' : 'fal';
@@ -294,14 +294,13 @@ function startGeneration(query) {
   const header = document.querySelector('header');
   const headerBtn = header ? header.querySelector('button') : null;
   const headerInput = header ? header.querySelector('input[type="text"], input[type="search"], input:not([type])') : null;
-  const headerBtnOriginalHTML = headerBtn ? headerBtn.innerHTML : '';
 
   // Show loading state on homepage button
   if (submitBtn) {
     submitBtn.disabled = true;
     submitBtn.innerHTML = `
       <div class="generating-spinner"></div>
-      <span>Generating...</span>
+      <span>Preparing page...</span>
     `;
   }
   if (input) {
@@ -313,7 +312,7 @@ function startGeneration(query) {
     headerBtn.disabled = true;
     headerBtn.innerHTML = `
       <div class="generating-spinner"></div>
-      <span>Generating...</span>
+      <span>Preparing...</span>
     `;
   }
   if (headerInput) {
@@ -327,132 +326,15 @@ function startGeneration(query) {
     chip.style.opacity = '0.5';
   });
 
-  // Navigate when all content blocks are received
-  function navigateWhenReady() {
-    if (hasNavigated) return;
-    if (expectedBlockCount > 0 && generatedBlocks.length >= expectedBlockCount) {
-      hasNavigated = true;
-      eventSource.close();
+  console.log(`[Cerebras] Starting generation with categorized path flow`);
+  console.log(`[Cerebras] Query: "${query}", Images: ${imageProvider}`);
 
-      // Cache the generated content
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-        blocks: generatedBlocks,
-        query,
-        slug,
-        startTime,
-        expectedBlocks: expectedBlockCount,
-        imageProvider,
-      }));
-
-      console.log(`[Cerebras] All ${expectedBlockCount} blocks received, navigating...`);
-
-      // Navigate to the generated page
-      window.location.href = `/?cerebras=${encodeURIComponent(query)}&cached=1`;
-    }
-  }
-
-  // Connect to SSE stream with image provider
-  const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}&images=${imageProvider}`;
-  const eventSource = new EventSource(streamUrl);
-
-  console.log(`[Cerebras] Starting generation with ${imageProvider} images`);
-
-  eventSource.addEventListener('layout', (e) => {
-    const data = JSON.parse(e.data);
-    expectedBlockCount = data.blocks.length;
-    console.log(`[Cerebras] Expecting ${expectedBlockCount} blocks`);
-  });
-
-  eventSource.addEventListener('block-content', (e) => {
-    const data = JSON.parse(e.data);
-    generatedBlocks.push({ html: data.html, sectionStyle: data.sectionStyle });
-
-    // Update button text with block count
-    const updateText = `Creating... (${generatedBlocks.length}/${expectedBlockCount || '?'})`;
-    if (submitBtn) {
-      const span = submitBtn.querySelector('span');
-      if (span) span.textContent = updateText;
-    }
-    if (headerBtn) {
-      const span = headerBtn.querySelector('span');
-      if (span) span.textContent = updateText;
-    }
-
-    // Check if all blocks received
-    navigateWhenReady();
-  });
-
-  // Fallback: navigate on generation-complete if we missed the block count
-  eventSource.addEventListener('generation-complete', () => {
-    if (!hasNavigated) {
-      hasNavigated = true;
-      eventSource.close();
-
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-        blocks: generatedBlocks,
-        query,
-        slug,
-        startTime,
-        expectedBlocks: generatedBlocks.length,
-        imageProvider,
-      }));
-
-      window.location.href = `/?cerebras=${encodeURIComponent(query)}&cached=1`;
-    }
-  });
-
-  // Helper to restore all buttons
-  const restoreButtons = () => {
-    const exploreIcon = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path>
-        <path d="M20 3v4"></path>
-        <path d="M22 5h-4"></path>
-        <path d="M4 17v2"></path>
-        <path d="M5 18H3"></path>
-      </svg>
-      <span>Explore</span>
-    `;
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = exploreIcon;
-    }
-    if (input) {
-      input.disabled = false;
-    }
-    if (headerBtn) {
-      headerBtn.disabled = false;
-      headerBtn.innerHTML = headerBtnOriginalHTML || exploreIcon;
-    }
-    if (headerInput) {
-      headerInput.disabled = false;
-    }
-    document.querySelectorAll('.suggestion-chip').forEach((chip) => {
-      chip.disabled = false;
-      chip.style.pointerEvents = '';
-      chip.style.opacity = '';
-    });
-  };
-
-  eventSource.addEventListener('error', (e) => {
-    eventSource.close();
-    restoreButtons();
-
-    // Show error message
-    if (e.data) {
-      const data = JSON.parse(e.data);
-      alert(`Generation failed: ${data.message}`);
-    }
-  });
-
-  eventSource.onerror = () => {
-    if (eventSource.readyState === EventSource.CLOSED) {
-      // Connection closed unexpectedly
-      if (generatedBlocks.length === 0) {
-        restoreButtons();
-      }
-    }
-  };
+  // Redirect to worker which will:
+  // 1. Classify intent
+  // 2. Create DA page with placeholder block
+  // 3. Redirect to DA page URL
+  const workerUrl = `${CEREBRAS_WORKER_URL}/?q=${encodeURIComponent(query)}&images=${imageProvider}`;
+  window.location.href = workerUrl;
 }
 
 /**

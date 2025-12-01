@@ -231,6 +231,95 @@ export class AEMAdminClient {
 }
 
 /**
+ * Create a placeholder page with cerebras-generated block
+ * This page is created quickly and will stream content from the worker on first load
+ */
+export async function createPlaceholderPage(
+  path: string,
+  query: string,
+  slug: string,
+  env: Env,
+  sourceOrigin: string
+): Promise<{ success: boolean; urls?: { preview: string; live: string }; error?: string }> {
+  // Build minimal HTML with cerebras-generated block
+  // EDS blocks use nested divs: outer div with class, inner divs for rows/cells
+  // The block contains query and slug which the block JS will use to connect to the worker stream
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Creating Your Page | Vitamix</title>
+  <meta name="description" content="Personalized content is being generated for you">
+  <meta name="robots" content="noindex">
+  <meta name="cerebras-query" content="${escapeHtml(query)}">
+  <meta name="cerebras-slug" content="${escapeHtml(slug)}">
+  <meta name="cerebras-source" content="${escapeHtml(sourceOrigin)}">
+</head>
+<body>
+  <header></header>
+  <main>
+    <div>
+      <div class="cerebras-generated">
+        <div>
+          <div>${escapeHtml(query)}</div>
+        </div>
+        <div>
+          <div>${escapeHtml(slug)}</div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer></footer>
+</body>
+</html>`;
+
+  const daClient = new DAClient(env);
+  const adminClient = new AEMAdminClient(env);
+
+  try {
+    // 1. Create page in DA
+    const createResult = await daClient.createPage(path, html);
+    if (!createResult.success) {
+      return { success: false, error: createResult.error };
+    }
+
+    // 2. Trigger preview
+    const previewResult = await adminClient.preview(path);
+    if (!previewResult.success) {
+      return { success: false, error: previewResult.error };
+    }
+
+    // 3. Publish to live (don't wait for preview, do in parallel)
+    const publishResult = await adminClient.publish(path);
+    if (!publishResult.success) {
+      // Preview worked but publish failed - still usable via preview URL
+      console.warn('Publish failed, preview should still work:', publishResult.error);
+    }
+
+    return {
+      success: true,
+      urls: {
+        preview: previewResult.url!,
+        live: publishResult.url || previewResult.url!,
+      },
+    };
+  } catch (error) {
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+/**
+ * Escape HTML special characters
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Complete persist and publish flow
  */
 export async function persistAndPublish(

@@ -1,0 +1,196 @@
+/**
+ * Cerebras Generated Block Styles
+ *
+ * Loading states, error handling, and shimmer animations
+ * for the first-render content injection experience.
+ */
+
+/* Container for the placeholder block */
+.cerebras-generated-wrapper {
+  width: 100%;
+  min-height: 50vh;
+}
+
+.cerebras-generated {
+  width: 100%;
+}
+
+/* Loading state */
+.cerebras-loading {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 40px 24px;
+  background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%);
+}
+
+.cerebras-loading-content {
+  max-width: 500px;
+  text-align: center;
+}
+
+.cerebras-loading h2 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 12px;
+}
+
+.cerebras-query {
+  font-size: 1.125rem;
+  color: #666;
+  font-style: italic;
+  margin-bottom: 32px;
+}
+
+.cerebras-status {
+  font-size: 0.875rem;
+  color: #888;
+  margin-top: 24px;
+}
+
+/* Progress indicator (uses skeleton.css styles) */
+.cerebras-loading .progress-indicator {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.cerebras-loading .progress-dot {
+  width: 12px;
+  height: 12px;
+  background: var(--color-brand-red, #c00);
+  border-radius: 50%;
+  animation: progress-pulse 1.5s ease-in-out infinite;
+}
+
+.cerebras-loading .progress-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.cerebras-loading .progress-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes progress-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+/* Error state */
+.cerebras-error {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+  padding: 40px 24px;
+  text-align: center;
+  background: #fdf2f2;
+}
+
+.cerebras-error h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #b91c1c;
+  margin-bottom: 12px;
+}
+
+.cerebras-error p {
+  font-size: 1rem;
+  color: #666;
+  margin-bottom: 24px;
+  max-width: 400px;
+}
+
+.cerebras-error-actions {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.cerebras-retry-btn {
+  background: var(--color-brand-red, #c00);
+  color: #fff;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.cerebras-retry-btn:hover {
+  background: #a00;
+}
+
+.cerebras-error-actions .secondary {
+  background: #fff;
+  color: #333;
+  border: 1px solid #ddd;
+  text-decoration: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.cerebras-error-actions .secondary:hover {
+  background: #f5f5f5;
+}
+
+/* Smooth fade-in for generated sections */
+.section:not(:has(.cerebras-generated)) {
+  animation: section-fade-in 0.4s ease-out;
+}
+
+@keyframes section-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile adjustments */
+@media (width < 600px) {
+  .cerebras-loading {
+    min-height: 50vh;
+    padding: 24px 16px;
+  }
+
+  .cerebras-loading h2 {
+    font-size: 1.375rem;
+  }
+
+  .cerebras-query {
+    font-size: 1rem;
+  }
+
+  .cerebras-error-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .cerebras-retry-btn,
+  .cerebras-error-actions .secondary {
+    width: 100%;
+    text-align: center;
+  }
+}

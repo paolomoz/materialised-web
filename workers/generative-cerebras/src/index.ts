@@ -1,7 +1,15 @@
 import type { Env, GenerationState } from './types';
 import { orchestrate } from './lib/orchestrator';
 import { createCallbackSSEStream } from './lib/stream-handler';
-import { persistAndPublish, DAClient } from './lib/da-client';
+import { persistAndPublish, DAClient, createPlaceholderPage } from './lib/da-client';
+import { classifyIntent } from './ai-clients/cerebras';
+import {
+  classifyCategory,
+  generateSemanticSlug,
+  buildCategorizedPath,
+  isCategoryPath,
+  getCategoryFromPath,
+} from './lib/category-classifier';
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -15,6 +23,12 @@ export default {
     // Health check
     if (url.pathname === '/health') {
       return new Response('OK', { status: 200 });
+    }
+
+    // Query redirect: /?q=query -> creates DA page, redirects to it
+    // This is the main entry point for the new categorized path flow
+    if (url.pathname === '/' && url.searchParams.has('q')) {
+      return handleQueryRedirect(request, env);
     }
 
     // Generate page endpoint (POST with query)
@@ -42,9 +56,14 @@ export default {
       return handleIngredientMatch(request, env);
     }
 
-    // Proxy to EDS or serve generated page
+    // Proxy to EDS or serve generated page (all category paths)
+    if (isCategoryPath(url.pathname)) {
+      return handleCategoryPage(request, env);
+    }
+
+    // Legacy discover path (redirect to category if needed)
     if (url.pathname.startsWith('/discover/')) {
-      return handleDiscover(request, env);
+      return handleCategoryPage(request, env);
     }
 
     // Serve generated images from R2
@@ -68,6 +87,97 @@ function handleCORS(): Response {
       'Access-Control-Max-Age': '86400',
     },
   });
+}
+
+/**
+ * Handle query redirect: /?q=query
+ *
+ * This is the main entry point for the categorized path flow:
+ * 1. Classify intent using Cerebras
+ * 2. Determine category and generate semantic slug
+ * 3. Create placeholder DA page with cerebras-generated block
+ * 4. Redirect user to the DA page URL
+ */
+async function handleQueryRedirect(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const query = url.searchParams.get('q')?.trim();
+  const imageProvider = url.searchParams.get('images') as 'fal' | 'imagen' | null;
+
+  // Determine where the user came from to redirect back to same origin
+  const referer = request.headers.get('Referer');
+  let sourceOrigin = env.EDS_ORIGIN;
+  if (referer) {
+    try {
+      const refererUrl = new URL(referer);
+      // Only accept known AEM origins
+      if (refererUrl.hostname.includes('aem.page') ||
+          refererUrl.hostname.includes('aem.live') ||
+          refererUrl.hostname === 'localhost') {
+        sourceOrigin = refererUrl.origin;
+      }
+    } catch {
+      // Use default
+    }
+  }
+
+  if (!query) {
+    return new Response(JSON.stringify({ error: 'Missing query parameter' }), {
+      status: 400,
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  }
+
+  console.log(`[handleQueryRedirect] Query: "${query}", Source: ${sourceOrigin}`);
+
+  try {
+    // 1. Classify intent using Cerebras (fast ~200ms)
+    const intent = await classifyIntent(query, env);
+    console.log(`[handleQueryRedirect] Intent: ${intent.intentType}, Layout: ${intent.layoutId}`);
+
+    // 2. Determine category and generate slug
+    const category = classifyCategory(intent, query);
+    const slug = generateSemanticSlug(query, intent);
+    const path = buildCategorizedPath(category, slug);
+
+    console.log(`[handleQueryRedirect] Path: ${path}`);
+
+    // 3. Store generation state in KV (so the stream knows what to generate)
+    await env.CACHE.put(`generation:${path}`, JSON.stringify({
+      status: 'pending',
+      query,
+      slug,
+      path,
+      imageProvider: imageProvider || 'fal',
+      intent,
+      sourceOrigin,
+      createdAt: new Date().toISOString(),
+    }), { expirationTtl: 600 });
+
+    // 4. Create placeholder DA page with cerebras-generated block
+    const daResult = await createPlaceholderPage(path, query, slug, env, sourceOrigin);
+
+    if (!daResult.success) {
+      console.error('[handleQueryRedirect] DA page creation failed:', daResult.error);
+      return new Response(JSON.stringify({ error: 'Failed to create page', details: daResult.error }), {
+        status: 500,
+        headers: corsHeaders({ 'Content-Type': 'application/json' }),
+      });
+    }
+
+    console.log(`[handleQueryRedirect] DA page created, redirecting to ${sourceOrigin}${path}`);
+
+    // 5. Redirect to the DA page URL (user's origin, not worker)
+    return Response.redirect(`${sourceOrigin}${path}`, 302);
+  } catch (error) {
+    console.error('[handleQueryRedirect] Error:', error);
+    return new Response(JSON.stringify({
+      error: 'Failed to process query',
+      message: (error as Error).message,
+    }), {
+      status: 500,
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  }
 }
 
 /**
@@ -176,12 +286,14 @@ function handleStream(request: Request, env: Env): Response {
 }
 
 /**
- * Handle /discover/* routes
+ * Handle category page routes (/smoothies/*, /recipes/*, /products/*, etc.)
+ * Also handles legacy /discover/* routes
  */
-async function handleDiscover(request: Request, env: Env): Promise<Response> {
+async function handleCategoryPage(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
-  const slug = path.replace('/discover/', '');
+  // Extract slug from the last path segment (works for any category)
+  const slug = path.split('/').pop() || '';
   const queryParam = url.searchParams.get('q');
 
   // Check if this is an SSE request for generation
