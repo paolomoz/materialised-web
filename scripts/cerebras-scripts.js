@@ -378,6 +378,12 @@ async function startGeneration(query) {
   });
 
   eventSource.addEventListener('error', (e) => {
+    // Ignore errors if we've already navigated (expected when page unloads)
+    if (hasNavigated) {
+      eventSource.close();
+      return;
+    }
+
     let errorMessage = 'Something went wrong during generation.';
     if (e.data) {
       try {
