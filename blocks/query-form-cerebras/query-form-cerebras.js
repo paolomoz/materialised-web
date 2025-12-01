@@ -8,47 +8,11 @@
 
 // Cerebras worker URL
 const CEREBRAS_WORKER_URL = 'https://vitamix-generative-cerebras.paolo-moz.workers.dev';
-const CACHE_KEY = 'cerebras-generation-cache';
 
 /**
- * Generate a URL-safe slug from a query
+ * Start generation by calling worker API and redirecting to DA page
  */
-function generateSlug(query) {
-  let slug = query
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .substring(0, 80);
-
-  const hash = simpleHash(query + Date.now()).slice(0, 6);
-  return `${slug}-${hash}`;
-}
-
-function simpleHash(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i += 1) {
-    const char = str.charCodeAt(i);
-    // eslint-disable-next-line no-bitwise
-    hash = ((hash << 5) - hash) + char;
-    // eslint-disable-next-line no-bitwise
-    hash &= hash;
-  }
-  return Math.abs(hash).toString(36);
-}
-
-/**
- * Start generation and navigate when ready
- */
-function startGeneration(block, query) {
-  const slug = generateSlug(query);
-  const startTime = Date.now();
-  const generatedBlocks = [];
-  let expectedBlockCount = 0;
-  let hasNavigated = false;
-
+async function startGeneration(block, query) {
   // Get image quality setting from header toggle (default to fast)
   const headerToggle = document.querySelector('.nav-quality-toggle .quality-option.active');
   const imageQuality = headerToggle ? headerToggle.dataset.value : 'fast';
@@ -64,13 +28,12 @@ function startGeneration(block, query) {
 
   // Show loading state
   if (submitBtn) {
-    // Preserve button width when showing spinner
     const btnWidth = submitBtn.offsetWidth;
     submitBtn.style.minWidth = `${btnWidth}px`;
     submitBtn.disabled = true;
     submitBtn.innerHTML = `
       <div class="generating-spinner"></div>
-      <span>Generating...</span>
+      <span>Creating page...</span>
     `;
   }
   if (input) {
@@ -82,71 +45,7 @@ function startGeneration(block, query) {
     chip.style.opacity = '0.5';
   });
 
-  // Navigate when all content blocks are received
-  function navigateWhenReady() {
-    if (hasNavigated) return;
-    if (expectedBlockCount > 0 && generatedBlocks.length >= expectedBlockCount) {
-      hasNavigated = true;
-      eventSource.close();
-
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-        blocks: generatedBlocks,
-        query,
-        slug,
-        startTime,
-        expectedBlocks: expectedBlockCount,
-        imageProvider,
-      }));
-
-      window.location.href = `/?cerebras=${encodeURIComponent(query)}&cached=1`;
-    }
-  }
-
-  // Connect to SSE stream
-  const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}&images=${imageProvider}`;
-  const eventSource = new EventSource(streamUrl);
-
-  // eslint-disable-next-line no-console
-  console.log(`[Cerebras Block] Starting generation with ${imageProvider} images`);
-
-  eventSource.addEventListener('layout', (e) => {
-    const data = JSON.parse(e.data);
-    expectedBlockCount = data.blocks.length;
-  });
-
-  eventSource.addEventListener('block-content', (e) => {
-    const data = JSON.parse(e.data);
-    generatedBlocks.push({ html: data.html, sectionStyle: data.sectionStyle });
-
-    // Update button text
-    const updateText = `Creating... (${generatedBlocks.length}/${expectedBlockCount || '?'})`;
-    if (submitBtn) {
-      const span = submitBtn.querySelector('span');
-      if (span) span.textContent = updateText;
-    }
-
-    navigateWhenReady();
-  });
-
-  eventSource.addEventListener('generation-complete', () => {
-    if (!hasNavigated) {
-      hasNavigated = true;
-      eventSource.close();
-
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-        blocks: generatedBlocks,
-        query,
-        slug,
-        startTime,
-        expectedBlocks: generatedBlocks.length,
-        imageProvider,
-      }));
-
-      window.location.href = `/?cerebras=${encodeURIComponent(query)}&cached=1`;
-    }
-  });
-
-  // Restore buttons on error
+  // Restore buttons helper
   const restoreButtons = () => {
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -163,21 +62,35 @@ function startGeneration(block, query) {
     });
   };
 
-  eventSource.addEventListener('error', (e) => {
-    eventSource.close();
-    restoreButtons();
-    if (e.data) {
-      const data = JSON.parse(e.data);
-      // eslint-disable-next-line no-alert
-      alert(`Generation failed: ${data.message}`);
-    }
-  });
+  // eslint-disable-next-line no-console
+  console.log(`[Cerebras Block] Creating page with ${imageProvider} images`);
 
-  eventSource.onerror = () => {
-    if (eventSource.readyState === EventSource.CLOSED && generatedBlocks.length === 0) {
-      restoreButtons();
+  try {
+    // Call worker API to create the DA page
+    const response = await fetch(`${CEREBRAS_WORKER_URL}/api/create-page`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, images: imageProvider }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to create page');
     }
-  };
+
+    const { path } = await response.json();
+    // eslint-disable-next-line no-console
+    console.log(`[Cerebras Block] Page created at ${path}, redirecting...`);
+
+    // Redirect to the DA page on current origin
+    window.location.href = path;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[Cerebras Block] Error:', error);
+    restoreButtons();
+    // eslint-disable-next-line no-alert
+    alert(`Error: ${error.message}`);
+  }
 }
 
 /**
