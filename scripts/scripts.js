@@ -673,6 +673,51 @@ function buildAutoBlocks(main) {
 }
 
 /**
+ * Decorate hero-video sections with video background and content wrapper
+ * @param {Element} main The main element
+ */
+function decorateHeroVideoSections(main) {
+  const heroVideoSections = main.querySelectorAll('.section.hero-video');
+  heroVideoSections.forEach((section) => {
+    // Skip if already decorated
+    if (section.querySelector('.hero-video-bg')) return;
+
+    // Create video element
+    const video = document.createElement('video');
+    video.className = 'hero-video-bg';
+    video.autoplay = true;
+    video.muted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.setAttribute('aria-hidden', 'true');
+    video.innerHTML = `
+      <source src="https://player.vimeo.com/progressive_redirect/playback/742715169/rendition/1080p/file.mp4?loc=external&signature=af88564d33ef1f252232f6f7448a3939c80664afacb4a865588b5d1bb4fc9bfe" type="video/mp4">
+    `;
+
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'hero-video-overlay';
+
+    // Create content wrapper and move all existing content into it
+    const contentWrapper = document.createElement('div');
+    contentWrapper.className = 'hero-video-content';
+
+    // Move all children (except section-metadata) to content wrapper
+    const children = [...section.children];
+    children.forEach((child) => {
+      if (!child.classList.contains('section-metadata')) {
+        contentWrapper.appendChild(child);
+      }
+    });
+
+    // Insert video, overlay, and content wrapper
+    section.insertBefore(video, section.firstChild);
+    section.insertBefore(overlay, video.nextSibling);
+    section.insertBefore(contentWrapper, overlay.nextSibling);
+  });
+}
+
+/**
  * Decorates the main element.
  * @param {Element} main The main element
  */
@@ -684,6 +729,7 @@ export function decorateMain(main) {
   buildAutoBlocks(main);
   decorateSections(main);
   decorateBlocks(main);
+  decorateHeroVideoSections(main);
 }
 
 /**
