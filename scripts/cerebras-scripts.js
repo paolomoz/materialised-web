@@ -497,6 +497,117 @@ function setupCerebrasForm() {
 }
 
 /**
+ * Add Save to DA button in header for generated pages
+ */
+function addSaveButton() {
+  const header = document.querySelector('header');
+  if (!header) return;
+
+  // Check if button already exists
+  if (header.querySelector('.save-to-da-btn')) return;
+
+  // Find the quality toggle container to place button nearby
+  const qualityToggle = header.querySelector('.nav-quality-toggle');
+  if (!qualityToggle) return;
+
+  // Create save button
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'save-to-da-btn';
+  saveBtn.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+      <polyline points="17 21 17 13 7 13 7 21"></polyline>
+      <polyline points="7 3 7 8 15 8"></polyline>
+    </svg>
+    <span>Save</span>
+  `;
+
+  saveBtn.addEventListener('click', saveToDA);
+
+  // Insert before quality toggle
+  qualityToggle.parentNode.insertBefore(saveBtn, qualityToggle);
+}
+
+/**
+ * Save current generated page to DA
+ */
+async function saveToDA() {
+  const saveBtn = document.querySelector('.save-to-da-btn');
+  if (!saveBtn) return;
+
+  const params = new URLSearchParams(window.location.search);
+  const query = params.get('cerebras');
+  if (!query) {
+    // eslint-disable-next-line no-alert
+    alert('No generated content to save.');
+    return;
+  }
+
+  // Show saving state
+  const originalHTML = saveBtn.innerHTML;
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = `
+    <div class="generating-spinner"></div>
+    <span>Saving...</span>
+  `;
+
+  try {
+    // Collect HTML from each section in main
+    const main = document.querySelector('main');
+    const sections = main.querySelectorAll('#generation-content > .section');
+    const htmlBlocks = [...sections].map((section) => section.innerHTML);
+
+    if (htmlBlocks.length === 0) {
+      throw new Error('No generated content found');
+    }
+
+    // Generate slug from query
+    const slug = generateSlug(query);
+
+    // Call worker API to persist
+    const response = await fetch(`${CEREBRAS_WORKER_URL}/api/persist`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, query, html: htmlBlocks }),
+    });
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to save');
+    }
+
+    // Show success state
+    saveBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+      <span>Saved!</span>
+    `;
+    saveBtn.classList.add('saved');
+
+    // eslint-disable-next-line no-console
+    console.log('[Cerebras] Page saved to DA:', result.urls);
+
+    // Optionally redirect to the saved page after a delay
+    setTimeout(() => {
+      if (result.urls?.live) {
+        window.location.href = result.urls.live;
+      }
+    }, 1500);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[Cerebras] Failed to save:', error);
+    // eslint-disable-next-line no-alert
+    alert(`Failed to save: ${error.message}`);
+
+    // Restore button
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = originalHTML;
+  }
+}
+
+/**
  * Setup header search form using event capturing to intercept before other handlers
  */
 function setupHeaderSearch() {
@@ -590,6 +701,8 @@ async function init() {
   if (isCerebrasGeneration()) {
     await loadCSS('/styles/cerebras.css');
     await renderCerebrasPage();
+    // Add save button after rendering
+    addSaveButton();
   } else {
     // Setup the form on the homepage
     setupCerebrasForm();
