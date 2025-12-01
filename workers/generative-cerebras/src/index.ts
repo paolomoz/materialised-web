@@ -366,14 +366,20 @@ async function handleCategoryPage(request: Request, env: Env): Promise<Response>
  * Handle persist request - save generated content to DA
  * Classifies the query to generate meaningful paths like /recipes/smoothies/green
  */
+interface BlockData {
+  html: string;
+  sectionStyle?: string;
+  blockType?: string;
+}
+
 async function handlePersist(request: Request, env: Env): Promise<Response> {
   try {
-    const { query, html } = await request.json() as {
+    const { query, blocks } = await request.json() as {
       query: string;
-      html: string[];
+      blocks: BlockData[];
     };
 
-    if (!query || !html || !Array.isArray(html)) {
+    if (!query || !blocks || !Array.isArray(blocks)) {
       return new Response(JSON.stringify({ success: false, error: 'Missing required fields' }), {
         status: 400,
         headers: corsHeaders({ 'Content-Type': 'application/json' }),
@@ -393,7 +399,7 @@ async function handlePersist(request: Request, env: Env): Promise<Response> {
     console.log(`[handlePersist] Generated path: ${path}`);
 
     // Build the full HTML page for DA
-    const pageHtml = buildDAPageHtml(query, html);
+    const pageHtml = buildDAPageHtml(query, blocks);
 
     // Persist to DA and publish
     const result = await persistAndPublish(path, pageHtml, [], env);
@@ -423,18 +429,32 @@ async function handlePersist(request: Request, env: Env): Promise<Response> {
 
 /**
  * Build DA-compatible HTML page from generated blocks
+ * Uses proper EDS section structure with section-metadata for styling
  */
-function buildDAPageHtml(query: string, blocks: string[]): string {
+function buildDAPageHtml(query: string, blocks: BlockData[]): string {
   // Extract title from first h1 if present
   let title = query;
-  const firstBlock = blocks[0] || '';
+  const firstBlock = blocks[0]?.html || '';
   const h1Match = firstBlock.match(/<h1[^>]*>([^<]+)<\/h1>/);
   if (h1Match) {
     title = h1Match[1];
   }
 
-  // Wrap each block in a div for EDS sections
-  const sectionsHtml = blocks.map(block => `<div>${block}</div>`).join('\n');
+  // Build sections with proper EDS structure
+  // Each section contains the block HTML and optionally a section-metadata block for styling
+  const sectionsHtml = blocks.map(block => {
+    let sectionContent = block.html;
+
+    // Add section-metadata block if there's a section style
+    if (block.sectionStyle && block.sectionStyle !== 'default') {
+      sectionContent += `
+      <div class="section-metadata">
+        <div><div>style</div><div>${block.sectionStyle}</div></div>
+      </div>`;
+    }
+
+    return `    <div>${sectionContent}</div>`;
+  }).join('\n');
 
   return `<!DOCTYPE html>
 <html>
@@ -445,7 +465,7 @@ function buildDAPageHtml(query: string, blocks: string[]): string {
 <body>
   <header></header>
   <main>
-    ${sectionsHtml}
+${sectionsHtml}
   </main>
   <footer></footer>
 </body>

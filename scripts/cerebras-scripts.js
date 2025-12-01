@@ -19,6 +19,9 @@ const CEREBRAS_WORKER_URL = 'https://vitamix-generative-cerebras.paolo-moz.worke
 // Storage key for cached generation
 const CACHE_KEY = 'cerebras-generation-cache';
 
+// Store original block data for publishing (before decoration)
+let originalBlocksData = [];
+
 /**
  * Generate a URL-safe slug from a query
  */
@@ -124,7 +127,8 @@ async function renderCachedPage() {
   main.innerHTML = '<div id="generation-content"></div>';
   const content = main.querySelector('#generation-content');
 
-  // Render all blocks
+  // Store original blocks for publishing and render
+  originalBlocksData = [...blocks];
   for (const blockData of blocks) {
     await renderBlockSection(blockData, content);
   }
@@ -203,6 +207,9 @@ async function renderWithSSE(query, imageProvider) {
   main.innerHTML = '<div id="generation-content"></div>';
   const content = main.querySelector('#generation-content');
 
+  // Reset original blocks storage for this generation
+  originalBlocksData = [];
+
   // Connect to SSE stream
   const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}&images=${imageProvider}`;
   const eventSource = new EventSource(streamUrl);
@@ -211,6 +218,8 @@ async function renderWithSSE(query, imageProvider) {
 
   eventSource.addEventListener('block-content', async (e) => {
     const data = JSON.parse(e.data);
+    // Store original block data for publishing
+    originalBlocksData.push(data);
     await renderBlockSection(data, content);
   });
 
@@ -561,20 +570,43 @@ async function publishToDA() {
   `;
 
   try {
-    // Collect HTML from each section in main
-    const main = document.querySelector('main');
-    const sections = main.querySelectorAll('#generation-content > .section');
-    const htmlBlocks = [...sections].map((section) => section.innerHTML);
-
-    if (htmlBlocks.length === 0) {
+    // Use original block data (before decoration) for publishing
+    if (originalBlocksData.length === 0) {
       throw new Error('No generated content found');
     }
+
+    // Get current image URLs from DOM (they may have been updated via image-ready)
+    const content = document.querySelector('#generation-content');
+    const imageMap = {};
+    if (content) {
+      content.querySelectorAll('img[data-gen-image]').forEach((img) => {
+        const imageId = img.dataset.genImage;
+        if (imageId && img.src) {
+          imageMap[imageId] = img.src;
+        }
+      });
+    }
+
+    // Update image URLs in original HTML before publishing
+    const blocksToPublish = originalBlocksData.map((block) => {
+      let { html } = block;
+      // Replace placeholder image URLs with final URLs
+      Object.entries(imageMap).forEach(([imageId, finalUrl]) => {
+        // Match src="/api/images/..." or src="..." patterns for this imageId
+        const placeholderPattern = new RegExp(
+          `src="[^"]*"([^>]*data-gen-image="${escapeRegExp(imageId)}")`,
+          'g',
+        );
+        html = html.replace(placeholderPattern, `src="${finalUrl}"$1`);
+      });
+      return { ...block, html };
+    });
 
     // Call worker API to persist (worker will classify and generate path)
     const response = await fetch(`${CEREBRAS_WORKER_URL}/api/persist`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, html: htmlBlocks }),
+      body: JSON.stringify({ query, blocks: blocksToPublish }),
     });
 
     const result = await response.json();
