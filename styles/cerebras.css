@@ -264,31 +264,34 @@ picture:has(img[data-gen-image].loaded) {
   margin-right: 16px;
   font-size: 14px;
   font-weight: 500;
-  background: var(--cerebras-primary, #6366f1);
-  color: white;
-  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
 .publish-btn:hover {
-  background: var(--cerebras-dark, #4f46e5);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-color: rgba(255, 255, 255, 0.6);
 }
 
 .publish-btn:disabled {
-  background: #94a3b8;
+  opacity: 0.5;
   cursor: wait;
-  transform: none;
 }
 
 .publish-btn.published {
-  background: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #34d399;
 }
 
 .publish-btn.published:hover {
-  background: #0d9668;
+  background: rgba(16, 185, 129, 0.25);
+  color: #4ade80;
 }
 
 .publish-btn svg {
