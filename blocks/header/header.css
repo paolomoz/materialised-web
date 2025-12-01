@@ -296,6 +296,101 @@ header nav .nav-search {
   color: var(--color-charcoal);
 }
 
+/* Save to DA button in header */
+.nav-save-da {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.nav-save-da .save-da-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid var(--color-light-gray);
+  border-radius: 12px;
+  color: var(--color-medium-gray);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin: 0;
+  font-family: var(--body-font-family);
+}
+
+.nav-save-da .save-da-btn:hover:not(:disabled):not(.saved) {
+  border-color: var(--color-medium-gray);
+  color: var(--color-dark-gray);
+}
+
+.nav-save-da .save-da-btn:disabled {
+  cursor: wait;
+}
+
+.nav-save-da .save-da-btn.saving {
+  background: transparent;
+  border-color: var(--color-light-gray);
+  color: var(--color-medium-gray);
+  cursor: wait;
+  gap: 4px;
+}
+
+.nav-save-da .save-da-btn.saving .header-search-spinner {
+  width: 12px;
+  height: 12px;
+  border-width: 1.5px;
+  border-color: rgba(102, 102, 102, 0.3);
+  border-top-color: var(--color-medium-gray);
+}
+
+.nav-save-da .save-da-btn.saved {
+  background: var(--color-light-gray);
+  border-color: var(--color-light-gray);
+  color: var(--color-charcoal);
+  cursor: default;
+}
+
+.nav-save-da .save-da-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* DA link after successful save */
+.nav-save-da .save-da-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  background: var(--color-light-gray);
+  border: 1px solid var(--color-light-gray);
+  border-radius: 12px;
+  color: var(--color-charcoal);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.nav-save-da .save-da-link:hover {
+  background: var(--color-medium-gray);
+  border-color: var(--color-medium-gray);
+  color: white;
+}
+
+.nav-save-da .save-da-link svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Adjust quality toggle margin when save button is present */
+.nav-save-da + .nav-quality-toggle {
+  margin-left: 8px;
+}
+
 /* Mobile adjustments for header search */
 @media (width < 600px) {
   header nav .nav-search {
@@ -303,6 +398,10 @@ header nav .nav-search {
   }
 
   .nav-quality-toggle {
+    display: none;
+  }
+
+  .nav-save-da {
     display: none;
   }
 }
@@ -317,6 +416,10 @@ header nav .nav-search {
   }
 
   .nav-quality-toggle .quality-label {
+    display: none;
+  }
+
+  .nav-save-da .save-da-btn span {
     display: none;
   }
 }
