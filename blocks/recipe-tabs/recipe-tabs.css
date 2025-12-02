@@ -1,0 +1,173 @@
+/* Recipe Tabs Block
+ *
+ * Dark navigation bar with tab buttons and cook mode toggle.
+ * Matches vitamix.com recipe page tab navigation.
+ */
+
+.recipe-tabs {
+  display: flex;
+  align-items: center;
+  background: #2d3e50;
+  position: relative;
+  padding: 0;
+  width: 100%;
+}
+
+/* Red accent bar on left */
+.recipe-tabs-accent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--color-brand-red, #c41230);
+}
+
+/* Tab navigation */
+.recipe-tabs-nav {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  padding-left: 24px;
+}
+
+.recipe-tab {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 20px 24px;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+  white-space: nowrap;
+}
+
+.recipe-tab:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.recipe-tab.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.recipe-tab:focus-visible {
+  outline: 2px solid var(--color-brand-red, #c41230);
+  outline-offset: -2px;
+}
+
+/* Cook Mode toggle */
+.recipe-tabs-cook-mode {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  margin-left: auto;
+}
+
+.cook-mode-help {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.cook-mode-help:hover {
+  color: #fff;
+}
+
+.cook-mode-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.cook-mode-toggle {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.cook-mode-toggle .toggle-track {
+  display: block;
+  width: 44px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.cook-mode-toggle .toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+.cook-mode-toggle.active .toggle-track {
+  background: var(--color-brand-red, #c41230);
+}
+
+.cook-mode-toggle.active .toggle-thumb {
+  transform: translateX(20px);
+}
+
+/* Responsive */
+@media (width < 900px) {
+  .recipe-tabs {
+    flex-wrap: wrap;
+  }
+
+  .recipe-tabs-nav {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .recipe-tabs-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .recipe-tab {
+    padding: 16px 20px;
+    font-size: 0.6875rem;
+  }
+
+  .recipe-tabs-cook-mode {
+    width: 100%;
+    justify-content: flex-end;
+    padding: 12px 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+@media (width < 600px) {
+  .recipe-tab {
+    padding: 14px 16px;
+    font-size: 0.625rem;
+  }
+
+  .recipe-tabs-cook-mode {
+    padding: 10px 16px;
+  }
+
+  .cook-mode-label {
+    font-size: 0.625rem;
+  }
+}

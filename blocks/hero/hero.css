@@ -322,3 +322,23 @@
     padding: var(--spacing-xl) var(--spacing-md);
   }
 }
+
+/* ===== Broken Image Handling ===== */
+/* Hide broken image icon and provide fallback background */
+.hero img {
+  /* Hide alt text when image fails */
+  color: transparent;
+  /* Provide fallback gradient background */
+  background: linear-gradient(135deg, var(--color-charcoal) 0%, var(--color-brand-dark) 100%);
+}
+
+/* Ensure full-width hero always has a background even if image fails */
+.hero.full-width {
+  background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+}
+
+/* Hide the picture element text for broken images */
+.hero picture {
+  font-size: 0;
+  line-height: 0;
+}

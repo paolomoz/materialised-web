@@ -1,0 +1,214 @@
+/* Recipe Hero Detail Block
+ *
+ * Split hero with dish image left, recipe details right.
+ * Matches vitamix.com single recipe page design.
+ */
+
+.recipe-hero-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  padding: 48px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  align-items: start;
+  background: var(--color-white, #fff);
+}
+
+/* Image */
+.recipe-hero-detail-image {
+  position: relative;
+}
+
+.recipe-hero-detail-image img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Content */
+.recipe-hero-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.recipe-hero-detail-content h1 {
+  font-size: 2.75rem;
+  font-weight: 300;
+  color: var(--color-brand-dark, #1a1a1a);
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+/* Star Rating */
+.recipe-hero-detail-rating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.recipe-hero-detail-rating .stars {
+  display: flex;
+  gap: 2px;
+}
+
+.recipe-hero-detail-rating .star {
+  color: var(--color-star-gold, #ffd700);
+}
+
+.recipe-hero-detail-rating .star-empty {
+  color: var(--color-light-gray, #e5e5e5);
+}
+
+.recipe-hero-detail-rating .star-half {
+  position: relative;
+}
+
+.recipe-hero-detail-rating .review-count {
+  color: var(--color-dark-gray, #666);
+}
+
+.recipe-hero-detail-rating .write-review {
+  color: var(--color-brand-dark, #1a1a1a);
+  text-decoration: underline;
+  margin-left: 8px;
+}
+
+.recipe-hero-detail-rating .write-review:hover {
+  color: var(--color-brand-red, #c41230);
+}
+
+/* Description */
+.recipe-hero-detail-description {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--color-charcoal, #333);
+  margin: 8px 0;
+}
+
+/* Metadata */
+.recipe-hero-detail-metadata {
+  display: flex;
+  gap: 32px;
+  padding: 24px 0;
+  border-top: 1px solid var(--color-light-gray, #e5e5e5);
+  border-bottom: 1px solid var(--color-light-gray, #e5e5e5);
+  margin: 8px 0;
+}
+
+.recipe-hero-detail-metadata .meta-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.recipe-hero-detail-metadata .meta-icon {
+  color: var(--color-dark-gray, #666);
+  display: flex;
+  align-items: center;
+}
+
+.recipe-hero-detail-metadata .meta-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.recipe-hero-detail-metadata .meta-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recipe-hero-detail-metadata .meta-label {
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-medium-gray, #999);
+}
+
+.recipe-hero-detail-metadata .meta-value {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-brand-dark, #1a1a1a);
+}
+
+/* Attribution */
+.recipe-hero-detail-attribution {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-top: 8px;
+}
+
+.recipe-hero-detail-attribution .dietary,
+.recipe-hero-detail-attribution .submitted {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recipe-hero-detail-attribution .submitted {
+  text-align: right;
+}
+
+.recipe-hero-detail-attribution .attr-label {
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-medium-gray, #999);
+}
+
+.recipe-hero-detail-attribution .attr-value {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-brand-dark, #1a1a1a);
+}
+
+/* Responsive */
+@media (width < 900px) {
+  .recipe-hero-detail {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .recipe-hero-detail-content h1 {
+    font-size: 2rem;
+  }
+
+  .recipe-hero-detail-metadata {
+    flex-wrap: wrap;
+    gap: 24px;
+  }
+}
+
+@media (width < 600px) {
+  .recipe-hero-detail {
+    padding: 24px 16px;
+  }
+
+  .recipe-hero-detail-content h1 {
+    font-size: 1.75rem;
+  }
+
+  .recipe-hero-detail-metadata {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .recipe-hero-detail-attribution {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .recipe-hero-detail-attribution .submitted {
+    text-align: left;
+  }
+}

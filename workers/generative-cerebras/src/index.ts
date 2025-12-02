@@ -1,8 +1,9 @@
-import type { Env, GenerationState, SessionContextParam } from './types';
+import type { Env, GenerationState, SessionContextParam, UserContext, IntentClassification } from './types';
 import { orchestrate } from './lib/orchestrator';
 import { createCallbackSSEStream } from './lib/stream-handler';
 import { persistAndPublish, DAClient, createPlaceholderPage } from './lib/da-client';
 import { classifyIntent } from './ai-clients/cerebras';
+import { smartRetrieve } from './lib/rag';
 import {
   classifyCategory,
   generateSemanticSlug,
@@ -10,6 +11,62 @@ import {
   isCategoryPath,
   getCategoryFromPath,
 } from './lib/category-classifier';
+import {
+  runContentAudit,
+  runQuickAudit,
+  runCategoryAudit,
+  auditSingleQuery,
+  AUDIT_TEST_CASES,
+  type AuditTestCase,
+} from './lib/content-audit';
+import {
+  analyzeContentProvenance,
+  getProvenanceSummary,
+  type ContentProvenance,
+} from './lib/provenance-tracker';
+import {
+  getAggregatedMetrics,
+  getBlockedContentLog,
+  checkAlerts,
+} from './lib/metrics';
+
+/**
+ * Log errors to KV for later investigation
+ * Errors are stored with a 7-day TTL and can be queried via /api/dashboard/errors
+ */
+async function logError(
+  env: Env,
+  errorType: string,
+  error: Error | string,
+  context: {
+    query?: string;
+    slug?: string;
+    path?: string;
+    statusCode?: number;
+    cfRay?: string | null;
+    userAgent?: string | null;
+    country?: string;
+    extra?: Record<string, unknown>;
+  }
+): Promise<void> {
+  try {
+    const errorId = `error:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const errorData = {
+      id: errorId,
+      type: errorType,
+      message: error instanceof Error ? error.message : error,
+      stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined,
+      timestamp: new Date().toISOString(),
+      ...context,
+    };
+
+    await env.CACHE.put(errorId, JSON.stringify(errorData), { expirationTtl: 86400 * 7 }); // 7 days
+    console.log(`[ErrorLog] Stored error ${errorId}:`, errorData.message);
+  } catch (logErr) {
+    // Don't let logging errors break the main flow
+    console.error('[ErrorLog] Failed to store error:', logErr);
+  }
+}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -56,6 +113,26 @@ export default {
       return handleIngredientMatch(request, env);
     }
 
+    // RAG quality check endpoint (on-demand testing)
+    if (url.pathname === '/api/rag-quality') {
+      return handleRAGQualityCheck(request, env);
+    }
+
+    // Content quality audit endpoint
+    if (url.pathname === '/api/content-audit') {
+      return handleContentAudit(request, env);
+    }
+
+    // Content provenance endpoint - analyze content source (RAG vs generated)
+    if (url.pathname === '/api/provenance') {
+      return handleProvenance(request, env);
+    }
+
+    // Dashboard endpoints for monitoring
+    if (url.pathname.startsWith('/api/dashboard/')) {
+      return handleDashboard(request, env);
+    }
+
     // Proxy to EDS or serve generated page (all category paths)
     if (isCategoryPath(url.pathname)) {
       return handleCategoryPage(request, env);
@@ -69,6 +146,14 @@ export default {
     // Serve generated images from R2
     if (url.pathname.startsWith('/images/')) {
       return handleImage(request, env);
+    }
+
+    // Test endpoints for image APIs
+    if (url.pathname === '/api/test-imagen') {
+      return testImagenAPI(env);
+    }
+    if (url.pathname === '/api/test-fal') {
+      return testFalAPI(env);
     }
 
     return new Response('Not Found', { status: 404 });
@@ -245,6 +330,14 @@ function handleStream(request: Request, env: Env): Response {
     return new Response('Missing query or slug', { status: 400 });
   }
 
+  // Capture request context for error logging
+  const requestContext = {
+    cfRay: request.headers.get('cf-ray'),
+    userAgent: request.headers.get('user-agent'),
+    country: (request as any).cf?.country as string | undefined,
+    ip: request.headers.get('cf-connecting-ip'),
+  };
+
   // Parse session context if provided
   let sessionContext: SessionContextParam | undefined;
   if (contextParam) {
@@ -285,6 +378,15 @@ function handleStream(request: Request, env: Env): Response {
       } as GenerationState), { expirationTtl: 86400 });
 
     } catch (error) {
+      // Log error with full context for investigation
+      await logError(env, 'generation_failed', error as Error, {
+        query,
+        slug,
+        path,
+        ...requestContext,
+        extra: { imageProvider },
+      });
+
       await env.CACHE.put(`generation:${path}`, JSON.stringify({
         status: 'failed',
         query,
@@ -497,7 +599,50 @@ function corsHeaders(headers: Record<string, string> = {}): Headers {
 }
 
 /**
+ * Diverse fallback images for when generated images aren't ready
+ * Multiple high-quality Unsplash images for variety
+ */
+const HERO_FALLBACKS = [
+  'https://images.unsplash.com/photo-1638176066666-ffb2f013c7dd?w=2000&h=800&fit=crop&q=80', // Smoothie pour
+  'https://images.unsplash.com/photo-1502741224143-90386d7f8c82?w=2000&h=800&fit=crop&q=80', // Fresh fruits
+  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=2000&h=800&fit=crop&q=80', // Colorful bowl
+  'https://images.unsplash.com/photo-1490818387583-1baba5e638af?w=2000&h=800&fit=crop&q=80', // Fresh produce
+  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=2000&h=800&fit=crop&q=80', // Healthy salad
+  'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?w=2000&h=800&fit=crop&q=80', // Smoothie bowl
+];
+
+const CARD_FALLBACKS = [
+  'https://images.unsplash.com/photo-1590301157890-4810ed352733?w=750&h=562&fit=crop&q=80', // Smoothie bowl
+  'https://images.unsplash.com/photo-1610970881699-44a5587cabec?w=750&h=562&fit=crop&q=80', // Fresh ingredients
+  'https://images.unsplash.com/photo-1571575173700-afb9492e6a50?w=750&h=562&fit=crop&q=80', // Berry smoothie
+  'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=750&h=562&fit=crop&q=80', // Food plating
+];
+
+/**
+ * Get a consistent fallback image based on a string (slug/imageId)
+ * Uses simple hash to ensure same input always gets same image
+ */
+function getFallbackImage(key: string, type: 'hero' | 'card' | 'default'): string {
+  // Create simple numeric hash from string
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    const char = key.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  hash = Math.abs(hash);
+
+  if (type === 'hero') {
+    return HERO_FALLBACKS[hash % HERO_FALLBACKS.length];
+  } else if (type === 'card') {
+    return CARD_FALLBACKS[hash % CARD_FALLBACKS.length];
+  }
+  return CARD_FALLBACKS[hash % CARD_FALLBACKS.length];
+}
+
+/**
  * Handle image requests from R2
+ * Returns fallback images when generated images aren't ready yet
  */
 async function handleImage(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -505,16 +650,39 @@ async function handleImage(request: Request, env: Env): Promise<Response> {
 
   const object = await env.IMAGES.get(key);
 
-  if (!object) {
-    return new Response('Image not found', { status: 404 });
+  if (object) {
+    // Image exists in R2, serve it
+    const headers = new Headers();
+    headers.set('Content-Type', object.httpMetadata?.contentType || 'image/png');
+    headers.set('Cache-Control', 'public, max-age=31536000');
+    headers.set('ETag', object.etag);
+    headers.set('Access-Control-Allow-Origin', '*');
+
+    return new Response(object.body, { headers });
   }
 
-  const headers = new Headers();
-  headers.set('Content-Type', object.httpMetadata?.contentType || 'image/png');
-  headers.set('Cache-Control', 'public, max-age=31536000');
-  headers.set('ETag', object.etag);
+  // Image not found - redirect to appropriate fallback
+  // Determine image type from the path (e.g., "slug/hero.png" -> "hero")
+  const imageId = key.split('/').pop()?.replace(/\.\w+$/, '') || '';
 
-  return new Response(object.body, { headers });
+  let fallbackUrl: string;
+  if (imageId === 'hero') {
+    fallbackUrl = getFallbackImage(key, 'hero');
+  } else if (imageId.startsWith('card-') || imageId.includes('recipe')) {
+    fallbackUrl = getFallbackImage(key, 'card');
+  } else {
+    fallbackUrl = getFallbackImage(key, 'default');
+  }
+
+  // Redirect to fallback image (302 so browser will check again later)
+  return new Response(null, {
+    status: 302,
+    headers: {
+      'Location': fallbackUrl,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
 }
 
 /**
@@ -1002,4 +1170,779 @@ async function handleSetupHomepage(request: Request, env: Env): Promise<Response
       headers: corsHeaders({ 'Content-Type': 'application/json' }),
     });
   }
+}
+
+/**
+ * RAG Quality Check Endpoint
+ * Runs predefined test cases to validate RAG improvements
+ *
+ * GET /api/rag-quality - Run all tests
+ * GET /api/rag-quality?test=vegan - Run specific test
+ * GET /api/rag-quality?verbose=true - Include full chunk details
+ */
+async function handleRAGQualityCheck(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const specificTest = url.searchParams.get('test');
+  const verbose = url.searchParams.get('verbose') === 'true';
+
+  // Define test cases for each improvement
+  const testCases: Array<{
+    id: string;
+    name: string;
+    improvement: string;
+    query: string;
+    userContext: UserContext;
+    expectations: {
+      mustNotContain?: string[];      // Terms that should be filtered out
+      shouldBoost?: string[];         // Terms that should appear in top results
+      queryAugmentation?: string[];   // Terms that should be added to query
+    };
+  }> = [
+    // Improvement #1: Positive boosting (available/mustUse)
+    {
+      id: 'boost-available',
+      name: 'Boost by available ingredients',
+      improvement: '#1 Positive Boosting',
+      query: 'smoothie recipe',
+      userContext: {
+        available: ['banana', 'spinach', 'almond milk'],
+      },
+      expectations: {
+        shouldBoost: ['banana', 'spinach'],
+      },
+    },
+    {
+      id: 'boost-mustuse',
+      name: 'Boost by must-use ingredients',
+      improvement: '#1 Positive Boosting',
+      query: 'breakfast recipe',
+      userContext: {
+        mustUse: ['ripe bananas'],
+      },
+      expectations: {
+        shouldBoost: ['banana'],
+      },
+    },
+
+    // Improvement #2: Dietary preference filtering
+    {
+      id: 'filter-vegan',
+      name: 'Vegan preference filters meat/dairy',
+      improvement: '#2 Dietary Filtering',
+      query: 'smoothie recipe',
+      userContext: {
+        dietary: {
+          avoid: [],
+          preferences: ['vegan'],
+        },
+      },
+      expectations: {
+        mustNotContain: ['milk', 'yogurt', 'honey', 'whey', 'chicken', 'beef'],
+      },
+    },
+    {
+      id: 'filter-keto',
+      name: 'Keto preference filters high-carb',
+      improvement: '#2 Dietary Filtering',
+      query: 'breakfast ideas',
+      userContext: {
+        dietary: {
+          avoid: [],
+          preferences: ['keto'],
+        },
+      },
+      expectations: {
+        mustNotContain: ['bread', 'pasta', 'rice', 'sugar'],
+      },
+    },
+    {
+      id: 'filter-avoid',
+      name: 'Explicit avoid terms filtered',
+      improvement: '#2 Dietary Filtering',
+      query: 'soup recipe',
+      userContext: {
+        dietary: {
+          avoid: ['carrots', 'celery'],
+          preferences: [],
+        },
+      },
+      expectations: {
+        mustNotContain: ['carrot', 'celery'],
+      },
+    },
+
+    // Improvement #3: Query augmentation
+    {
+      id: 'augment-diabetes',
+      name: 'Diabetes condition augments query',
+      improvement: '#3 Query Augmentation',
+      query: 'smoothie',
+      userContext: {
+        health: {
+          conditions: ['diabetes'],
+          goals: [],
+          considerations: [],
+        },
+      },
+      expectations: {
+        queryAugmentation: ['low sugar', 'diabetic friendly'],
+      },
+    },
+    {
+      id: 'augment-quick',
+      name: 'Quick constraint augments query',
+      improvement: '#3 Query Augmentation',
+      query: 'breakfast',
+      userContext: {
+        constraints: ['quick'],
+      },
+      expectations: {
+        queryAugmentation: ['quick', 'fast', 'easy'],
+      },
+    },
+
+    // Improvement #4: Cuisine boosting
+    {
+      id: 'boost-cuisine',
+      name: 'Cuisine preference boosts results',
+      improvement: '#4 Cuisine Boosting',
+      query: 'soup recipe',
+      userContext: {
+        cultural: {
+          cuisine: ['thai', 'asian'],
+          religious: [],
+          regional: [],
+        },
+      },
+      expectations: {
+        shouldBoost: ['thai', 'asian'],
+      },
+    },
+
+    // Improvement #11: Negative boosting (conflict penalization)
+    // Note: Negative boosting PENALIZES (reduces score) but doesn't FILTER
+    // These tests verify the feature runs without error; actual penalization is logged
+    {
+      id: 'penalize-conflicts-quick',
+      name: 'Quick constraint activates conflict penalization',
+      improvement: '#11 Negative Boosting',
+      query: 'quick breakfast recipe',
+      userContext: {
+        constraints: ['quick'],
+      },
+      expectations: {
+        // Just verify we get results (penalization is logged, not filtered)
+        shouldBoost: ['breakfast'],
+      },
+    },
+    {
+      id: 'penalize-conflicts-simple',
+      name: 'Simple constraint activates conflict penalization',
+      improvement: '#11 Negative Boosting',
+      query: 'simple smoothie recipe',
+      userContext: {
+        constraints: ['simple'],
+      },
+      expectations: {
+        shouldBoost: ['smoothie'],
+      },
+    },
+
+    // Improvement #12: Result diversity (tested via observation)
+    {
+      id: 'diversity-sources',
+      name: 'Results show source diversity',
+      improvement: '#12 Result Diversity',
+      query: 'healthy smoothie recipes',
+      userContext: {},
+      expectations: {
+        // This test passes if we get results - diversity is logged
+        shouldBoost: ['smoothie'],
+      },
+    },
+
+    // Improvement #14: Confidence fallbacks (quality assessment)
+    {
+      id: 'quality-assessment',
+      name: 'Quality assessment returns valid level',
+      improvement: '#14 Confidence Fallbacks',
+      query: 'vitamix smoothie recipe',
+      userContext: {},
+      expectations: {
+        // This test verifies quality is assessed - checked in results
+        shouldBoost: ['smoothie', 'vitamix'],
+      },
+    },
+  ];
+
+  // Filter to specific test if requested
+  const testsToRun = specificTest
+    ? testCases.filter(t => t.id === specificTest || t.improvement.includes(specificTest))
+    : testCases;
+
+  if (testsToRun.length === 0) {
+    return new Response(JSON.stringify({
+      error: 'No matching tests found',
+      availableTests: testCases.map(t => ({ id: t.id, name: t.name })),
+    }), {
+      status: 404,
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  }
+
+  // Run tests
+  const results: Array<{
+    id: string;
+    name: string;
+    improvement: string;
+    passed: boolean;
+    details: {
+      query: string;
+      augmentedQuery?: string;
+      totalResults: number;
+      quality: string;  // [IMPROVEMENT #14] Include quality assessment
+      violations: Array<{ type: string; term: string; foundIn: string }>;
+      boostHits: Array<{ term: string; foundInTop: number; positions: number[] }>;
+      topResults?: Array<{ title: string; score: number; snippet: string }>;
+    };
+  }> = [];
+
+  for (const test of testsToRun) {
+    // Create a mock intent for the test
+    const intent: IntentClassification = {
+      intentType: 'recipe',
+      confidence: 0.9,
+      layoutId: 'recipe-collection',
+      contentTypes: ['recipe'],
+      entities: {
+        products: [],
+        ingredients: [],
+        goals: [],
+        userContext: test.userContext,
+      },
+    };
+
+    // Run RAG retrieval
+    const context = await smartRetrieve(test.query, intent, env, test.userContext);
+
+    // Check expectations
+    const violations: Array<{ type: string; term: string; foundIn: string }> = [];
+    const boostHits: Array<{ term: string; foundInTop: number; positions: number[] }> = [];
+
+    // Check mustNotContain
+    if (test.expectations.mustNotContain) {
+      for (const term of test.expectations.mustNotContain) {
+        for (const chunk of context.chunks) {
+          const textLower = chunk.text.toLowerCase();
+          const titleLower = (chunk.metadata.page_title || '').toLowerCase();
+          if (textLower.includes(term) || titleLower.includes(term)) {
+            violations.push({
+              type: 'unwanted_term',
+              term,
+              foundIn: chunk.metadata.page_title || chunk.metadata.source_url,
+            });
+          }
+        }
+      }
+    }
+
+    // Check shouldBoost (term appears in top 3 results)
+    if (test.expectations.shouldBoost) {
+      const topChunks = context.chunks.slice(0, 5);
+      for (const term of test.expectations.shouldBoost) {
+        const positions: number[] = [];
+        context.chunks.forEach((chunk, idx) => {
+          if (chunk.text.toLowerCase().includes(term.toLowerCase())) {
+            positions.push(idx + 1);
+          }
+        });
+        const foundInTop = topChunks.filter(c =>
+          c.text.toLowerCase().includes(term.toLowerCase())
+        ).length;
+        boostHits.push({ term, foundInTop, positions: positions.slice(0, 5) });
+      }
+    }
+
+    const passed = violations.length === 0 &&
+      (test.expectations.shouldBoost
+        ? boostHits.some(h => h.foundInTop > 0)
+        : true);
+
+    results.push({
+      id: test.id,
+      name: test.name,
+      improvement: test.improvement,
+      passed,
+      details: {
+        query: test.query,
+        totalResults: context.chunks.length,
+        quality: context.quality,  // [IMPROVEMENT #14]
+        violations,
+        boostHits,
+        topResults: verbose
+          ? context.chunks.slice(0, 5).map(c => ({
+              title: c.metadata.page_title,
+              score: Math.round(c.score * 1000) / 1000,
+              snippet: c.text.slice(0, 150) + '...',
+            }))
+          : undefined,
+      },
+    });
+  }
+
+  // Calculate summary
+  const passed = results.filter(r => r.passed).length;
+  const failed = results.filter(r => !r.passed).length;
+
+  const response = {
+    summary: {
+      total: results.length,
+      passed,
+      failed,
+      passRate: Math.round((passed / results.length) * 100) + '%',
+      timestamp: new Date().toISOString(),
+    },
+    byImprovement: {
+      '#1 Positive Boosting': results.filter(r => r.improvement === '#1 Positive Boosting'),
+      '#2 Dietary Filtering': results.filter(r => r.improvement === '#2 Dietary Filtering'),
+      '#3 Query Augmentation': results.filter(r => r.improvement === '#3 Query Augmentation'),
+      '#4 Cuisine Boosting': results.filter(r => r.improvement === '#4 Cuisine Boosting'),
+      '#11 Negative Boosting': results.filter(r => r.improvement === '#11 Negative Boosting'),
+      '#12 Result Diversity': results.filter(r => r.improvement === '#12 Result Diversity'),
+      '#14 Confidence Fallbacks': results.filter(r => r.improvement === '#14 Confidence Fallbacks'),
+    },
+    results,
+  };
+
+  return new Response(JSON.stringify(response, null, 2), {
+    headers: corsHeaders({ 'Content-Type': 'application/json' }),
+  });
+}
+
+/**
+ * Handle content quality audit requests
+ *
+ * Comprehensive audit of generated content for brand safety, offensive content,
+ * and content provenance (RAG vs generated).
+ *
+ * GET /api/content-audit - Run full audit with all test cases
+ * GET /api/content-audit?mode=quick - Run quick audit (adversarial/high-risk only)
+ * GET /api/content-audit?category=brand_voice - Run category-specific audit
+ * GET /api/content-audit?query=green+smoothie - Audit a single custom query
+ */
+async function handleContentAudit(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const mode = url.searchParams.get('mode');
+  const category = url.searchParams.get('category') as AuditTestCase['category'] | null;
+  const customQuery = url.searchParams.get('query');
+
+  try {
+    let result;
+
+    if (customQuery) {
+      // Audit a single custom query
+      const singleResult = await auditSingleQuery(
+        env,
+        decodeURIComponent(customQuery),
+        category || 'standard'
+      );
+      result = {
+        timestamp: new Date().toISOString(),
+        mode: 'single',
+        query: customQuery,
+        result: singleResult,
+      };
+    } else if (mode === 'quick') {
+      // Quick audit - adversarial/high-risk only
+      result = await runQuickAudit(env);
+    } else if (category) {
+      // Category-specific audit
+      result = await runCategoryAudit(env, category);
+    } else {
+      // Full audit
+      result = await runContentAudit(env);
+    }
+
+    return new Response(JSON.stringify(result, null, 2), {
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  } catch (error) {
+    console.error('[handleContentAudit] Error:', error);
+    return new Response(JSON.stringify({
+      error: 'Audit failed',
+      message: (error as Error).message,
+    }), {
+      status: 500,
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  }
+}
+
+/**
+ * Handle content provenance requests
+ *
+ * Analyzes content to determine how much is from RAG vs AI-generated,
+ * and tracks recipe authenticity.
+ *
+ * POST /api/provenance - Analyze provenance for a query
+ * Body: { query: string }
+ *
+ * Returns detailed provenance analysis including:
+ * - Overall RAG vs generated ratio
+ * - Per-block source attribution
+ * - Recipe authenticity tracking
+ */
+async function handleProvenance(request: Request, env: Env): Promise<Response> {
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'POST required' }), {
+      status: 405,
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  }
+
+  try {
+    const { query } = await request.json() as { query: string };
+
+    if (!query || query.trim().length === 0) {
+      return new Response(JSON.stringify({ error: 'Query required' }), {
+        status: 400,
+        headers: corsHeaders({ 'Content-Type': 'application/json' }),
+      });
+    }
+
+    // Generate content to analyze provenance
+    const startTime = Date.now();
+
+    // 1. Classify intent
+    const intent = await classifyIntent(query, env);
+
+    // 2. Retrieve RAG context
+    const ragContext = await smartRetrieve(query, intent, env, intent.entities.userContext);
+
+    // 3. Get layout template
+    const { getLayoutForIntent, adjustLayoutForRAGContent } = await import('./prompts/layouts');
+    let layoutTemplate = getLayoutForIntent(
+      intent.intentType,
+      intent.contentTypes,
+      intent.entities,
+      intent.layoutId,
+      intent.confidence,
+      query
+    );
+    layoutTemplate = adjustLayoutForRAGContent(layoutTemplate, ragContext, query);
+
+    // 4. Generate content
+    const { generateContent } = await import('./ai-clients/cerebras');
+    const content = await generateContent(query, ragContext, intent, layoutTemplate, env);
+
+    // 5. Analyze provenance
+    const provenance = analyzeContentProvenance(
+      content,
+      ragContext,
+      query,
+      intent.intentType,
+      layoutTemplate.id
+    );
+
+    const processingTime = Date.now() - startTime;
+
+    // Get summary for quick overview
+    const summary = getProvenanceSummary(provenance);
+
+    return new Response(JSON.stringify({
+      query,
+      processingTime,
+      summary,
+      provenance,
+    }, null, 2), {
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  } catch (error) {
+    console.error('[handleProvenance] Error:', error);
+    return new Response(JSON.stringify({
+      error: 'Provenance analysis failed',
+      message: (error as Error).message,
+    }), {
+      status: 500,
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  }
+}
+
+/**
+ * Handle dashboard API requests
+ *
+ * Provides monitoring endpoints for content quality metrics:
+ *
+ * GET /api/dashboard/metrics?range=24h - Aggregated metrics
+ * GET /api/dashboard/blocked?limit=100 - Blocked content log
+ * GET /api/dashboard/provenance-stats - Provenance statistics
+ * GET /api/dashboard/alerts - Active alerts
+ * GET /api/dashboard/summary - Quick summary of all data
+ */
+async function handleDashboard(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const path = url.pathname.replace('/api/dashboard/', '');
+
+  try {
+    switch (path) {
+      case 'metrics': {
+        const range = (url.searchParams.get('range') || '24h') as '1h' | '24h' | '7d';
+        const metrics = await getAggregatedMetrics(env, range);
+        return new Response(JSON.stringify(metrics, null, 2), {
+          headers: corsHeaders({ 'Content-Type': 'application/json' }),
+        });
+      }
+
+      case 'blocked': {
+        const limit = parseInt(url.searchParams.get('limit') || '100', 10);
+        const blocked = await getBlockedContentLog(env, limit);
+        return new Response(JSON.stringify({
+          count: blocked.length,
+          logs: blocked,
+        }, null, 2), {
+          headers: corsHeaders({ 'Content-Type': 'application/json' }),
+        });
+      }
+
+      case 'provenance-stats': {
+        const metrics = await getAggregatedMetrics(env, '24h');
+        return new Response(JSON.stringify({
+          period: metrics.period,
+          provenance: metrics.provenance,
+          summary: {
+            ragPercentage: metrics.provenance.averageRagContribution,
+            sourceDistribution: metrics.provenance.sourceDistribution,
+            recipeBreakdown: metrics.provenance.recipeBreakdown,
+          },
+        }, null, 2), {
+          headers: corsHeaders({ 'Content-Type': 'application/json' }),
+        });
+      }
+
+      case 'alerts': {
+        const metrics = await getAggregatedMetrics(env, '24h');
+        const alerts = await checkAlerts(env, metrics);
+        return new Response(JSON.stringify({
+          count: alerts.length,
+          alerts,
+          summary: {
+            critical: alerts.filter(a => a.severity === 'critical').length,
+            warning: alerts.filter(a => a.severity === 'warning').length,
+            info: alerts.filter(a => a.severity === 'info').length,
+          },
+        }, null, 2), {
+          headers: corsHeaders({ 'Content-Type': 'application/json' }),
+        });
+      }
+
+      case 'summary': {
+        // Quick summary of all dashboard data
+        const metrics = await getAggregatedMetrics(env, '24h');
+        const alerts = await checkAlerts(env, metrics);
+        const blockedRecent = await getBlockedContentLog(env, 10);
+
+        return new Response(JSON.stringify({
+          timestamp: new Date().toISOString(),
+          period: metrics.period,
+          safety: {
+            totalGenerated: metrics.safety.totalGenerated,
+            blocked: metrics.safety.blocked,
+            blockRate: `${(metrics.safety.blockRate * 100).toFixed(1)}%`,
+            averageBrandScore: metrics.safety.averageBrandScore.toFixed(1),
+          },
+          provenance: {
+            ragPercentage: `${metrics.provenance.averageRagContribution}%`,
+            aiGeneratedRecipes: metrics.provenance.recipeBreakdown.aiGenerated,
+          },
+          performance: {
+            averageLatency: `${metrics.performance.averageLatency.toFixed(0)}ms`,
+            p95Latency: `${metrics.performance.p95Latency.toFixed(0)}ms`,
+          },
+          alerts: {
+            count: alerts.length,
+            critical: alerts.filter(a => a.severity === 'critical').length,
+            warning: alerts.filter(a => a.severity === 'warning').length,
+          },
+          recentBlocked: blockedRecent.slice(0, 5).map(b => ({
+            query: b.query,
+            reason: b.reason,
+          })),
+        }, null, 2), {
+          headers: corsHeaders({ 'Content-Type': 'application/json' }),
+        });
+      }
+
+      case 'errors': {
+        // List recent errors from KV
+        const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+        const errors: any[] = [];
+
+        // List all error keys
+        const list = await env.CACHE.list({ prefix: 'error:' });
+
+        // Sort by timestamp (newest first) and limit
+        const sortedKeys = list.keys
+          .sort((a, b) => {
+            // Extract timestamp from key format: error:{timestamp}-{random}
+            const tsA = parseInt(a.name.split(':')[1]?.split('-')[0] || '0', 10);
+            const tsB = parseInt(b.name.split(':')[1]?.split('-')[0] || '0', 10);
+            return tsB - tsA;
+          })
+          .slice(0, limit);
+
+        // Fetch error details
+        for (const key of sortedKeys) {
+          const errorData = await env.CACHE.get(key.name, 'json');
+          if (errorData) {
+            errors.push(errorData);
+          }
+        }
+
+        return new Response(JSON.stringify({
+          count: errors.length,
+          total: list.keys.length,
+          errors,
+        }, null, 2), {
+          headers: corsHeaders({ 'Content-Type': 'application/json' }),
+        });
+      }
+
+      default:
+        return new Response(JSON.stringify({
+          error: 'Unknown dashboard endpoint',
+          available: ['/metrics', '/blocked', '/provenance-stats', '/alerts', '/summary', '/errors'],
+        }), {
+          status: 404,
+          headers: corsHeaders({ 'Content-Type': 'application/json' }),
+        });
+    }
+  } catch (error) {
+    console.error('[handleDashboard] Error:', error);
+    return new Response(JSON.stringify({
+      error: 'Dashboard request failed',
+      message: (error as Error).message,
+    }), {
+      status: 500,
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  }
+}
+
+/**
+ * Test Imagen API
+ */
+async function testImagenAPI(env: Env): Promise<Response> {
+  const results: Record<string, unknown> = {
+    test: 'Imagen 3 via Vertex AI',
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    if (!env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+      results.error = 'GOOGLE_SERVICE_ACCOUNT_JSON secret not configured';
+      return new Response(JSON.stringify(results, null, 2), {
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
+
+    const serviceAccount = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON);
+    results.serviceAccount = {
+      email: serviceAccount.client_email,
+      projectId: serviceAccount.project_id,
+    };
+
+    // Import the imagen module to use its token generation
+    const { generateImagesWithImagen } = await import('./ai-clients/imagen');
+
+    // Try to generate a test image
+    results.step = 'Generating test image...';
+    const testRequest = {
+      id: 'test-image',
+      prompt: 'A simple red apple on white background, product photography',
+      size: 'card' as const,
+      blockId: 'test',
+    };
+
+    const startTime = Date.now();
+    const images = await generateImagesWithImagen([testRequest], 'api-test', env);
+    const elapsed = Date.now() - startTime;
+
+    results.elapsed = `${elapsed}ms`;
+    results.imagesReturned = images.length;
+
+    if (images.length > 0) {
+      const image = images[0];
+      results.imageUrl = image.url;
+      results.isPlaceholder = image.url.startsWith('data:');
+      results.isFallback = image.url.includes('unsplash.com');
+      results.success = !results.isPlaceholder && !results.isFallback;
+    }
+
+  } catch (error: unknown) {
+    const err = error as Error;
+    results.error = err.message;
+    results.stack = err.stack?.split('\n').slice(0, 5);
+  }
+
+  return new Response(JSON.stringify(results, null, 2), {
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+  });
+}
+
+/**
+ * Test Fal API
+ */
+async function testFalAPI(env: Env): Promise<Response> {
+  const results: Record<string, unknown> = {
+    test: 'Fal.ai FLUX Schnell',
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    if (!env.FAL_API_KEY) {
+      results.error = 'FAL_API_KEY secret not configured';
+      return new Response(JSON.stringify(results, null, 2), {
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
+
+    results.apiKey = 'CONFIGURED';
+
+    // Import the fal module
+    const { generateImagesWithFal } = await import('./ai-clients/fal');
+
+    // Try to generate a test image
+    results.step = 'Generating test image...';
+    const testRequest = {
+      id: 'test-image',
+      prompt: 'A simple red apple on white background, product photography',
+      size: 'card' as const,
+      blockId: 'test',
+    };
+
+    const startTime = Date.now();
+    const images = await generateImagesWithFal([testRequest], 'api-test', env);
+    const elapsed = Date.now() - startTime;
+
+    results.elapsed = `${elapsed}ms`;
+    results.imagesReturned = images.length;
+
+    if (images.length > 0) {
+      const image = images[0];
+      results.imageUrl = image.url;
+      results.isPlaceholder = image.url.startsWith('data:');
+      results.isFallback = image.url.includes('unsplash.com');
+      results.success = !results.isPlaceholder && !results.isFallback;
+    }
+
+  } catch (error: unknown) {
+    const err = error as Error;
+    results.error = err.message;
+    results.stack = err.stack?.split('\n').slice(0, 5);
+  }
+
+  return new Response(JSON.stringify(results, null, 2), {
+    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+  });
 }

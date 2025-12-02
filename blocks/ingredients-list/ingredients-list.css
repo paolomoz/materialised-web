@@ -1,91 +1,71 @@
+/* Ingredients List Block
+ *
+ * Simple bulleted ingredient list.
+ * Matches vitamix.com single recipe page design.
+ */
+
 .ingredients-list {
-  padding: 40px 24px;
-  max-width: 600px;
-  margin: 0 auto;
-  background: #f8f9fa;
-  border-radius: 16px;
+  padding: 0;
+  flex: 1;
 }
 
-.ingredients-header {
+/* Header */
+.ingredients-list .ingredients-header {
   margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 2px solid #e0e0e0;
 }
 
-.ingredients-header h2 {
-  font-size: 24px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin-bottom: 4px;
+.ingredients-list .ingredients-header h2 {
+  font-size: 2rem;
+  font-weight: 300;
+  color: var(--color-brand-dark, #1a1a1a);
+  margin: 0;
+  letter-spacing: -0.02em;
 }
 
-.ingredients-header p {
-  font-size: 14px;
-  color: #666;
+/* Ingredients list */
+.ingredients-list .ingredients-items {
+  list-style: disc;
+  padding-left: 20px;
+  margin: 0;
 }
 
-.ingredients-section {
-  margin-top: 24px;
-  margin-bottom: 12px;
+.ingredients-list .ingredient-item {
+  padding: 8px 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--color-charcoal, #333);
 }
 
-.ingredients-section strong {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-brand-red, #c00);
+.ingredients-list .ingredient-item::marker {
+  color: var(--color-charcoal, #333);
+}
+
+.ingredients-list .ingredient-text {
+  display: inline;
+}
+
+/* Section headers within ingredients */
+.ingredients-list .ingredient-section {
+  list-style: none;
+  margin: 24px 0 12px -20px;
+  padding: 0;
+}
+
+.ingredients-list .ingredient-section strong {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-brand-red, #c41230);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
-.ingredient-row {
-  display: flex;
-  gap: 16px;
-  padding: 12px 0;
-  border-bottom: 1px solid #e8e8e8;
-  align-items: baseline;
-}
-
-.ingredient-row:last-child {
-  border-bottom: none;
-}
-
-.ingredient-amount {
-  flex-shrink: 0;
-  min-width: 80px;
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.ingredient-amount p {
-  margin: 0;
-}
-
-.ingredient-name {
-  flex: 1;
-  color: #333;
-}
-
-.ingredient-name p {
-  margin: 0;
-}
-
-.ingredient-note {
-  font-size: 13px;
-  color: #888;
-  font-style: italic;
-}
-
-.ingredient-note p {
-  margin: 0;
-}
-
+/* Responsive */
 @media (width < 600px) {
-  .ingredients-list {
-    padding: 24px 16px;
-    border-radius: 12px;
+  .ingredients-list .ingredients-header h2 {
+    font-size: 1.5rem;
   }
 
-  .ingredient-amount {
-    min-width: 70px;
+  .ingredients-list .ingredient-item {
+    font-size: 0.9375rem;
   }
 }

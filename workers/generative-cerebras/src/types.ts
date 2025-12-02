@@ -8,6 +8,9 @@ export interface Env {
   // Vectorize index for RAG retrieval
   VECTORIZE: VectorizeIndex;
 
+  // Vectorize index for image asset lookup (Priority 3)
+  IMAGE_INDEX?: VectorizeIndex;
+
   // R2 bucket for storing generated images
   IMAGES: R2Bucket;
 
@@ -149,6 +152,11 @@ export interface RAGChunk {
 }
 
 /**
+ * RAG result quality level for confidence-based fallbacks
+ */
+export type RAGQuality = 'high' | 'medium' | 'low';
+
+/**
  * RAG context assembled for generation
  */
 export interface RAGContext {
@@ -157,6 +165,8 @@ export interface RAGContext {
   hasProductInfo: boolean;
   hasRecipes: boolean;
   sourceUrls: string[];
+  /** [IMPROVEMENT #14] Quality assessment for confidence-based fallbacks */
+  quality: RAGQuality;
 }
 
 /**
@@ -397,4 +407,55 @@ export interface QueryHistoryEntry {
  */
 export interface SessionContextParam {
   previousQueries: QueryHistoryEntry[];
+}
+
+// ============================================================================
+// Content Provenance Types
+// ============================================================================
+
+/**
+ * Content source classification
+ */
+export type ContentSourceType = 'rag' | 'generated' | 'hybrid';
+
+/**
+ * Recipe source classification
+ */
+export type RecipeSourceType =
+  | 'vitamix_official'   // Exact match to vitamix.com recipe
+  | 'rag_adapted'        // Based on RAG but modified
+  | 'ai_generated'       // No RAG source, fully generated
+  | 'unknown';           // Unable to determine
+
+/**
+ * Provenance tracking for a content block
+ */
+export interface BlockProvenanceInfo {
+  blockId: string;
+  blockType: string;
+  source: ContentSourceType;
+  ragContribution: number;     // 0-100 percentage
+  ragSourceUrls: string[];
+}
+
+/**
+ * Provenance tracking for a recipe
+ */
+export interface RecipeProvenanceInfo {
+  recipeName: string;
+  source: RecipeSourceType;
+  originalUrl?: string;
+  matchScore?: number;         // Similarity to original (0-1)
+}
+
+/**
+ * Overall content provenance summary
+ */
+export interface ContentProvenanceSummary {
+  overallSource: ContentSourceType;
+  ragPercentage: number;
+  totalBlocks: number;
+  recipeCount: number;
+  aiGeneratedRecipes: number;
+  sourceUrls: string[];
 }

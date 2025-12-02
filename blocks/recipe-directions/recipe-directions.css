@@ -1,0 +1,170 @@
+/* Recipe Directions Block
+ *
+ * Numbered step-by-step directions with circular indicators.
+ * Matches vitamix.com recipe page directions design.
+ */
+
+.recipe-directions {
+  padding: 0;
+  flex: 1;
+}
+
+.recipe-directions .directions-title {
+  font-size: 2rem;
+  font-weight: 300;
+  color: var(--color-brand-dark, #1a1a1a);
+  margin: 0 0 24px 0;
+  letter-spacing: -0.02em;
+}
+
+/* Steps list */
+.recipe-directions .directions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.recipe-directions .direction-step {
+  display: flex;
+  gap: 20px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--color-light-gray, #e5e5e5);
+  transition: background 0.2s ease;
+}
+
+.recipe-directions .direction-step:last-child {
+  border-bottom: none;
+}
+
+.recipe-directions .direction-step.highlighted {
+  background: rgba(196, 18, 48, 0.05);
+  margin: 0 -16px;
+  padding: 24px 16px;
+  border-radius: 8px;
+}
+
+/* Step number */
+.recipe-directions .step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--color-brand-red, #c41230);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Step content */
+.recipe-directions .step-content {
+  flex: 1;
+  padding-top: 6px;
+}
+
+.recipe-directions .step-text {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--color-charcoal, #333);
+  margin: 0;
+}
+
+/* Progress indicator */
+.recipe-directions .directions-progress {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 0;
+}
+
+.recipe-directions .progress-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--color-light-gray, #e5e5e5);
+  border-radius: 50%;
+  transition: background 0.2s ease;
+}
+
+.recipe-directions .progress-dot.active {
+  background: var(--color-brand-dark, #1a1a1a);
+}
+
+/* Navigation arrows */
+.recipe-directions .directions-nav {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 0;
+}
+
+.recipe-directions .nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: #2d3e50;
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.recipe-directions .nav-btn:hover:not(:disabled) {
+  background: #3d4e60;
+}
+
+.recipe-directions .nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.recipe-directions .nav-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Cook Mode styling */
+.recipe-directions.cook-mode .directions-list {
+  font-size: 1.125rem;
+}
+
+.recipe-directions.cook-mode .direction-step:not(.highlighted) {
+  opacity: 0.4;
+}
+
+.recipe-directions.cook-mode .step-number {
+  width: 44px;
+  height: 44px;
+  font-size: 1.125rem;
+}
+
+/* Responsive */
+@media (width < 600px) {
+  .recipe-directions .directions-title {
+    font-size: 1.5rem;
+  }
+
+  .recipe-directions .direction-step {
+    gap: 16px;
+    padding: 20px 0;
+  }
+
+  .recipe-directions .step-number {
+    width: 32px;
+    height: 32px;
+    font-size: 0.875rem;
+  }
+
+  .recipe-directions .step-text {
+    font-size: 0.9375rem;
+  }
+
+  .recipe-directions .nav-btn {
+    width: 40px;
+    height: 40px;
+  }
+}

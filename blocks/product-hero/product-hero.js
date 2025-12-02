@@ -45,7 +45,12 @@ export default function decorate(block) {
     const strong = p.querySelector('strong');
 
     if (link) {
-      ctas.push({ text: link.textContent.trim(), href: link.href });
+      ctas.push({
+        text: link.textContent.trim(),
+        href: link.href,
+        ctaType: link.getAttribute('data-cta-type'),
+        generationHint: link.getAttribute('data-generation-hint'),
+      });
     } else if (strong) {
       price = strong.textContent.trim();
     } else {
@@ -99,6 +104,13 @@ export default function decorate(block) {
     btn.href = cta.href;
     btn.textContent = cta.text;
     btn.className = index === 0 ? 'product-hero-cta primary' : 'product-hero-cta secondary';
+    // Preserve explore CTA attributes for contextual navigation
+    if (cta.ctaType) {
+      btn.setAttribute('data-cta-type', cta.ctaType);
+    }
+    if (cta.generationHint) {
+      btn.setAttribute('data-generation-hint', cta.generationHint);
+    }
     detailsDiv.appendChild(btn);
   });
 

@@ -20,6 +20,11 @@ binding = "AI"
 binding = "VECTORIZE"
 index_name = "vitamix-content"
 
+# Vectorize for image asset lookup (Priority 3: IMAGE_INDEX)
+[[vectorize]]
+binding = "IMAGE_INDEX"
+index_name = "vitamix-images"
+
 # R2 for generated images
 [[r2_buckets]]
 binding = "IMAGES"

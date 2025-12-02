@@ -1,4 +1,4 @@
-import type { ExtractedContent, TextChunk, ChunkMetadata, ContentType } from './types';
+import type { ExtractedContent, TextChunk, ChunkMetadata, ContentType, ImageType, ImageInfo } from './types';
 
 /**
  * Configuration for chunking
@@ -76,19 +76,146 @@ export function createChunks(content: ExtractedContent): TextChunk[] {
 
 /**
  * Create base metadata for all chunks from this content
+ * Enhanced with intelligent image selection based on content type
  */
 function createBaseMetadata(content: ExtractedContent): Omit<ChunkMetadata, 'chunk_text'> {
+  const images = content.images;
+  const contentType = content.contentType;
+
+  // Find specialized images based on content type
+  const heroImage = findHeroImage(images);
+  const recipeImage = contentType === 'recipe' ? findRecipeImage(images, content.recipeData?.name) : undefined;
+  const productImage = contentType === 'product' ? findProductImage(images, content.productSpecs?.name) : undefined;
+
+  // Primary image: prefer type-specific, fallback to hero
+  const primaryImage = productImage || recipeImage || heroImage;
+
+  // Classify image type
+  const imageType = classifyImageType(primaryImage, contentType);
+
   return {
-    content_type: content.contentType,
+    content_type: contentType,
     source_url: content.url,
     page_title: content.title,
     product_sku: content.productSpecs?.sku,
     product_category: content.productSpecs?.category,
     recipe_category: content.recipeData?.category,
-    image_url: content.images[0]?.src,
+    // Enhanced image metadata
+    image_url: primaryImage?.src,
+    hero_image_url: heroImage?.src,
+    recipe_image_url: recipeImage?.src,
+    product_image_url: productImage?.src,
+    image_alt_text: primaryImage?.alt || heroImage?.alt,
+    image_type: imageType,
     freshness_score: 1.0, // Fresh content starts at 1.0
     indexed_at: new Date().toISOString(),
   };
+}
+
+/**
+ * Find the hero/banner image (typically og:image or first large image)
+ */
+function findHeroImage(images: ImageInfo[]): ImageInfo | undefined {
+  // og:image is always first in the array (see extractor.ts)
+  // It's marked with context containing "og:image"
+  const ogImage = images.find(img => img.context.includes('og:image'));
+  if (ogImage) return ogImage;
+
+  // Fallback to first image
+  return images[0];
+}
+
+/**
+ * Find recipe-specific image by looking for recipe-related context
+ */
+function findRecipeImage(images: ImageInfo[], recipeName?: string): ImageInfo | undefined {
+  if (!images.length) return undefined;
+
+  // Look for images with recipe-related context
+  const recipeKeywords = ['recipe', 'dish', 'serving', 'bowl', 'plate', 'smoothie', 'soup', 'blend'];
+
+  for (const img of images) {
+    const contextLower = (img.alt + ' ' + img.context).toLowerCase();
+
+    // Check for recipe name match
+    if (recipeName && contextLower.includes(recipeName.toLowerCase())) {
+      return img;
+    }
+
+    // Check for recipe-related keywords
+    if (recipeKeywords.some(kw => contextLower.includes(kw))) {
+      return img;
+    }
+  }
+
+  // Fallback to og:image for recipe pages (usually the recipe photo)
+  return images.find(img => img.context.includes('og:image')) || images[0];
+}
+
+/**
+ * Find product-specific image by looking for product shots
+ */
+function findProductImage(images: ImageInfo[], productName?: string): ImageInfo | undefined {
+  if (!images.length) return undefined;
+
+  // Look for images with product-related context
+  const productKeywords = ['blender', 'vitamix', 'product', 'front', 'side', 'white background'];
+
+  for (const img of images) {
+    const contextLower = (img.alt + ' ' + img.context).toLowerCase();
+
+    // Check for product name match
+    if (productName && contextLower.includes(productName.toLowerCase())) {
+      return img;
+    }
+
+    // Check for product-related keywords
+    if (productKeywords.some(kw => contextLower.includes(kw))) {
+      return img;
+    }
+  }
+
+  // Fallback to og:image for product pages
+  return images.find(img => img.context.includes('og:image')) || images[0];
+}
+
+/**
+ * Classify the image type based on content and URL patterns
+ */
+function classifyImageType(image: ImageInfo | undefined, contentType: ContentType): ImageType {
+  if (!image) return 'unknown';
+
+  const srcLower = image.src.toLowerCase();
+  const contextLower = (image.alt + ' ' + image.context).toLowerCase();
+
+  // URL-based classification
+  if (srcLower.includes('/product/') || srcLower.includes('/blender')) {
+    return 'product';
+  }
+  if (srcLower.includes('/recipe/') || srcLower.includes('/food/')) {
+    return 'recipe';
+  }
+  if (srcLower.includes('/lifestyle/') || srcLower.includes('/hero/')) {
+    return 'lifestyle';
+  }
+  if (srcLower.includes('/diagram/') || srcLower.includes('/spec/') || srcLower.includes('/chart/')) {
+    return 'diagram';
+  }
+
+  // Context-based classification
+  if (contextLower.includes('recipe') || contextLower.includes('smoothie') || contextLower.includes('soup')) {
+    return 'recipe';
+  }
+  if (contextLower.includes('product') || contextLower.includes('blender')) {
+    return 'product';
+  }
+
+  // Content-type based fallback
+  if (contentType === 'product') return 'product';
+  if (contentType === 'recipe') return 'recipe';
+  if (contentType === 'editorial' || contentType === 'brand') return 'lifestyle';
+
+  return 'hero';
 }
 
 /**

@@ -43,7 +43,7 @@ interface CerebrasResponse {
 }
 
 /**
- * Call Cerebras API (OpenAI-compatible)
+ * Call Cerebras API (OpenAI-compatible) with retry logic
  */
 async function callCerebras(
   messages: CerebrasMessage[],
@@ -55,37 +55,76 @@ async function callCerebras(
   env: Env
 ): Promise<string> {
   const startTime = Date.now();
+  const maxRetries = 3;
+  let lastError: Error | null = null;
 
-  const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${env.CEREBRAS_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: options.model || 'llama-3.3-70b',
-      messages,
-      max_tokens: options.maxTokens || 4096,
-      temperature: options.temperature ?? 0.7,
-    }),
-  });
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch('https://api.cerebras.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${env.CEREBRAS_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: options.model || 'llama-3.3-70b',
+          messages,
+          max_tokens: options.maxTokens || 4096,
+          temperature: options.temperature ?? 0.7,
+        }),
+      });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Cerebras API error: ${response.status} - ${error}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        // Retry on 403 (Cloudflare block) or 429 (rate limit) or 5xx (server errors)
+        const isRetryable = response.status === 403 || response.status === 429 || response.status >= 500;
+
+        if (isRetryable && attempt < maxRetries) {
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 4000); // 1s, 2s, 4s
+          console.log(`[Cerebras] Attempt ${attempt} failed with ${response.status}, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          lastError = new Error(`Service temporarily unavailable (${response.status})`);
+          continue;
+        }
+
+        // Create user-friendly error message (don't expose raw HTML)
+        let friendlyMessage = 'Service temporarily unavailable. Please try again.';
+        if (response.status === 403) {
+          friendlyMessage = 'Request was blocked. Please try again in a moment.';
+        } else if (response.status === 429) {
+          friendlyMessage = 'Too many requests. Please wait a moment and try again.';
+        } else if (response.status >= 500) {
+          friendlyMessage = 'AI service is temporarily unavailable. Please try again.';
+        }
+
+        // Log full error for debugging but throw friendly message
+        console.error(`[Cerebras] API error ${response.status}:`, errorText.substring(0, 500));
+        throw new Error(friendlyMessage);
+      }
+
+      const result = await response.json() as CerebrasResponse;
+      const elapsed = Date.now() - startTime;
+
+      // Log timing info for performance analysis
+      console.log(`[Cerebras] ${options.model || 'llama-3.3-70b'} completed in ${elapsed}ms`, {
+        promptTokens: result.usage?.prompt_tokens,
+        completionTokens: result.usage?.completion_tokens,
+        timeInfo: result.time_info,
+      });
+
+      return result.choices[0].message.content;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 4000);
+        console.log(`[Cerebras] Attempt ${attempt} failed: ${lastError.message}, retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+    }
   }
 
-  const result = await response.json() as CerebrasResponse;
-  const elapsed = Date.now() - startTime;
-
-  // Log timing info for performance analysis
-  console.log(`[Cerebras] ${options.model || 'llama-3.3-70b'} completed in ${elapsed}ms`, {
-    promptTokens: result.usage?.prompt_tokens,
-    completionTokens: result.usage?.completion_tokens,
-    timeInfo: result.time_info,
-  });
-
-  return result.choices[0].message.content;
+  throw lastError || new Error('Cerebras API call failed after retries');
 }
 
 /**

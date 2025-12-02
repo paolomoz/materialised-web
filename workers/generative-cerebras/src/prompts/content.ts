@@ -63,7 +63,7 @@ Return a JSON object with this structure:
     "headline": "string",
     "subheadline": "string",
     "ctaText": "string (optional)",
-    "ctaUrl": "string (optional)",
+    "ctaUrl": "string (optional, relative for explore: /discover/recipes/..., full URL for shop: https://www.vitamix.com/...)",
     "imagePrompt": "string (describe ideal image for generation)"
   }
 }
@@ -81,7 +81,7 @@ Return a JSON object with this structure:
         "imagePrompt": "string",
         "meta": "string (optional, like 'Simple • 5 min')",
         "linkText": "string (optional)",
-        "linkUrl": "string (optional)"
+        "linkUrl": "string (optional, relative for explore: /discover/recipes/..., full URL for shop: https://www.vitamix.com/...)"
       }
     ]
   }
@@ -118,9 +118,9 @@ Return a JSON object with this structure:
     "price": "string (optional, like '$449.95')",
     "priceNote": "string (optional, like '10-Year Warranty')",
     "primaryCtaText": "string",
-    "primaryCtaUrl": "string",
+    "primaryCtaUrl": "string (full URL ONLY for 'Shop'/'Buy'/'Add to Cart': https://www.vitamix.com/..., relative for all other CTAs: /discover/products/...)",
     "secondaryCtaText": "string (optional)",
-    "secondaryCtaUrl": "string (optional)",
+    "secondaryCtaUrl": "string (optional, same URL rules as primaryCtaUrl)",
     "imagePrompt": "string"
   }
 }
@@ -145,24 +145,31 @@ Return a JSON object with this structure:
     "ctaType": "explore" | "shop" | "external",
     "generationHint": "string (REQUIRED for explore CTAs)",
     "secondaryButtonText": "string (optional)",
-    "secondaryButtonUrl": "string (optional)"
+    "secondaryButtonUrl": "string (optional, same URL rules as buttonUrl)"
   }
 }
 
 **CTA Type Rules:**
 - "explore": Triggers new page generation (e.g., "See Recipes", "Learn More", "Explore Smoothies")
   - REQUIRES generationHint: a phrase describing what content to generate
-  - buttonUrl should be a path like "/recipes/smoothies" (not external URL)
+  - buttonUrl should be a relative path like "/discover/recipes/smoothies" (generates new page)
   - Example: ctaType "explore", buttonText "See Energy Smoothies", generationHint "collection of energy-boosting smoothie recipes"
 - "shop": Links to vitamix.com shopping/cart (e.g., "Shop Now", "Add to Cart", "Buy Now")
-  - buttonUrl should link to vitamix.com product/cart pages
+  - buttonUrl MUST be a full URL with domain: "https://www.vitamix.com/us/en_us/shop"
+  - NEVER use relative paths like "/us/en_us/shop" - always include https://www.vitamix.com
 - "external": Links to external sites (e.g., "Find Retailer")
-  - buttonUrl is a full external URL
+  - buttonUrl MUST be a full URL with domain
+
+**CRITICAL URL RULES:**
+- Relative paths with /discover/ prefix (e.g., "/discover/recipes/smoothies", "/discover/products/a3500") = generates new page (use ctaType "explore")
+- Full URLs (e.g., "https://www.vitamix.com/...") = ONLY for purchase actions (Shop Now, Add to Cart, Buy)
+- NEVER use partial paths like "/us/en_us/..." - either use full https://www.vitamix.com URL or relative path
+- Product exploration ("Learn More", "View Details", "Compare") = relative paths, NOT full URLs
 
 **Default ctaType inference (if not specified):**
-- If buttonText contains "Shop", "Buy", "Cart", "Order" → shop
-- If buttonText contains "Learn", "See", "Explore", "Discover", "Browse", "View", "Find recipes" → explore
-- If buttonUrl starts with "http" and not vitamix.com → external
+- If buttonText contains "Shop", "Buy", "Cart", "Order", "Purchase" → shop (use full vitamix.com URL)
+- If buttonText contains "Learn", "See", "Explore", "Discover", "Browse", "View", "Compare", "Details" → explore (use relative path)
+- ALL product-related CTAs except purchase actions → explore (relative path)
 
 ### FAQ Block
 {
@@ -208,7 +215,7 @@ Return a JSON object with this structure:
         "imagePrompt": "string (describe the finished dish)",
         "difficulty": "string (Simple, Easy, Intermediate, Advanced)",
         "time": "string (like '5 min', '20 min')",
-        "linkUrl": "string (optional recipe page URL)"
+        "linkUrl": "string (optional, relative for explore: /discover/recipes/strawberry-smoothie)"
       }
     ]
   }
@@ -228,7 +235,7 @@ Return a JSON object with this structure:
         "name": "string (product name like 'Vitamix A3500')",
         "price": "string (like '$649.95')",
         "reviewCount": "string (like '1,234')",
-        "url": "string (product page URL)",
+        "url": "string (relative path for explore: /discover/products/a3500 - generates product detail page)",
         "ctaText": "string (like 'Shop Now' or 'Learn More')",
         "imagePrompt": "string (product photo description)"
       }
@@ -252,10 +259,10 @@ Return a JSON object with this structure:
     "body": "string (why this product is recommended for the use case)",
     "price": "string (like '$649.95')",
     "priceNote": "string (like '10-Year Warranty')",
-    "primaryCtaText": "string (like 'Shop Now')",
-    "primaryCtaUrl": "string",
+    "primaryCtaText": "string (like 'Shop Now' or 'View Details')",
+    "primaryCtaUrl": "string (full URL for 'Shop'/'Buy': https://www.vitamix.com/..., relative for explore: /discover/products/a3500)",
     "secondaryCtaText": "string (optional, like 'Learn More')",
-    "secondaryCtaUrl": "string (optional)",
+    "secondaryCtaUrl": "string (optional, relative path for explore: /discover/products/a3500)",
     "imagePrompt": "string (product in lifestyle setting)"
   }
 }
@@ -326,7 +333,7 @@ Return a JSON object with this structure:
         "difficultyLevel": number (1-5),
         "time": "string (like '5 min', '20 min')",
         "ingredients": ["string", ...] (key ingredients for filtering),
-        "linkUrl": "string (recipe page URL)"
+        "linkUrl": "string (relative for explore: /discover/recipes/strawberry-smoothie)"
       }
     ]
   }
@@ -361,7 +368,7 @@ Return a JSON object with this structure:
     "tips": ["string", ...] (3-5 numbered tips),
     "videoUrl": "string (optional, link to video)",
     "imagePrompt": "string (if no video, describe technique visual)",
-    "linkUrl": "string (optional, link to learn more)",
+    "linkUrl": "string (optional, relative for explore: /discover/techniques/layering)",
     "linkText": "string (optional, default 'Learn More')"
   }
 }
@@ -439,7 +446,7 @@ Return a JSON object with this structure:
       {
         "title": "string (button title like 'Contact Support')",
         "description": "string (supporting text like 'Still need help? We're here.')",
-        "url": "string (destination URL)",
+        "url": "string (full URL for external support: https://www.vitamix.com/..., relative for explore: /discover/support/...)",
         "style": "string (primary | secondary)"
       }
     ]
@@ -482,8 +489,8 @@ Return a JSON object with this structure:
         "persona": "string (like 'POWER USER', 'MOST POPULAR', 'BEST VALUE')",
         "product": "string (product name like 'A3500')",
         "description": "string (why this product fits this persona)",
-        "ctaText": "string (like 'Shop A3500')",
-        "ctaUrl": "string (product page URL)"
+        "ctaText": "string (like 'Learn More' or 'Shop A3500')",
+        "ctaUrl": "string (relative for explore: /discover/products/a3500, full URL ONLY for 'Shop'/'Buy': https://www.vitamix.com/...)"
       }
     ]
   }
@@ -525,8 +532,8 @@ Return a JSON object with this structure:
       {
         "name": "string (product name)",
         "price": "string (like '$649')",
-        "ctaText": "string (like 'Shop Now')",
-        "ctaUrl": "string (product page URL)"
+        "ctaText": "string (like 'Shop Now' or 'View Details')",
+        "ctaUrl": "string (full URL for 'Shop'/'Buy': https://www.vitamix.com/..., relative for explore: /discover/products/a3500)"
       }
     ],
     "footerMessage": "string (like 'All models include free shipping')"
@@ -547,15 +554,18 @@ Return a JSON object with this structure:
     "price": "string (like '$649.95')",
     "specs": "string (key specs like '2.2 HP Motor | 64 oz Container | 10-Year Warranty')",
     "imagePrompt": "string (product image description)",
-    "addToCartUrl": "string (add to cart URL)",
-    "compareUrl": "string (comparison page URL)"
+    "addToCartUrl": "string (MUST be full URL: https://www.vitamix.com/us/en_us/shop/...)",
+    "compareUrl": "string (MUST be explore-friendly path like '/discover/compare/a3500-alternatives')",
+    "compareGenerationHint": "string (REQUIRED - describes what comparison to generate, e.g., 'compare A3500 with similar Vitamix models')"
   }
 }
 
 **Product Hero Notes:**
 - Split layout with image on left, details on right
 - Include price and key specs summary
-- Two CTAs: Add to Cart and Compare Models
+- Two CTAs: Add to Cart (shop) and Compare Models (explore)
+- **CRITICAL: compareUrl MUST use explore-friendly paths like '/discover/compare/...' NOT '/us/en_us/shop/...'**
+- compareGenerationHint is REQUIRED - tells the system what comparison page to generate
 
 ### Specs Table Block (Product Detail pages)
 {
@@ -620,11 +630,11 @@ Return a JSON object with this structure:
     "headline": "string (like 'Ready to Transform Your Kitchen?')",
     "description": "string (motivational message)",
     "primaryCtaText": "string (like 'Add to Cart - $649.95')",
-    "primaryCtaUrl": "string (add to cart URL)",
-    "secondaryCtaText": "string (like 'Find a Retailer')",
-    "secondaryCtaUrl": "string (retailer locator URL)",
+    "primaryCtaUrl": "string (MUST be full URL: https://www.vitamix.com/us/en_us/shop/...)",
+    "secondaryCtaText": "string (like 'Find a Retailer' or 'Learn More')",
+    "secondaryCtaUrl": "string (full URL for external: https://www.vitamix.com/..., relative for explore: /discover/retailers)",
     "tertiaryCtaText": "string (optional, like 'Compare All Models')",
-    "tertiaryCtaUrl": "string (optional)"
+    "tertiaryCtaUrl": "string (optional, relative path for explore: /discover/compare/blenders)"
   }
 }
 
@@ -751,6 +761,83 @@ Return a JSON object with this structure:
 - Include 3-5 helpful tips
 - Tips should be specific to this recipe
 - Variations offer alternative versions (dietary, flavor)
+
+### Recipe Hero Detail Block (Single Recipe Detail pages - vitamix.com style)
+{
+  "type": "recipe-hero-detail",
+  "content": {
+    "title": "string (recipe name like 'Apple Acorn Squash Soup')",
+    "description": "string (1-2 sentences describing the dish)",
+    "imagePrompt": "string (describe the finished dish photography)",
+    "rating": number (1-5, star rating),
+    "reviewCount": number (number of reviews),
+    "totalTime": "string (like '30 Minutes')",
+    "yield": "string (like '2 servings')",
+    "difficulty": "string (Easy, Intermediate, Advanced)",
+    "dietaryInterests": "string (optional, like 'Vegan, Gluten-Free')",
+    "submittedBy": "string (default 'VITAMIX')"
+  }
+}
+
+**Recipe Hero Detail Notes:**
+- Split layout: image left, content right
+- Shows star rating and review count
+- Metadata with icons: total time, yield, difficulty
+- Dietary interests and attribution at bottom
+
+### Recipe Tabs Block (Single Recipe Detail pages)
+{
+  "type": "recipe-tabs",
+  "content": {
+    "tabs": ["THE RECIPE", "NUTRITIONAL FACTS", "RELATED RECIPES"]
+  }
+}
+
+**Recipe Tabs Notes:**
+- Dark navigation bar with tab buttons
+- First tab is active by default
+
+### Recipe Sidebar Block (Single Recipe Detail pages)
+{
+  "type": "recipe-sidebar",
+  "content": {
+    "servingSize": "string (like '1 serving (542 g)')",
+    "nutrition": {
+      "calories": "string (like '240')",
+      "totalFat": "string (like '7G')",
+      "totalCarbohydrate": "string (like '44G')",
+      "dietaryFiber": "string (like '12G')",
+      "sugars": "string (like '8G')",
+      "protein": "string (like '4G')",
+      "cholesterol": "string (like '0MG')",
+      "sodium": "string (like '300MG')",
+      "saturatedFat": "string (like '1G')"
+    }
+  }
+}
+
+**Recipe Sidebar Notes:**
+- Nutrition facts panel on the left
+- Floats left on desktop, stacks on mobile
+
+### Recipe Directions Block (Single Recipe Detail pages)
+{
+  "type": "recipe-directions",
+  "content": {
+    "title": "string (optional, default 'Directions')",
+    "steps": [
+      {
+        "instruction": "string (step-by-step instruction)"
+      }
+    ]
+  }
+}
+
+**Recipe Directions Notes:**
+- Numbered steps with red circular indicators
+- Clean typography for readability
+- Navigation arrows for cook mode
+- Keep steps concise but complete
 
 ### Countdown Timer Block (Campaign Landing pages)
 {

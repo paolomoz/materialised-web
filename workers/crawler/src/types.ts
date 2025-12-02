@@ -8,6 +8,9 @@ export interface Env {
   // Vectorize index for storing content embeddings
   VECTORIZE: VectorizeIndex;
 
+  // Vectorize index for image asset lookup (Priority 3)
+  IMAGE_INDEX: VectorizeIndex;
+
   // R2 bucket for storing raw HTML
   RAW_HTML: R2Bucket;
 
@@ -97,6 +100,11 @@ export interface TextChunk {
 }
 
 /**
+ * Image type classification for better matching
+ */
+export type ImageType = 'product' | 'recipe' | 'lifestyle' | 'diagram' | 'hero' | 'unknown';
+
+/**
  * Metadata stored with each vector
  */
 export interface ChunkMetadata {
@@ -107,7 +115,13 @@ export interface ChunkMetadata {
   product_sku?: string;
   product_category?: string;
   recipe_category?: string;
-  image_url?: string;
+  // === Enhanced Image Metadata ===
+  image_url?: string;              // Primary image (og:image or first content image)
+  hero_image_url?: string;         // Hero/banner image for the page
+  recipe_image_url?: string;       // Recipe-specific image (for recipe pages)
+  product_image_url?: string;      // Product shot (for product pages)
+  image_alt_text?: string;         // Alt text for semantic matching
+  image_type?: ImageType;          // Classification of the primary image
   freshness_score: number;
   indexed_at: string;
 }

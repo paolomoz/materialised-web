@@ -374,6 +374,69 @@ main .section.dark .button.secondary:any-link {
   color: var(--color-white, #fff);
 }
 
+/* ===== Recipe Content Layout ===== */
+/* Two-column layout: nutrition sidebar on left, ingredients/directions on right */
+/* Each block is in its own section, so we use grid on the parent container */
+
+main > div:has(.recipe-sidebar-container) {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 0 48px;
+}
+
+/* Hero and CTA span full width */
+main > div:has(.recipe-sidebar-container) > .recipe-hero-detail-container,
+main > div:has(.recipe-sidebar-container) > .cta-container {
+  grid-column: 1 / -1;
+}
+
+/* Sidebar on left, spans multiple rows */
+main > div:has(.recipe-sidebar-container) > .recipe-sidebar-container {
+  grid-column: 1;
+  grid-row: 2 / span 2;
+  margin: 0;
+  padding: 40px 0;
+}
+
+main > div:has(.recipe-sidebar-container) > .recipe-sidebar-container > div {
+  position: sticky;
+  top: calc(var(--nav-height, 64px) + 24px);
+  padding: 0 24px 0 0;
+}
+
+/* Ingredients and directions on right */
+main > div:has(.recipe-sidebar-container) > .ingredients-list-container,
+main > div:has(.recipe-sidebar-container) > .recipe-directions-container {
+  grid-column: 2;
+  margin: 0;
+}
+
+main > div:has(.recipe-sidebar-container) > .ingredients-list-container {
+  padding: 40px 24px 40px 0;
+  border-bottom: 1px solid var(--color-light-gray, #e5e5e5);
+}
+
+main > div:has(.recipe-sidebar-container) > .recipe-directions-container {
+  padding: 40px 24px 40px 0;
+}
+
+/* Responsive: Stack on mobile */
+@media (width < 900px) {
+  main > div:has(.recipe-sidebar-container) {
+    display: block;
+  }
+
+  main > div:has(.recipe-sidebar-container) > .recipe-sidebar-container > div {
+    position: static;
+    padding: 0 24px;
+  }
+
+  main > div:has(.recipe-sidebar-container) > .ingredients-list-container,
+  main > div:has(.recipe-sidebar-container) > .recipe-directions-container {
+    padding: 32px 24px;
+  }
+}
+
 /* ===== Hero Video Section (DA-authored) ===== */
 main .section.hero-video {
   position: relative;

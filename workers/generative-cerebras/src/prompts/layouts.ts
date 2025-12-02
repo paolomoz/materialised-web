@@ -20,6 +20,8 @@ export interface BlockTemplate {
     | 'product-cards'
     // Single Recipe blocks
     | 'recipe-hero' | 'ingredients-list' | 'recipe-steps' | 'nutrition-facts' | 'recipe-tips'
+    // Single Recipe Detail blocks (vitamix.com style)
+    | 'recipe-hero-detail' | 'recipe-tabs' | 'recipe-sidebar' | 'recipe-directions'
     // Campaign Landing blocks
     | 'countdown-timer' | 'testimonials'
     // About/Story blocks
@@ -153,7 +155,7 @@ export const LAYOUT_PRODUCT_COMPARISON: LayoutTemplate = {
 export const LAYOUT_RECIPE_COLLECTION: LayoutTemplate = {
   id: 'recipe-collection',
   name: 'Recipe Collection',
-  description: 'Interactive recipe collection with filtering and AI-powered ingredient search',
+  description: 'Interactive recipe collection with filtering',
   useCases: [
     'Soup recipes',
     'Smoothie ideas',
@@ -166,13 +168,6 @@ export const LAYOUT_RECIPE_COLLECTION: LayoutTemplate = {
       // Hero section - full width with collection title
       blocks: [
         { type: 'hero', variant: 'full-width', width: 'full', config: { hasImage: true } },
-      ],
-    },
-    {
-      // AI-powered ingredient search
-      style: 'highlight',
-      blocks: [
-        { type: 'ingredient-search' },
       ],
     },
     {
@@ -203,6 +198,71 @@ export const LAYOUT_RECIPE_COLLECTION: LayoutTemplate = {
     {
       // CTA section
       style: 'highlight',
+      blocks: [
+        { type: 'cta' },
+      ],
+    },
+  ],
+};
+
+/**
+ * Layout 3b: Recipe Invention
+ * AI-powered recipe creation based on ingredients the user has on hand.
+ * This layout is for when users want to INVENT new recipes, not find existing ones.
+ *
+ * Uses specialized blocks:
+ * - ingredient-search: AI-powered ingredient input for recipe invention
+ * - recipe-grid: Displays AI-generated recipe ideas based on ingredients
+ * - tips-banner: Blending tips relevant to ingredient combinations
+ */
+export const LAYOUT_RECIPE_INVENTION: LayoutTemplate = {
+  id: 'recipe-invention',
+  name: 'Recipe Invention',
+  description: 'AI-powered recipe creation from ingredients you have on hand',
+  useCases: [
+    'What can I make with bananas and spinach',
+    'Invent a recipe with these ingredients',
+    'I have carrots, apples and ginger - what can I blend',
+    'Create a smoothie from what I have',
+    'Make something with leftover vegetables',
+    'What recipes can I create with milk, oats, and berries',
+  ],
+  sections: [
+    {
+      // Hero section - explains the ingredient-to-recipe concept
+      blocks: [
+        { type: 'hero', variant: 'centered', config: { hasImage: false } },
+      ],
+    },
+    {
+      // AI-powered ingredient search - the main interaction point
+      style: 'highlight',
+      blocks: [
+        { type: 'ingredient-search' },
+      ],
+    },
+    {
+      // Recipe grid - shows AI-invented recipes based on ingredients
+      blocks: [
+        { type: 'recipe-grid', config: { itemCount: 4 } },
+      ],
+    },
+    {
+      // Tips for combining ingredients effectively
+      style: 'highlight',
+      blocks: [
+        { type: 'tips-banner', config: { itemCount: 3 } },
+      ],
+    },
+    {
+      // Quick view modal container (hidden, triggered by card clicks)
+      blocks: [
+        { type: 'quick-view-modal' },
+      ],
+    },
+    {
+      // CTA to explore more recipes or products
+      style: 'dark',
       blocks: [
         { type: 'cta' },
       ],
@@ -535,64 +595,45 @@ export const LAYOUT_LIFESTYLE: LayoutTemplate = {
 
 /**
  * Layout 11: Single Recipe
- * Detailed view of a single recipe with ingredients, steps, nutrition, and tips.
+ * Detailed recipe page matching vitamix.com design with:
+ * - Split hero with dish image, title, rating, metadata icons
+ * - Tab navigation (recipe, nutrition, related, reviews)
+ * - Two-column content: sidebar (actions, container size, nutrition) + main (ingredients, directions)
+ * - CTA at the end
  *
  * Uses specialized blocks:
- * - recipe-hero: Full-width hero with dish image and recipe metadata
- * - ingredients-list: Two-column ingredient list
- * - recipe-steps: Step-by-step instructions with optional images
- * - nutrition-facts: Nutrition information grid
- * - recipe-tips: Pro tips and variations
- * - recipe-cards: Related recipes
+ * - recipe-hero-detail: Split hero with image left, title/rating/metadata/dietary right
+ * - recipe-tabs: Tab navigation bar with cook mode toggle
+ * - recipe-sidebar: Left sidebar with actions, container size selector, nutrition facts
+ * - ingredients-list: Ingredients with Imperial/Metric unit toggle
+ * - recipe-directions: Numbered step-by-step directions with circular indicators
+ * - cta: Final call-to-action
  */
 export const LAYOUT_SINGLE_RECIPE: LayoutTemplate = {
   id: 'single-recipe',
   name: 'Single Recipe',
-  description: 'Detailed view of a single recipe with ingredients, steps, and nutrition',
+  description: 'Detailed recipe page with sidebar, ingredients, directions, and nutrition',
   useCases: [
     'How to make tomato soup',
     'Green smoothie recipe',
     'Vitamix banana ice cream recipe',
     'Show me a hummus recipe',
+    'Apple acorn squash soup recipe',
   ],
   sections: [
     {
-      // Recipe hero with dish image and metadata
+      // Recipe hero with dish image, title, metadata icons
       blocks: [
-        { type: 'recipe-hero', config: { hasImage: true } },
+        { type: 'recipe-hero-detail', config: { hasImage: true } },
       ],
     },
     {
-      // Ingredients list - two columns
-      style: 'highlight',
+      // Main content area: sidebar + ingredients + directions
+      // CSS will create 2-column layout with sidebar on left
       blocks: [
+        { type: 'recipe-sidebar' },
         { type: 'ingredients-list' },
-      ],
-    },
-    {
-      // Step-by-step instructions
-      blocks: [
-        { type: 'recipe-steps', config: { itemCount: 5, hasImage: true } },
-      ],
-    },
-    {
-      // Nutrition facts
-      style: 'highlight',
-      blocks: [
-        { type: 'nutrition-facts' },
-      ],
-    },
-    {
-      // Pro tips and variations
-      blocks: [
-        { type: 'recipe-tips', config: { itemCount: 3 } },
-      ],
-    },
-    {
-      // Related recipes
-      style: 'highlight',
-      blocks: [
-        { type: 'recipe-cards', config: { itemCount: 3 } },
+        { type: 'recipe-directions', config: { itemCount: 3 } },
       ],
     },
     {
@@ -738,6 +779,7 @@ export const LAYOUTS: LayoutTemplate[] = [
   LAYOUT_PRODUCT_DETAIL,
   LAYOUT_PRODUCT_COMPARISON,
   LAYOUT_RECIPE_COLLECTION,
+  LAYOUT_RECIPE_INVENTION,
   LAYOUT_USE_CASE_LANDING,
   LAYOUT_SUPPORT,
   LAYOUT_CATEGORY_BROWSE,
@@ -780,6 +822,19 @@ const SINGLE_RECIPE_PATTERNS = [
   /make\s+(a|me|some)\s+\w+/i,
   /\w+\s+recipe$/i,  // ends with "recipe" (e.g., "hummus recipe")
   /show\s+me\s+(a|the)\s+\w+\s+recipe/i,
+];
+
+/** Patterns indicating recipe INVENTION from ingredients (not finding existing recipes) */
+const RECIPE_INVENTION_PATTERNS = [
+  /what\s+can\s+i\s+(make|blend|create)\s+with/i,
+  /invent\s+(a|me)?\s*recipe/i,
+  /create\s+(a|me)?\s*(new|custom)?\s*(recipe|smoothie|soup|blend)/i,
+  /i\s+have\s+[\w\s,]+\s*([-–]|and)\s*what\s+can/i,  // "I have X, Y and Z - what can I..."
+  /(make|blend)\s+something\s+(with|from|using)/i,
+  /what\s+(recipes?|smoothies?|soups?)\s+can\s+i\s+(create|make|invent)\s+with/i,
+  /leftover\s+\w+.*what\s+can/i,  // "leftover vegetables what can I make"
+  /using\s+(what\s+i\s+have|these\s+ingredients|my\s+ingredients)/i,
+  /from\s+(what\s+i\s+have|my\s+ingredients)/i,
 ];
 
 /** Patterns indicating campaign/seasonal content */
@@ -906,6 +961,14 @@ export function getLayoutForIntent(
 
   // Recipe queries - use semantic patterns instead of includes()
   if (intentType === 'recipe') {
+    // Check for recipe INVENTION patterns (user wants to create new recipes from ingredients)
+    // This must come before other recipe patterns to catch "what can I make with..." queries
+    if (matchesPatterns(goalsText, RECIPE_INVENTION_PATTERNS) ||
+        (originalQuery && matchesPatterns(originalQuery.toLowerCase(), RECIPE_INVENTION_PATTERNS))) {
+      console.log('[Layout] Recipe invention query detected → recipe-invention');
+      return LAYOUT_RECIPE_INVENTION;
+    }
+
     // Check for specific recipe request patterns
     if (matchesPatterns(goalsText, SINGLE_RECIPE_PATTERNS) ||
         (entities.ingredients && entities.ingredients.length >= 2)) {

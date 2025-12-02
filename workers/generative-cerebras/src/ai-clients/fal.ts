@@ -30,12 +30,58 @@ const SIZE_CONFIG: Record<string, { width: number; height: number }> = {
 };
 
 /**
- * Default fallback images for when generation fails
+ * Diverse fallback images for when generation fails
  */
+const HERO_FALLBACKS = [
+  'https://images.unsplash.com/photo-1638176066666-ffb2f013c7dd?w=2000&h=800&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1502741224143-90386d7f8c82?w=2000&h=800&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=2000&h=800&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1490818387583-1baba5e638af?w=2000&h=800&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=2000&h=800&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?w=2000&h=800&fit=crop&q=80',
+];
+
+const CARD_FALLBACKS = [
+  'https://images.unsplash.com/photo-1590301157890-4810ed352733?w=750&h=562&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1610970881699-44a5587cabec?w=750&h=562&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1571575173700-afb9492e6a50?w=750&h=562&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=750&h=562&fit=crop&q=80',
+];
+
+const COLUMN_FALLBACKS = [
+  'https://images.unsplash.com/photo-1610970881699-44a5587cabec?w=600&h=400&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=600&h=400&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?w=600&h=400&fit=crop&q=80',
+];
+
+/**
+ * Get a consistent fallback based on image ID (hash-based selection)
+ */
+function getConsistentFallback(imageId: string, type: 'hero' | 'card' | 'column'): string {
+  let hash = 0;
+  for (let i = 0; i < imageId.length; i++) {
+    hash = ((hash << 5) - hash) + imageId.charCodeAt(i);
+    hash = hash & hash;
+  }
+  hash = Math.abs(hash);
+
+  switch (type) {
+    case 'hero':
+      return HERO_FALLBACKS[hash % HERO_FALLBACKS.length];
+    case 'card':
+      return CARD_FALLBACKS[hash % CARD_FALLBACKS.length];
+    case 'column':
+      return COLUMN_FALLBACKS[hash % COLUMN_FALLBACKS.length];
+    default:
+      return CARD_FALLBACKS[hash % CARD_FALLBACKS.length];
+  }
+}
+
+// Legacy object for backward compatibility
 const DEFAULT_FALLBACK_IMAGES = {
-  hero: 'https://images.unsplash.com/photo-1638176066666-ffb2f013c7dd?w=2000&h=800&fit=crop&q=80',
-  card: 'https://images.unsplash.com/photo-1590301157890-4810ed352733?w=750&h=562&fit=crop&q=80',
-  column: 'https://images.unsplash.com/photo-1610970881699-44a5587cabec?w=600&h=400&fit=crop&q=80',
+  hero: HERO_FALLBACKS[0],
+  card: CARD_FALLBACKS[0],
+  column: COLUMN_FALLBACKS[0],
 };
 
 /**
@@ -313,15 +359,18 @@ function applyFallbackStrategy(results: GeneratedImage[]): GeneratedImage[] {
     let fallbackUrl: string;
 
     if (type === 'hero') {
-      fallbackUrl = DEFAULT_FALLBACK_IMAGES.hero;
-      console.log(`Hero image failed, using default fallback`);
+      // Hero uses diverse fallback based on image ID
+      fallbackUrl = getConsistentFallback(image.id + image.prompt, 'hero');
+      console.log(`Hero image failed, using diverse fallback`);
     } else if (successfulSiblings.length > 0) {
       const randomSibling = successfulSiblings[Math.floor(Math.random() * successfulSiblings.length)];
       fallbackUrl = randomSibling.url;
       console.log(`Image ${image.id} failed, reusing sibling ${randomSibling.id}`);
     } else {
-      fallbackUrl = DEFAULT_FALLBACK_IMAGES[type as keyof typeof DEFAULT_FALLBACK_IMAGES] || DEFAULT_FALLBACK_IMAGES.card;
-      console.log(`Image ${image.id} failed with no siblings, using default fallback`);
+      // Use diverse fallback based on image ID
+      const fallbackType = type === 'column' ? 'column' : 'card';
+      fallbackUrl = getConsistentFallback(image.id + image.prompt, fallbackType);
+      console.log(`Image ${image.id} failed with no siblings, using diverse fallback`);
     }
 
     return {

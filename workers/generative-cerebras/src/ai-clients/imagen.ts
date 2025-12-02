@@ -1,5 +1,6 @@
-import type { Env, ImageRequest, GeneratedImage } from '../types';
+import type { Env, ImageRequest, GeneratedImage, RAGContext } from '../types';
 import { buildImagePrompt } from '../prompts/image';
+import { findBestImage, logImageDecision, type ImageContext } from '../lib/rag';
 
 /**
  * Imagen 3 API client for image generation via Vertex AI
@@ -23,16 +24,60 @@ const SIZE_CONFIG: Record<string, { width: number; height: number; aspectRatio: 
 };
 
 /**
- * Default fallback images for when generation fails
- * These are high-quality Vitamix-appropriate images hosted on reliable CDNs
+ * Diverse fallback images for when generation fails
+ * Multiple high-quality Vitamix-appropriate images for variety
  */
+const HERO_FALLBACKS = [
+  'https://images.unsplash.com/photo-1638176066666-ffb2f013c7dd?w=2000&h=800&fit=crop&q=80', // Smoothie pour
+  'https://images.unsplash.com/photo-1502741224143-90386d7f8c82?w=2000&h=800&fit=crop&q=80', // Fresh fruits
+  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=2000&h=800&fit=crop&q=80', // Colorful bowl
+  'https://images.unsplash.com/photo-1490818387583-1baba5e638af?w=2000&h=800&fit=crop&q=80', // Fresh produce
+  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=2000&h=800&fit=crop&q=80', // Healthy salad
+  'https://images.unsplash.com/photo-1622597467836-f3285f2131b8?w=2000&h=800&fit=crop&q=80', // Smoothie bowl
+];
+
+const CARD_FALLBACKS = [
+  'https://images.unsplash.com/photo-1590301157890-4810ed352733?w=750&h=562&fit=crop&q=80', // Smoothie bowl
+  'https://images.unsplash.com/photo-1610970881699-44a5587cabec?w=750&h=562&fit=crop&q=80', // Fresh ingredients
+  'https://images.unsplash.com/photo-1571575173700-afb9492e6a50?w=750&h=562&fit=crop&q=80', // Berry smoothie
+  'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=750&h=562&fit=crop&q=80', // Food plating
+];
+
+const COLUMN_FALLBACKS = [
+  'https://images.unsplash.com/photo-1610970881699-44a5587cabec?w=600&h=400&fit=crop&q=80', // Fresh ingredients
+  'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=600&h=400&fit=crop&q=80', // Veggies
+  'https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?w=600&h=400&fit=crop&q=80', // Healthy prep
+];
+
+/**
+ * Get a consistent fallback based on image ID (hash-based selection)
+ */
+function getConsistentFallback(imageId: string, type: 'hero' | 'card' | 'column'): string {
+  // Simple hash for consistent selection
+  let hash = 0;
+  for (let i = 0; i < imageId.length; i++) {
+    hash = ((hash << 5) - hash) + imageId.charCodeAt(i);
+    hash = hash & hash;
+  }
+  hash = Math.abs(hash);
+
+  switch (type) {
+    case 'hero':
+      return HERO_FALLBACKS[hash % HERO_FALLBACKS.length];
+    case 'card':
+      return CARD_FALLBACKS[hash % CARD_FALLBACKS.length];
+    case 'column':
+      return COLUMN_FALLBACKS[hash % COLUMN_FALLBACKS.length];
+    default:
+      return CARD_FALLBACKS[hash % CARD_FALLBACKS.length];
+  }
+}
+
+// Legacy object for backward compatibility
 const DEFAULT_FALLBACK_IMAGES = {
-  // Default hero: beautiful smoothie action shot
-  hero: 'https://images.unsplash.com/photo-1638176066666-ffb2f013c7dd?w=2000&h=800&fit=crop&q=80',
-  // Default card: colorful smoothie bowl
-  card: 'https://images.unsplash.com/photo-1590301157890-4810ed352733?w=750&h=562&fit=crop&q=80',
-  // Default column: fresh ingredients
-  column: 'https://images.unsplash.com/photo-1610970881699-44a5587cabec?w=600&h=400&fit=crop&q=80',
+  hero: HERO_FALLBACKS[0],
+  card: CARD_FALLBACKS[0],
+  column: COLUMN_FALLBACKS[0],
 };
 
 // Token cache to avoid generating new tokens for every request
@@ -357,18 +402,19 @@ function applyFallbackStrategy(results: GeneratedImage[]): GeneratedImage[] {
     let fallbackUrl: string;
 
     if (type === 'hero') {
-      // Hero always uses the default fallback
-      fallbackUrl = DEFAULT_FALLBACK_IMAGES.hero;
-      console.log(`Hero image failed, using default fallback`);
+      // Hero uses diverse fallback based on image ID
+      fallbackUrl = getConsistentFallback(image.id + image.prompt, 'hero');
+      console.log(`Hero image failed, using diverse fallback`);
     } else if (successfulSiblings.length > 0) {
       // Reuse a random successful sibling image
       const randomSibling = successfulSiblings[Math.floor(Math.random() * successfulSiblings.length)];
       fallbackUrl = randomSibling.url;
       console.log(`Image ${image.id} failed, reusing sibling ${randomSibling.id}`);
     } else {
-      // No siblings succeeded, use default fallback
-      fallbackUrl = DEFAULT_FALLBACK_IMAGES[type as keyof typeof DEFAULT_FALLBACK_IMAGES] || DEFAULT_FALLBACK_IMAGES.card;
-      console.log(`Image ${image.id} failed with no siblings, using default fallback`);
+      // No siblings succeeded, use diverse fallback based on image ID
+      const fallbackType = type === 'column' ? 'column' : 'card';
+      fallbackUrl = getConsistentFallback(image.id + image.prompt, fallbackType);
+      console.log(`Image ${image.id} failed with no siblings, using diverse fallback`);
     }
 
     return {
@@ -380,10 +426,14 @@ function applyFallbackStrategy(results: GeneratedImage[]): GeneratedImage[] {
 
 /**
  * Decide whether to use existing images or generate new ones
+ * Uses the comprehensive findBestImage() which checks:
+ * 1. Product image map (Priority 1)
+ * 2. Enhanced RAG chunk metadata (Priority 2)
+ * 3. Dedicated IMAGE_INDEX (Priority 3)
  */
 export async function decideImageStrategy(
   blockContent: any,
-  ragContext: any,
+  ragContext: RAGContext | undefined,
   env: Env
 ): Promise<{
   useExisting: boolean;
@@ -392,30 +442,37 @@ export async function decideImageStrategy(
   generationPrompt?: string;
   reason: string;
 }> {
-  // Check if we have product content - prefer existing product images
-  if (blockContent.productSku) {
+  // Determine image context from block content
+  const imageContext = determineImageContext(blockContent);
+  const imageQuery = extractImageQuery(blockContent);
+
+  // Use the comprehensive image lookup
+  if (ragContext && imageQuery) {
+    const result = await findBestImage(imageContext, imageQuery, ragContext, env);
+
+    // Log the decision for debugging/analytics
+    logImageDecision(blockContent.type || 'unknown', imageQuery, result);
+
+    if (result) {
+      return {
+        useExisting: true,
+        existingUrl: result.url,
+        generateNew: false,
+        reason: `Using ${result.source} image${result.score ? ` (score: ${result.score.toFixed(2)})` : ''}`,
+      };
+    }
+  }
+
+  // Fallback: check for legacy product SKU lookup
+  if (blockContent.productSku && ragContext) {
     const existingImage = findExistingImage(blockContent.productSku, ragContext);
     if (existingImage) {
       return {
         useExisting: true,
         existingUrl: existingImage,
         generateNew: false,
-        reason: 'Using official product image',
+        reason: 'Using official product image (legacy lookup)',
       };
-    }
-  }
-
-  // Check if RAG context has relevant images
-  if (ragContext?.chunks) {
-    for (const chunk of ragContext.chunks) {
-      if (chunk.metadata?.image_url && isRelevantImage(chunk, blockContent)) {
-        return {
-          useExisting: true,
-          existingUrl: chunk.metadata.image_url,
-          generateNew: false,
-          reason: 'Using relevant image from content source',
-        };
-      }
     }
   }
 
@@ -426,6 +483,64 @@ export async function decideImageStrategy(
     generationPrompt: blockContent.imagePrompt || buildDefaultPrompt(blockContent),
     reason: 'No suitable existing image found',
   };
+}
+
+/**
+ * Determine image context (product, recipe, lifestyle) from block content
+ */
+function determineImageContext(blockContent: any): ImageContext {
+  // Check block type
+  const type = (blockContent.type || '').toLowerCase();
+
+  if (type.includes('product') || blockContent.productSku || blockContent.productName) {
+    return 'product';
+  }
+
+  if (type.includes('recipe') || blockContent.recipeName || blockContent.ingredients) {
+    return 'recipe';
+  }
+
+  // Check for recipe-like content
+  if (blockContent.recipes || blockContent.recipeTitle) {
+    return 'recipe';
+  }
+
+  // Default to lifestyle for editorial/hero content
+  return 'lifestyle';
+}
+
+/**
+ * Extract a meaningful image query from block content
+ */
+function extractImageQuery(blockContent: any): string {
+  // Product content
+  if (blockContent.productName) {
+    return blockContent.productName;
+  }
+  if (blockContent.productSku) {
+    return blockContent.productSku;
+  }
+
+  // Recipe content
+  if (blockContent.recipeName) {
+    return blockContent.recipeName;
+  }
+  if (blockContent.recipeTitle) {
+    return blockContent.recipeTitle;
+  }
+
+  // General content
+  if (blockContent.imagePrompt) {
+    return blockContent.imagePrompt;
+  }
+  if (blockContent.headline) {
+    return blockContent.headline;
+  }
+  if (blockContent.title) {
+    return blockContent.title;
+  }
+
+  return '';
 }
 
 /**

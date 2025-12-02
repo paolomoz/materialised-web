@@ -12,10 +12,15 @@ MAX_PAGES = "500"
 [ai]
 binding = "AI"
 
-# Vectorize for storing embeddings
+# Vectorize for storing content embeddings
 [[vectorize]]
 binding = "VECTORIZE"
 index_name = "vitamix-content"
+
+# Vectorize for image asset index (Priority 3)
+[[vectorize]]
+binding = "IMAGE_INDEX"
+index_name = "vitamix-images"
 
 # R2 for storing raw HTML
 [[r2_buckets]]

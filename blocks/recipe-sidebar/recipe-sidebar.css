@@ -1,0 +1,118 @@
+/* Recipe Sidebar Block
+ *
+ * Left sidebar with nutrition panel.
+ * Floats left on desktop, stacks on mobile.
+ */
+
+.recipe-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 280px;
+  flex-shrink: 0;
+}
+
+/* Nutrition Panel */
+.recipe-sidebar-nutrition {
+  border: 1px solid var(--color-light-gray, #e5e5e5);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.recipe-sidebar-nutrition .nutrition-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px;
+  background: var(--color-off-white, #f5f5f5);
+  border-bottom: 1px solid var(--color-light-gray, #e5e5e5);
+}
+
+.recipe-sidebar-nutrition .nutrition-title {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--color-brand-dark, #1a1a1a);
+}
+
+.recipe-sidebar-nutrition .nutrition-serving {
+  font-size: 0.75rem;
+  color: var(--color-dark-gray, #666);
+}
+
+.recipe-sidebar-nutrition .nutrition-facts {
+  background: #fff;
+}
+
+.recipe-sidebar-nutrition .nutrition-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-light-gray, #e5e5e5);
+}
+
+.recipe-sidebar-nutrition .nutrition-row:last-child {
+  border-bottom: none;
+}
+
+.recipe-sidebar-nutrition .nutrition-row.indent {
+  padding-left: 32px;
+}
+
+.recipe-sidebar-nutrition .nutrition-row.indent .nutrition-label {
+  font-size: 0.75rem;
+}
+
+.recipe-sidebar-nutrition .nutrition-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-charcoal, #333);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.recipe-sidebar-nutrition .nutrition-value {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-brand-dark, #1a1a1a);
+}
+
+/* Responsive */
+@media (width < 900px) {
+  .recipe-sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .recipe-sidebar-actions {
+    width: 100%;
+  }
+
+  .recipe-sidebar-container,
+  .recipe-sidebar-nutrition {
+    flex: 1;
+    min-width: 280px;
+  }
+}
+
+@media (width < 600px) {
+  .recipe-sidebar {
+    flex-direction: column;
+  }
+
+  .recipe-sidebar-container,
+  .recipe-sidebar-nutrition {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .recipe-sidebar-actions .action-btn span {
+    display: none;
+  }
+
+  .recipe-sidebar-actions .action-btn {
+    padding: 12px;
+  }
+}

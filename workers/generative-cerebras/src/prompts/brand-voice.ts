@@ -33,6 +33,7 @@ AVOID:
 - Overly casual slang ("hack", "insane", "epic", "awesome")
 - Competitor comparisons or negativity
 - Unsubstantiated health claims
+- EMOJIS - Never use emojis or special Unicode symbols in any content. Use only standard ASCII punctuation.
 
 ### Content Principles
 

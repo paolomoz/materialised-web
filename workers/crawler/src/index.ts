@@ -68,6 +68,11 @@ export default {
       return handleTrainingZip(request, env);
     }
 
+    // Build image asset index from crawled content
+    if (url.pathname === '/images/index' && request.method === 'POST') {
+      return handleBuildImageIndex(request, env);
+    }
+
     return new Response('Not Found', { status: 404 });
   },
 };
@@ -795,4 +800,181 @@ async function handleSitemapCrawl(request: Request, env: Env): Promise<Response>
   }), {
     headers: { 'Content-Type': 'application/json' },
   });
+}
+
+// ============================================================================
+// IMAGE ASSET INDEX (Priority 3)
+// ============================================================================
+
+/**
+ * Image metadata for the asset index
+ */
+interface ImageAssetMetadata {
+  url: string;
+  alt_text: string;
+  source_url: string;
+  page_title: string;
+  image_type: string;
+  content_type: string;
+}
+
+/**
+ * Build the image asset index from crawled content
+ * Extracts unique images from VECTORIZE chunks and indexes them in IMAGE_INDEX
+ */
+async function handleBuildImageIndex(request: Request, env: Env): Promise<Response> {
+  const body = await request.json() as {
+    batchSize?: number;
+    contentType?: string; // Filter by content type: 'recipe', 'product', etc.
+  };
+
+  const batchSize = body.batchSize || 100;
+  const contentTypeFilter = body.contentType;
+
+  console.log(`[Image Index] Starting build, batchSize=${batchSize}, filter=${contentTypeFilter || 'all'}`);
+
+  // Get all chunks from VECTORIZE that have image metadata
+  // We'll use a sample query to retrieve chunks (Vectorize doesn't have a list-all API)
+  // Instead, query for common terms to get diverse chunks
+  const sampleQueries = [
+    'recipe smoothie healthy',
+    'blender vitamix product',
+    'soup nutrition ingredients',
+    'breakfast lunch dinner',
+    'dessert chocolate fruit',
+  ];
+
+  const seenUrls = new Set<string>();
+  const imageVectors: Array<{ id: string; values: number[]; metadata: ImageAssetMetadata }> = [];
+  let totalProcessed = 0;
+
+  for (const query of sampleQueries) {
+    // Generate embedding for sample query
+    const embeddingResult = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
+      text: [query],
+    }) as { data: number[][] };
+    const queryEmbedding = embeddingResult.data[0];
+
+    // Query VECTORIZE for chunks
+    const results = await env.VECTORIZE.query(queryEmbedding, {
+      topK: batchSize,
+      returnMetadata: 'all',
+    });
+
+    console.log(`[Image Index] Query "${query}" returned ${results.matches.length} chunks`);
+
+    for (const match of results.matches) {
+      const meta = match.metadata as any;
+
+      // Skip if no image or already seen
+      const imageUrl = meta.hero_image_url || meta.recipe_image_url || meta.product_image_url || meta.image_url;
+      if (!imageUrl || seenUrls.has(imageUrl)) continue;
+
+      // Skip generic fallbacks
+      if (imageUrl.includes('Ascent_X5_Nav_Image') || imageUrl.includes('placeholder')) continue;
+
+      // Filter by content type if specified
+      if (contentTypeFilter && meta.content_type !== contentTypeFilter) continue;
+
+      seenUrls.add(imageUrl);
+
+      // Build description for embedding
+      const description = buildImageDescription(meta, imageUrl);
+
+      // Generate embedding for image description
+      const descEmbedding = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
+        text: [description],
+      }) as { data: number[][] };
+
+      // Create vector for IMAGE_INDEX
+      const vectorId = `img-${simpleHash(imageUrl)}`;
+      imageVectors.push({
+        id: vectorId,
+        values: descEmbedding.data[0],
+        metadata: {
+          url: imageUrl,
+          alt_text: meta.image_alt_text || '',
+          source_url: meta.source_url || '',
+          page_title: meta.page_title || '',
+          image_type: meta.image_type || 'unknown',
+          content_type: meta.content_type || 'unknown',
+        },
+      });
+
+      totalProcessed++;
+
+      // Batch insert every 50 images
+      if (imageVectors.length >= 50) {
+        await env.IMAGE_INDEX.upsert(imageVectors);
+        console.log(`[Image Index] Inserted ${imageVectors.length} vectors`);
+        imageVectors.length = 0; // Clear array
+      }
+    }
+  }
+
+  // Insert remaining vectors
+  if (imageVectors.length > 0) {
+    await env.IMAGE_INDEX.upsert(imageVectors);
+    console.log(`[Image Index] Inserted final ${imageVectors.length} vectors`);
+  }
+
+  return new Response(JSON.stringify({
+    message: 'Image index build complete',
+    totalImages: seenUrls.size,
+    totalProcessed,
+    contentTypeFilter: contentTypeFilter || 'all',
+  }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+/**
+ * Build a descriptive text for image embedding
+ */
+function buildImageDescription(meta: any, imageUrl: string): string {
+  const parts: string[] = [];
+
+  // Include page title
+  if (meta.page_title) {
+    parts.push(meta.page_title);
+  }
+
+  // Include alt text
+  if (meta.image_alt_text) {
+    parts.push(meta.image_alt_text);
+  }
+
+  // Include content type context
+  if (meta.content_type === 'recipe') {
+    parts.push('recipe food dish');
+  } else if (meta.content_type === 'product') {
+    parts.push('vitamix blender product');
+  }
+
+  // Include image type
+  if (meta.image_type) {
+    parts.push(meta.image_type);
+  }
+
+  // Extract hints from URL
+  const urlParts = imageUrl.toLowerCase();
+  if (urlParts.includes('smoothie')) parts.push('smoothie');
+  if (urlParts.includes('soup')) parts.push('soup');
+  if (urlParts.includes('recipe')) parts.push('recipe');
+  if (urlParts.includes('blender')) parts.push('blender');
+
+  return parts.join(' ').slice(0, 500);
+}
+
+/**
+ * Simple hash for generating vector IDs
+ */
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
 }

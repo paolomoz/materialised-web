@@ -255,7 +255,7 @@ picture:has(img[data-gen-image].loaded) {
   }
 }
 
-/* Publish button in header */
+/* Share button in header */
 .publish-btn {
   display: flex;
   align-items: center;

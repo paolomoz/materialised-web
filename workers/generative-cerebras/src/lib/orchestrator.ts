@@ -14,6 +14,8 @@ import { analyzeQuery } from '../ai-clients/gemini';
 import { generateImages, decideImageStrategy, type ImageProvider } from '../ai-clients/image-router';
 import { smartRetrieve, findProductImage } from './rag';
 import { getLayoutForIntent, adjustLayoutForRAGContent, templateToLayoutDecision, type LayoutTemplate } from '../prompts/layouts';
+import { validateContentSafety, type ContentSafetyResult } from './content-safety';
+import { getFallbackContent, getFallbackLayout } from './fallback-content';
 
 // Worker base URL for image serving
 const WORKER_URL = 'https://vitamix-generative-cerebras.paolo-moz.workers.dev';
@@ -101,8 +103,9 @@ export async function orchestrate(
 
     // Stage 2: Parallel - Smart RAG retrieval + Query analysis
     // smartRetrieve uses the intent to plan the optimal retrieval strategy
+    // Now also filters results based on userContext (dietary restrictions, etc.)
     const [ragContext, entities] = await Promise.all([
-      smartRetrieve(query, ctx.intent, env),
+      smartRetrieve(query, ctx.intent, env, ctx.intent.entities.userContext),
       analyzeQuery(query, env),
     ]);
 
@@ -191,13 +194,55 @@ export async function orchestrate(
       });
     }
 
-    // Stage 6: Quality Validation
+    // Stage 6: Quality Validation (BLOCKING)
     const fullText = extractFullText(ctx.content);
-    const compliance = await validateBrandCompliance(fullText, env);
+    const safetyResult = await validateContentSafety(
+      fullText,
+      { query, intent: ctx.intent.intentType },
+      env
+    );
 
-    if (!compliance.isCompliant && compliance.score < 70) {
-      console.warn('Brand compliance issues:', compliance.issues);
-      // Could trigger regeneration here, but for now just log
+    // Log safety validation results
+    console.log('[Orchestrator] Content safety validation:', {
+      safe: safetyResult.safe,
+      blocked: safetyResult.blocked,
+      scores: safetyResult.scores,
+      flagCount: safetyResult.flags.length,
+      timing: safetyResult.timing,
+    });
+
+    // BLOCKING: Replace content with fallback if blocked
+    if (safetyResult.blocked) {
+      console.error('[Orchestrator] Content BLOCKED for safety:', {
+        reason: safetyResult.reason,
+        flags: safetyResult.flags.slice(0, 5), // Log first 5 flags
+        scores: safetyResult.scores,
+      });
+
+      // Log blocked content to KV for monitoring (async, don't await)
+      logBlockedContent(env, query, safetyResult).catch(err =>
+        console.error('[Orchestrator] Failed to log blocked content:', err)
+      );
+
+      // Replace with safe fallback content
+      ctx.content = getFallbackContent(ctx.intent.intentType, safetyResult.reason);
+      ctx.layout = getFallbackLayout(ctx.intent.intentType);
+
+      // Signal blocked event
+      onEvent({
+        event: 'error',
+        data: {
+          code: 'CONTENT_SAFETY_BLOCK',
+          message: 'Content was blocked for safety. Showing fallback content.',
+          recoverable: true,
+        },
+      });
+    } else if (!safetyResult.safe) {
+      // Content passed but has warnings - log for monitoring
+      console.warn('[Orchestrator] Content safety warnings:', {
+        flags: safetyResult.flags,
+        suggestions: safetyResult.suggestions,
+      });
     }
 
     // Build final HTML (images already have predictable URLs based on slug)
@@ -239,7 +284,21 @@ async function decideImagesForContent(
 ): Promise<Map<string, { useExisting: boolean; url?: string; prompt?: string }>> {
   const decisions = new Map();
 
+  // TEMPORARY: Force AI generation while IMAGE_INDEX is being rebuilt
+  // TODO: Remove this bypass once reindexing is complete
+  const FORCE_AI_GENERATION = true;
+
   for (const block of content.blocks) {
+    if (FORCE_AI_GENERATION) {
+      // Skip image lookup, always generate
+      decisions.set(block.id, {
+        useExisting: false,
+        url: undefined,
+        prompt: (block.content as any).imagePrompt,
+      });
+      continue;
+    }
+
     const decision = await decideImageStrategy(block.content, ragContext, env);
     decisions.set(block.id, {
       useExisting: decision.useExisting,
@@ -273,29 +332,27 @@ function buildImageRequests(
     // Handle different block types with their specific image ID naming
     switch (block.type) {
       case 'hero':
-        if (blockContent.imagePrompt || decision?.prompt) {
-          requests.push({
-            id: 'hero',
-            blockId: block.id,
-            prompt: decision?.prompt || blockContent.imagePrompt,
-            aspectRatio: getAspectRatioForBlock(block.type),
-            size: getSizeForBlock(block.type),
-          });
-        }
+        // Always generate hero image with fallback prompt
+        requests.push({
+          id: 'hero',
+          blockId: block.id,
+          prompt: decision?.prompt || blockContent.imagePrompt || `Hero image for ${blockContent.headline || 'Vitamix blending lifestyle'}`,
+          aspectRatio: getAspectRatioForBlock(block.type),
+          size: getSizeForBlock(block.type),
+        });
         break;
 
       case 'cards':
         if (blockContent.cards) {
           blockContent.cards.forEach((card: any, i: number) => {
-            if (card.imagePrompt || decision?.prompt) {
-              requests.push({
-                id: `card-${i}`,
-                blockId: block.id,
-                prompt: card.imagePrompt || decision?.prompt || `Image for ${card.title}`,
-                aspectRatio: getAspectRatioForBlock(block.type),
-                size: getSizeForBlock(block.type),
-              });
-            }
+            // Always generate card images with fallback prompt
+            requests.push({
+              id: `card-${i}`,
+              blockId: block.id,
+              prompt: card.imagePrompt || decision?.prompt || `Image for ${card.title || 'Vitamix feature'}`,
+              aspectRatio: getAspectRatioForBlock(block.type),
+              size: getSizeForBlock(block.type),
+            });
           });
         }
         break;
@@ -303,15 +360,14 @@ function buildImageRequests(
       case 'product-cards':
         if (blockContent.products) {
           blockContent.products.forEach((product: any, i: number) => {
-            if (product.imagePrompt || decision?.prompt) {
-              requests.push({
-                id: `product-card-${block.id}-${i}`,
-                blockId: block.id,
-                prompt: product.imagePrompt || decision?.prompt || `Vitamix ${product.name} blender product photo`,
-                aspectRatio: '1:1',
-                size: 'card',
-              });
-            }
+            // Always generate product card images with fallback prompt
+            requests.push({
+              id: `product-card-${block.id}-${i}`,
+              blockId: block.id,
+              prompt: product.imagePrompt || decision?.prompt || `Vitamix ${product.name || 'blender'} product photo on neutral background`,
+              aspectRatio: '1:1',
+              size: 'card',
+            });
           });
         }
         break;
@@ -319,72 +375,67 @@ function buildImageRequests(
       case 'columns':
         if (blockContent.columns) {
           blockContent.columns.forEach((col: any, i: number) => {
-            if (col.imagePrompt) {
-              requests.push({
-                id: `col-${i}`,
-                blockId: block.id,
-                prompt: col.imagePrompt,
-                aspectRatio: getAspectRatioForBlock(block.type),
-                size: getSizeForBlock(block.type),
-              });
-            }
+            // Always generate column images with fallback prompt
+            requests.push({
+              id: `col-${i}`,
+              blockId: block.id,
+              prompt: col.imagePrompt || decision?.prompt || `Image for ${col.headline || 'Vitamix feature column'}`,
+              aspectRatio: getAspectRatioForBlock(block.type),
+              size: getSizeForBlock(block.type),
+            });
           });
         }
         break;
 
       case 'split-content':
-        if (blockContent.imagePrompt || decision?.prompt) {
-          requests.push({
-            id: `split-content-${block.id}`,
-            blockId: block.id,
-            prompt: decision?.prompt || blockContent.imagePrompt,
-            aspectRatio: '4:3',
-            size: 'card',
-          });
-        }
+        // Always generate split-content image with fallback prompt
+        requests.push({
+          id: `split-content-${block.id}`,
+          blockId: block.id,
+          prompt: decision?.prompt || blockContent.imagePrompt || `Image for ${blockContent.headline || 'Vitamix lifestyle content'}`,
+          aspectRatio: '4:3',
+          size: 'card',
+        });
         break;
 
       case 'recipe-cards':
         if (blockContent.recipes) {
           blockContent.recipes.forEach((recipe: any, i: number) => {
-            if (recipe.imagePrompt || decision?.prompt) {
-              requests.push({
-                id: `recipe-${i}`,
-                blockId: block.id,
-                prompt: recipe.imagePrompt || decision?.prompt || `Appetizing ${recipe.title}`,
-                aspectRatio: '4:3',
-                size: 'card',
-              });
-            }
+            // Always generate recipe card images with fallback prompt
+            requests.push({
+              id: `recipe-${i}`,
+              blockId: block.id,
+              prompt: recipe.imagePrompt || decision?.prompt || `Appetizing ${recipe.title || 'healthy smoothie'} food photography`,
+              aspectRatio: '4:3',
+              size: 'card',
+            });
           });
         }
         break;
 
       case 'product-recommendation':
-        if (blockContent.imagePrompt || decision?.prompt) {
-          requests.push({
-            id: `product-rec-${block.id}`,
-            blockId: block.id,
-            prompt: decision?.prompt || blockContent.imagePrompt,
-            aspectRatio: '4:3',
-            size: 'card',
-          });
-        }
+        // Always generate product recommendation image with fallback prompt
+        requests.push({
+          id: `product-rec-${block.id}`,
+          blockId: block.id,
+          prompt: decision?.prompt || blockContent.imagePrompt || `Vitamix blender product recommendation photo`,
+          aspectRatio: '4:3',
+          size: 'card',
+        });
         break;
 
       case 'recipe-grid':
         // Recipe grid has multiple recipes, each with their own image
         if (blockContent.recipes) {
           blockContent.recipes.forEach((recipe: any, i: number) => {
-            if (recipe.imagePrompt || decision?.prompt) {
-              requests.push({
-                id: `grid-recipe-${i}`,
-                blockId: block.id,
-                prompt: recipe.imagePrompt || decision?.prompt || `Appetizing ${recipe.title} smoothie`,
-                aspectRatio: '4:3',
-                size: 'card',
-              });
-            }
+            // Always generate recipe grid images with fallback prompt
+            requests.push({
+              id: `grid-recipe-${i}`,
+              blockId: block.id,
+              prompt: recipe.imagePrompt || decision?.prompt || `Appetizing ${recipe.title || 'healthy smoothie'} food photography`,
+              aspectRatio: '4:3',
+              size: 'card',
+            });
           });
         }
         break;
@@ -404,18 +455,17 @@ function buildImageRequests(
         break;
 
       case 'troubleshooting-steps':
-        // Troubleshooting steps may have images for each step
+        // Troubleshooting steps - always generate images for each step
         if (blockContent.steps) {
           blockContent.steps.forEach((step: any, i: number) => {
-            if (step.imagePrompt || decision?.prompt) {
-              requests.push({
-                id: `step-${block.id}-${i}`,
-                blockId: block.id,
-                prompt: step.imagePrompt || decision?.prompt || `Illustration for troubleshooting step: ${step.title}`,
-                aspectRatio: '4:3',
-                size: 'card',
-              });
-            }
+            // Always generate troubleshooting step images with fallback prompt
+            requests.push({
+              id: `step-${block.id}-${i}`,
+              blockId: block.id,
+              prompt: step.imagePrompt || decision?.prompt || `Illustration for troubleshooting step: ${step.title || 'blender maintenance'}`,
+              aspectRatio: '4:3',
+              size: 'card',
+            });
           });
         }
         break;
@@ -429,26 +479,26 @@ function buildImageRequests(
           console.log(`[buildImageRequests] Skipping product-hero generation - using RAG image for "${blockContent.productName}"`);
           break;
         }
-        if (blockContent.imagePrompt || decision?.prompt) {
-          requests.push({
-            id: `product-hero-${block.id}`,
-            blockId: block.id,
-            prompt: decision?.prompt || blockContent.imagePrompt || `Vitamix blender product shot on neutral gray background`,
-            aspectRatio: '1:1',
-            size: 'card',
-          });
-        }
+        // Always generate product-hero image with fallback prompt (when no RAG image)
+        requests.push({
+          id: `product-hero-${block.id}`,
+          blockId: block.id,
+          prompt: decision?.prompt || blockContent.imagePrompt || `Vitamix ${blockContent.productName || 'blender'} product shot on neutral gray background`,
+          aspectRatio: '1:1',
+          size: 'card',
+        });
         break;
       }
 
       case 'feature-highlights':
         if (blockContent.features && Array.isArray(blockContent.features)) {
           blockContent.features.forEach((feature: any, i: number) => {
-            if (feature && feature.imagePrompt) {
+            if (feature) {
+              // Always generate feature highlight images with fallback prompt
               requests.push({
                 id: `feature-highlights-${block.id}-${i}`,
                 blockId: block.id,
-                prompt: feature.imagePrompt,
+                prompt: feature.imagePrompt || decision?.prompt || `Vitamix feature: ${feature.title || feature.headline || 'blender capability'}`,
                 aspectRatio: '3:2',
                 size: 'card',
               });
@@ -460,11 +510,12 @@ function buildImageRequests(
       case 'included-accessories':
         if (blockContent.accessories && Array.isArray(blockContent.accessories)) {
           blockContent.accessories.forEach((acc: any, i: number) => {
-            if (acc && acc.imagePrompt) {
+            if (acc) {
+              // Always generate accessory images with fallback prompt
               requests.push({
                 id: `included-accessories-${block.id}-${i}`,
                 blockId: block.id,
-                prompt: acc.imagePrompt,
+                prompt: acc.imagePrompt || decision?.prompt || `Vitamix accessory: ${acc.name || acc.title || 'blender accessory'} product photo`,
                 aspectRatio: '1:1',
                 size: 'thumbnail',
               });
@@ -500,29 +551,28 @@ function buildImageRequests(
         break;
 
       case 'recipe-hero':
-        if (blockContent.imagePrompt || decision?.prompt) {
-          requests.push({
-            id: `recipe-hero-${block.id}`,
-            blockId: block.id,
-            prompt: blockContent.imagePrompt || decision?.prompt || 'Appetizing finished dish photography',
-            aspectRatio: '16:9',
-            size: 'hero',
-          });
-        }
+      case 'recipe-hero-detail':
+        // Always generate recipe hero images with fallback prompt
+        requests.push({
+          id: `recipe-hero-${block.id}`,
+          blockId: block.id,
+          prompt: blockContent.imagePrompt || decision?.prompt || `Appetizing ${blockContent.title || blockContent.recipeName || 'finished dish'} food photography`,
+          aspectRatio: '16:9',
+          size: 'hero',
+        });
         break;
 
       case 'recipe-steps':
         if (blockContent.steps) {
           blockContent.steps.forEach((step: any, i: number) => {
-            if (step.imagePrompt) {
-              requests.push({
-                id: `recipe-step-${block.id}-${i}`,
-                blockId: block.id,
-                prompt: step.imagePrompt,
-                aspectRatio: '4:3',
-                size: 'card',
-              });
-            }
+            // Always generate recipe step images with fallback prompt
+            requests.push({
+              id: `recipe-step-${block.id}-${i}`,
+              blockId: block.id,
+              prompt: step.imagePrompt || decision?.prompt || `Recipe step ${i + 1}: ${step.title || step.instruction?.substring(0, 50) || 'cooking process'}`,
+              aspectRatio: '4:3',
+              size: 'card',
+            });
           });
         }
         break;
@@ -530,15 +580,14 @@ function buildImageRequests(
       case 'testimonials':
         if (blockContent.testimonials) {
           blockContent.testimonials.forEach((testimonial: any, i: number) => {
-            if (testimonial.imagePrompt) {
-              requests.push({
-                id: `testimonial-${block.id}-${i}`,
-                blockId: block.id,
-                prompt: testimonial.imagePrompt || 'Professional headshot portrait',
-                aspectRatio: '1:1',
-                size: 'card',
-              });
-            }
+            // Always generate testimonial images with fallback prompt
+            requests.push({
+              id: `testimonial-${block.id}-${i}`,
+              blockId: block.id,
+              prompt: testimonial.imagePrompt || decision?.prompt || `Professional headshot portrait of ${testimonial.name || testimonial.author || 'satisfied customer'}`,
+              aspectRatio: '1:1',
+              size: 'card',
+            });
           });
         }
         break;
@@ -546,31 +595,28 @@ function buildImageRequests(
       case 'team-cards':
         if (blockContent.members) {
           blockContent.members.forEach((member: any, i: number) => {
-            if (member.imagePrompt) {
-              requests.push({
-                id: `team-${block.id}-${i}`,
-                blockId: block.id,
-                prompt: member.imagePrompt || 'Professional corporate headshot',
-                aspectRatio: '1:1',
-                size: 'card',
-              });
-            }
+            // Always generate team member images with fallback prompt
+            requests.push({
+              id: `team-${block.id}-${i}`,
+              blockId: block.id,
+              prompt: member.imagePrompt || decision?.prompt || `Professional corporate headshot of ${member.name || 'team member'}`,
+              aspectRatio: '1:1',
+              size: 'card',
+            });
           });
         }
         break;
 
       default:
-        // Other block types - use generic image ID
+        // Other block types - always generate with fallback prompt
         const imagePrompt = extractImagePrompt(blockContent);
-        if (imagePrompt || decision?.prompt) {
-          requests.push({
-            id: `${block.type}-${block.id}`,
-            blockId: block.id,
-            prompt: decision?.prompt || imagePrompt,
-            aspectRatio: getAspectRatioForBlock(block.type),
-            size: getSizeForBlock(block.type),
-          });
-        }
+        requests.push({
+          id: `${block.type}-${block.id}`,
+          blockId: block.id,
+          prompt: decision?.prompt || imagePrompt || `Image for ${block.type} block`,
+          aspectRatio: getAspectRatioForBlock(block.type),
+          size: getSizeForBlock(block.type),
+        });
         break;
     }
   }
@@ -767,6 +813,15 @@ function buildBlockHTML(
       return buildNutritionFactsHTML(content as any, variant);
     case 'recipe-tips':
       return buildRecipeTipsHTML(content as any, variant);
+    // Single Recipe Detail blocks (vitamix.com style)
+    case 'recipe-hero-detail':
+      return buildRecipeHeroDetailHTML(content as any, variant, slug, block.id);
+    case 'recipe-tabs':
+      return buildRecipeTabsHTML(content as any, variant);
+    case 'recipe-sidebar':
+      return buildRecipeSidebarHTML(content as any, variant);
+    case 'recipe-directions':
+      return buildRecipeDirectionsHTML(content as any, variant);
     // Campaign Landing blocks
     case 'countdown-timer':
       return buildCountdownTimerHTML(content as any, variant);
@@ -1020,7 +1075,7 @@ function buildHeroHTML(content: any, variant: string, slug: string): string {
   let ctaHtml = '';
   if (content.ctaText) {
     const buttonText = (content.ctaText || '').toLowerCase();
-    const buttonUrl = content.ctaUrl || '/products/blenders';
+    const buttonUrl = content.ctaUrl || '/discover/products/blenders';
 
     // Infer if this should be an explore CTA
     let ctaType = content.ctaType;
@@ -1037,8 +1092,15 @@ function buildHeroHTML(content: any, variant: string, slug: string): string {
     }
 
     const isExplore = ctaType === 'explore';
+    // Generate a contextual hint from the hero's content if not explicitly provided
+    const contextualHint = content.generationHint || generateContextualHint({
+      headline: content.headline,
+      description: content.subheadline,
+      eyebrow: content.eyebrow,
+      blockType: 'hero',
+    });
     const exploreAttrs = isExplore
-      ? ` data-cta-type="explore" data-generation-hint="${escapeHTML(content.generationHint || content.ctaText || '')}"`
+      ? ` data-cta-type="explore" data-generation-hint="${escapeHTML(contextualHint)}"`
       : '';
 
     ctaHtml = `<p><a href="${escapeHTML(buttonUrl)}" class="button"${exploreAttrs}>${escapeHTML(content.ctaText)}</a></p>`;
@@ -1236,7 +1298,7 @@ function buildCTAHTML(content: any, variant: string): string {
       ctaType = 'shop';
     } else if (/learn|see|explore|discover|browse|view|find\s+recipes?/i.test(buttonText)) {
       ctaType = 'explore';
-    } else if (buttonUrl.match(/^\/(recipes|smoothies|compare|products|tips|discover)\//)) {
+    } else if (buttonUrl.match(/^\/discover\//)) {
       ctaType = 'explore';
     } else {
       ctaType = 'shop'; // Default to shop for safety
@@ -1244,6 +1306,12 @@ function buildCTAHTML(content: any, variant: string): string {
   }
 
   const isExplore = ctaType === 'explore';
+  // Generate a contextual hint from the CTA block's content if not explicitly provided
+  const contextualHint = content.generationHint || generateContextualHint({
+    headline: content.headline,
+    description: content.text,
+    blockType: 'cta',
+  });
 
   return `
     <div class="cta${variant !== 'default' ? ` ${variant}` : ''}${isExplore ? ' contextual-cta' : ''}">
@@ -1252,7 +1320,7 @@ function buildCTAHTML(content: any, variant: string): string {
         ${content.text ? `<p>${escapeHTML(content.text)}</p>` : ''}
         <p>
           <a href="${escapeHTML(content.buttonUrl)}" class="button primary"
-             ${isExplore ? `data-cta-type="explore" data-generation-hint="${escapeHTML(content.generationHint || '')}"` : ''}>
+             ${isExplore ? `data-cta-type="explore" data-generation-hint="${escapeHTML(contextualHint)}"` : ''}>
             ${escapeHTML(content.buttonText)}
           </a>
         </p>
@@ -1351,13 +1419,45 @@ function buildSplitContentHTML(content: any, variant: string, slug: string, bloc
     contentHtml += `<p><strong>${escapeHTML(content.price)}</strong>${priceNote}</p>`;
   }
 
-  // CTAs
+  // CTAs - detect explore CTAs and add generation hints
   let ctaHtml = '';
+
+  // Helper to determine if a CTA should be an explore type
+  const isExploreCta = (text: string, url: string): boolean => {
+    const t = (text || '').toLowerCase();
+    const u = (url || '').toLowerCase();
+    // Shop/buy CTAs are not explore
+    if (/shop|buy|cart|order|add to/i.test(t)) return false;
+    // External URLs are not explore
+    if (u.startsWith('http') && !u.includes('vitamix.com')) return false;
+    // Learn/explore/view CTAs are explore
+    if (/learn|see|explore|discover|browse|view|compare|details/i.test(t)) return true;
+    // Relative paths with /discover/ prefix are explore
+    if (u.match(/^\/discover\//)) return true;
+    return false;
+  };
+
+  // Generate contextual hint for explore CTAs from block content
+  const contextualHint = generateContextualHint({
+    headline: content.headline,
+    description: content.body,
+    eyebrow: content.eyebrow,
+    blockType: 'split-content',
+  });
+
   if (content.primaryCtaText) {
-    ctaHtml += `<a href="${escapeHTML(content.primaryCtaUrl || '#')}">${escapeHTML(content.primaryCtaText)}</a>`;
+    const isPrimaryExplore = isExploreCta(content.primaryCtaText, content.primaryCtaUrl);
+    const primaryAttrs = isPrimaryExplore
+      ? ` data-cta-type="explore" data-generation-hint="${escapeHTML(contextualHint)}"`
+      : '';
+    ctaHtml += `<a href="${escapeHTML(content.primaryCtaUrl || '#')}"${primaryAttrs}>${escapeHTML(content.primaryCtaText)}</a>`;
   }
   if (content.secondaryCtaText) {
-    ctaHtml += ` <a href="${escapeHTML(content.secondaryCtaUrl || '#')}">${escapeHTML(content.secondaryCtaText)}</a>`;
+    const isSecondaryExplore = isExploreCta(content.secondaryCtaText, content.secondaryCtaUrl);
+    const secondaryAttrs = isSecondaryExplore
+      ? ` data-cta-type="explore" data-generation-hint="${escapeHTML(contextualHint)}"`
+      : '';
+    ctaHtml += ` <a href="${escapeHTML(content.secondaryCtaUrl || '#')}"${secondaryAttrs}>${escapeHTML(content.secondaryCtaText)}</a>`;
   }
   if (ctaHtml) {
     contentHtml += `<p>${ctaHtml}</p>`;
@@ -1593,13 +1693,45 @@ function buildProductRecommendationHTML(content: any, variant: string, slug: str
     contentHtml += `<p><strong>${escapeHTML(content.price)}</strong>${priceNote}</p>`;
   }
 
-  // CTAs
+  // CTAs - detect explore CTAs and add generation hints
   let ctaHtml = '';
+
+  // Helper to determine if a CTA should be an explore type
+  const isExploreCta = (text: string, url: string): boolean => {
+    const t = (text || '').toLowerCase();
+    const u = (url || '').toLowerCase();
+    // Shop/buy CTAs are not explore
+    if (/shop|buy|cart|order|add to/i.test(t)) return false;
+    // External URLs are not explore
+    if (u.startsWith('http') && !u.includes('vitamix.com')) return false;
+    // Learn/explore/view CTAs are explore
+    if (/learn|see|explore|discover|browse|view|compare|details/i.test(t)) return true;
+    // Relative paths with /discover/ prefix are explore
+    if (u.match(/^\/discover\//)) return true;
+    return false;
+  };
+
+  // Generate contextual hint for explore CTAs from block content
+  const contextualHint = generateContextualHint({
+    headline: content.headline,
+    description: content.body,
+    eyebrow: content.eyebrow,
+    blockType: 'product-recommendation',
+  });
+
   if (content.primaryCtaText) {
-    ctaHtml += `<a href="${escapeHTML(content.primaryCtaUrl || '#')}">${escapeHTML(content.primaryCtaText)}</a>`;
+    const isPrimaryExplore = isExploreCta(content.primaryCtaText, content.primaryCtaUrl);
+    const primaryAttrs = isPrimaryExplore
+      ? ` data-cta-type="explore" data-generation-hint="${escapeHTML(contextualHint)}"`
+      : '';
+    ctaHtml += `<a href="${escapeHTML(content.primaryCtaUrl || '#')}"${primaryAttrs}>${escapeHTML(content.primaryCtaText)}</a>`;
   }
   if (content.secondaryCtaText) {
-    ctaHtml += ` <a href="${escapeHTML(content.secondaryCtaUrl || '#')}">${escapeHTML(content.secondaryCtaText)}</a>`;
+    const isSecondaryExplore = isExploreCta(content.secondaryCtaText, content.secondaryCtaUrl);
+    const secondaryAttrs = isSecondaryExplore
+      ? ` data-cta-type="explore" data-generation-hint="${escapeHTML(contextualHint)}"`
+      : '';
+    ctaHtml += ` <a href="${escapeHTML(content.secondaryCtaUrl || '#')}"${secondaryAttrs}>${escapeHTML(content.secondaryCtaText)}</a>`;
   }
   if (ctaHtml) {
     contentHtml += `<p>${ctaHtml}</p>`;
@@ -2127,7 +2259,14 @@ function buildProductHeroHTML(content: any, variant: string, slug: string, block
   const description = content.description || '';
   const price = content.price || '';
   const specs = content.specs || '';
-  const compareUrl = content.compareUrl || '/compare';
+  // Ensure compareUrl uses explore-friendly path
+  let compareUrl = content.compareUrl || '/compare';
+  if (compareUrl.includes('/us/en_us/')) {
+    // Fix legacy paths to explore-friendly format
+    compareUrl = `/compare/${productName.toLowerCase().replace(/\s+/g, '-')}`;
+  }
+  // Default generation hint if not provided
+  const compareHint = content.compareGenerationHint || `compare ${productName} with similar Vitamix models`;
 
   // If using RAG image, don't add data-gen-image attribute (no generation needed)
   const imgAttributes = ragImageUrl
@@ -2146,7 +2285,7 @@ function buildProductHeroHTML(content: any, variant: string, slug: string, block
           ${description ? `<p>${escapeHTML(description)}</p>` : ''}
           ${price ? `<p><strong>${escapeHTML(price)}</strong></p>` : ''}
           ${specs ? `<p>${escapeHTML(specs)}</p>` : ''}
-          <p><a href="${escapeHTML(compareUrl)}">Compare Models</a></p>
+          <p><a href="${escapeHTML(compareUrl)}" data-cta-type="explore" data-generation-hint="${escapeHTML(compareHint)}">Compare Models</a></p>
         </div>
         <div>
           <picture>
@@ -2433,6 +2572,30 @@ function extractFullText(content: GeneratedContent): string {
   return parts.filter(Boolean).join(' ');
 }
 
+/**
+ * Log blocked content to KV for monitoring
+ * Stores details about why content was blocked for later analysis
+ */
+async function logBlockedContent(
+  env: Env,
+  query: string,
+  safetyResult: ContentSafetyResult
+): Promise<void> {
+  const log = {
+    timestamp: new Date().toISOString(),
+    query,
+    reason: safetyResult.reason || 'safety_violation',
+    scores: safetyResult.scores,
+    flags: safetyResult.flags,
+    timing: safetyResult.timing,
+  };
+
+  const key = `blocked:${Date.now()}`;
+  await env.CACHE.put(key, JSON.stringify(log), {
+    expirationTtl: 86400 * 30, // Keep for 30 days
+  });
+}
+
 // ============================================================
 // Single Recipe Layout Blocks
 // ============================================================
@@ -2601,6 +2764,136 @@ function buildRecipeTipsHTML(content: any, variant: string): string {
 }
 
 // ============================================================
+// Single Recipe Detail Layout Blocks (vitamix.com style)
+// ============================================================
+
+/**
+ * Build Recipe Hero Detail block HTML
+ *
+ * Split hero with image left, title/rating/metadata/dietary right
+ * Matches vitamix.com single recipe page design.
+ */
+function buildRecipeHeroDetailHTML(content: any, variant: string, slug: string, blockId: string): string {
+  const imageId = `recipe-hero-${blockId}`;
+  const imageUrl = buildImageUrl(slug, imageId);
+
+  const title = content.title || 'Delicious Recipe';
+  const description = content.description || '';
+  const rating = content.rating || 5;
+  const reviewCount = content.reviewCount || 0;
+  const totalTime = content.totalTime || '30 Minutes';
+  const yieldText = content.yield || '2 servings';
+  const difficulty = content.difficulty || 'Easy';
+  const dietaryInterests = content.dietaryInterests || '';
+  const submittedBy = content.submittedBy || 'VITAMIX';
+
+  return `
+    <div class="recipe-hero-detail${variant !== 'default' ? ` ${variant}` : ''}">
+      <div>
+        <div>
+          <picture>
+            <img src="${imageUrl}" alt="${escapeHTML(title)}" data-gen-image="${imageId}" loading="lazy">
+          </picture>
+        </div>
+        <div>
+          <h1>${escapeHTML(title)}</h1>
+          ${description ? `<p>${escapeHTML(description)}</p>` : ''}
+          <p>${escapeHTML(totalTime)}|${escapeHTML(yieldText)}|${escapeHTML(difficulty)}</p>
+        </div>
+      </div>
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Recipe Tabs block HTML
+ *
+ * Tab navigation bar for recipe sections.
+ */
+function buildRecipeTabsHTML(content: any, variant: string): string {
+  const tabs = content.tabs || ['THE RECIPE', 'NUTRITIONAL FACTS', 'RELATED RECIPES'];
+
+  const tabsHtml = tabs.map((tab: string) => `<div>${escapeHTML(tab)}</div>`).join('');
+
+  return `
+    <div class="recipe-tabs${variant !== 'default' ? ` ${variant}` : ''}">
+      <div>${tabsHtml}</div>
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Recipe Sidebar block HTML
+ *
+ * Left sidebar with nutrition facts only.
+ */
+function buildRecipeSidebarHTML(content: any, variant: string): string {
+  const servingSize = content.servingSize || '1 serving (542 g)';
+  const nutrition = content.nutrition || {
+    calories: '240',
+    totalFat: '7G',
+    totalCarbohydrate: '44G',
+    dietaryFiber: '12G',
+    sugars: '8G',
+    protein: '4G',
+    cholesterol: '0MG',
+    sodium: '300MG',
+    saturatedFat: '1G',
+  };
+
+  const nutritionRows = [
+    { label: 'CALORIES', value: nutrition.calories },
+    { label: 'TOTAL FAT', value: nutrition.totalFat },
+    { label: 'TOTAL CARBOHYDRATE', value: nutrition.totalCarbohydrate },
+    { label: 'DIETARY FIBER', value: nutrition.dietaryFiber },
+    { label: 'SUGARS', value: nutrition.sugars },
+    { label: 'PROTEIN', value: nutrition.protein },
+    { label: 'CHOLESTEROL', value: nutrition.cholesterol },
+    { label: 'SODIUM', value: nutrition.sodium },
+    { label: 'SATURATED FAT', value: nutrition.saturatedFat },
+  ].filter((row) => row.value);
+
+  const nutritionHtml = nutritionRows.map((row) => `
+        <div>
+          <div>${escapeHTML(row.label)}</div>
+          <div>${escapeHTML(row.value)}</div>
+        </div>`).join('');
+
+  return `
+    <div class="recipe-sidebar${variant !== 'default' ? ` ${variant}` : ''}">
+      <div>
+        <div>servingSize</div>
+        <div>${escapeHTML(servingSize)}</div>
+      </div>${nutritionHtml}
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Recipe Directions block HTML
+ *
+ * Numbered step-by-step recipe directions.
+ */
+function buildRecipeDirectionsHTML(content: any, variant: string): string {
+  const title = content.title || 'Directions';
+  const steps = content.steps || [];
+
+  const stepsHtml = steps.map((step: any, i: number) => `
+        <div>
+          <div>Step ${i + 1}</div>
+          <div>${escapeHTML(step.instruction || step)}</div>
+        </div>`).join('');
+
+  return `
+    <div class="recipe-directions${variant !== 'default' ? ` ${variant}` : ''}">
+      <div>
+        <div><h2>${escapeHTML(title)}</h2></div>
+      </div>${stepsHtml}
+    </div>
+  `.trim();
+}
+
+// ============================================================
 // Campaign Landing Layout Blocks
 // ============================================================
 
@@ -2743,4 +3036,54 @@ function escapeHTML(str: string | undefined | null): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+/**
+ * Generate a contextual hint for explore CTAs based on block content.
+ * This prevents generic button text like "Learn More" from becoming the query.
+ *
+ * The hint describes what content should be generated when the user clicks,
+ * based on the actual content of the block they're viewing.
+ */
+function generateContextualHint(context: {
+  headline?: string;
+  description?: string;
+  eyebrow?: string;
+  blockType?: string;
+}): string {
+  const { headline, description, eyebrow, blockType } = context;
+
+  // Build a meaningful hint from available content
+  const parts: string[] = [];
+
+  // Eyebrow often contains category info (e.g., "BEST FOR SMOOTHIES")
+  if (eyebrow) {
+    parts.push(eyebrow.toLowerCase().replace(/^best for\s*/i, ''));
+  }
+
+  // Headline is the primary content descriptor
+  if (headline) {
+    parts.push(headline);
+  }
+
+  // Description adds context
+  if (description && description.length < 150) {
+    parts.push(description);
+  }
+
+  // If we have meaningful content, combine it
+  if (parts.length > 0) {
+    const combined = parts.join(' - ');
+    // Prefix with action phrase to make it a query-like hint
+    if (blockType === 'hero') {
+      return `more about ${combined}`;
+    } else if (blockType === 'product-recommendation' || blockType === 'split-content') {
+      return `details about ${combined}`;
+    } else {
+      return `learn more about ${combined}`;
+    }
+  }
+
+  // Fallback if no content available
+  return 'explore related content';
 }
