@@ -1,0 +1,804 @@
+<div><h1 id="vitamix-generative-website---layout-overview">Vitamix Generative Website - Layout Overview</h1><p>This document provides a comprehensive overview of all page layouts available in the Vitamix generative website system.</p><h2 id="implementation-status-legend">Implementation Status Legend</h2><ul>
+<li>✅ <strong>Implemented</strong> - Block has HTML builder in orchestrator.ts and content schema in content.ts</li>
+<li>⚠️ <strong>Partial</strong> - Block exists in frontend but missing generative support</li>
+<li>❌ <strong>Missing</strong> - Block not implemented</li>
+</ul></div>
+<div><h2 id="current-layouts-13">Current Layouts (13)</h2><h3 id="product-detail-product-detail">1. Product Detail (<code>product-detail</code>)</h3><p><strong>Purpose:</strong> Detailed view of a single Vitamix product</p><p><strong>Trigger Queries:</strong></p><ul>
+<li>"Tell me about the A3500"</li>
+<li>"Vitamix Venturist features"</li>
+<li>"What can the Explorian do"</li>
+</ul><p><strong>Blocks:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block"><div><div><code>product-hero</code></div><div>default</div><div>✅</div></div><div><div><code>specs-table</code></div><div>highlight</div><div>✅</div></div><div><div><code>feature-highlights</code></div><div>default</div><div>✅</div></div><div><div><code>included-accessories</code></div><div>highlight</div><div>✅</div></div><div><div><code>product-cta</code></div><div>dark</div><div>✅</div></div></div><p><strong>Status:</strong> ✅ Fully implemented and available for generation</p></div>
+<div><h3 id="product-comparison-product-comparison">2. Product Comparison (<code>product-comparison</code>)</h3><p><strong>Purpose:</strong> Side-by-side comparison of 2-5 Vitamix products</p><p><strong>Trigger Queries:</strong></p><ul>
+<li>"A3500 vs A2500"</li>
+<li>"Compare Ascent models"</li>
+<li>"Which Vitamix should I buy"</li>
+<li>"Help me choose a blender"</li>
+</ul><p><strong>Blocks:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block"><div><div><code>hero</code> (centered)</div><div>default</div><div>✅</div></div><div><div><code>comparison-table</code></div><div>highlight</div><div>✅</div></div><div><div><code>verdict-card</code></div><div>highlight</div><div>✅</div></div></div><p><strong>Status:</strong> ✅ Fully implemented and available for generation</p></div>
+<div><h3 id="recipe-collection-recipe-collection">3. Recipe Collection (<code>recipe-collection</code>)</h3><p><strong>Purpose:</strong> Interactive recipe collection with filtering and search</p><p><strong>Trigger Queries:</strong></p><ul>
+<li>"Soup recipes"</li>
+<li>"Smoothie ideas"</li>
+<li>"Healthy breakfast recipes"</li>
+<li>"Recipes with bananas"</li>
+<li>"Quick dinner ideas"</li>
+</ul><p><strong>Blocks:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block"><div><div><code>hero</code> (full-width)</div><div>default</div><div>✅</div></div><div><div><code>ingredient-search</code></div><div>highlight</div><div>✅</div></div><div><div><code>recipe-filter-bar</code></div><div>default</div><div>✅</div></div><div><div><code>recipe-grid</code></div><div>default</div><div>✅</div></div><div><div><code>technique-spotlight</code></div><div>dark</div><div>✅</div></div><div><div><code>quick-view-modal</code></div><div>default</div><div>✅</div></div><div><div><code>cta</code></div><div>highlight</div><div>✅</div></div></div><p><strong>Status:</strong> ✅ Fully implemented and available for generation</p></div>
+<div><h3 id="use-case-landing-use-case-landing">4. Use Case Landing (<code>use-case-landing</code>)</h3><p><strong>Purpose:</strong> Landing page for a specific use case with recipes, tips, and product recommendation</p><p><strong>Trigger Queries:</strong></p><ul>
+<li>"I want to make smoothies every morning"</li>
+<li>"Best smoothie for energy"</li>
+<li>"Making baby food at home"</li>
+<li>"Meal prep for the week"</li>
+</ul><p><strong>Blocks:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block"><div><div><code>hero</code> (full-width)</div><div>default</div><div>✅</div></div><div><div><code>benefits-grid</code></div><div>default</div><div>✅</div></div><div><div><code>recipe-cards</code></div><div>default</div><div>✅</div></div><div><div><code>product-recommendation</code> (reverse)</div><div>highlight</div><div>✅</div></div><div><div><code>tips-banner</code></div><div>default</div><div>✅</div></div><div><div><code>cta</code></div><div>dark</div><div>✅</div></div></div><p><strong>Status:</strong> ✅ Fully implemented and available for generation</p></div>
+<div><h3 id="support--troubleshooting-support">5. Support &#x26; Troubleshooting (<code>support</code>)</h3><p><strong>Purpose:</strong> Empathetic troubleshooting with step-by-step guidance</p><p><strong>Trigger Queries:</strong></p><ul>
+<li>"My Vitamix is making a grinding noise"</li>
+<li>"How to fix leaking"</li>
+<li>"Blender not turning on"</li>
+<li>"Vitamix smells like burning"</li>
+<li>"Container won't lock in place"</li>
+</ul><p><strong>Blocks:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block"><div><div><code>support-hero</code></div><div>default</div><div>✅</div></div><div><div><code>diagnosis-card</code></div><div>highlight</div><div>✅</div></div><div><div><code>troubleshooting-steps</code></div><div>default</div><div>✅</div></div><div><div><code>faq</code></div><div>highlight</div><div>✅</div></div><div><div><code>support-cta</code></div><div>dark</div><div>✅</div></div></div><p><strong>Status:</strong> ✅ Fully implemented and available for generation</p></div>
+<div><h3 id="category-browse-category-browse">6. Category Browse (<code>category-browse</code>)</h3><p><strong>Purpose:</strong> Browse products in a category with product cards</p><p><strong>Trigger Queries:</strong></p><ul>
+<li>"Show me all blenders"</li>
+<li>"Vitamix accessories"</li>
+<li>"Container options"</li>
+</ul><p><strong>Blocks:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block"><div><div><code>hero</code> (centered)</div><div>default</div><div>✅</div></div><div><div><code>product-cards</code></div><div>default</div><div>✅</div></div><div><div><code>benefits-grid</code></div><div>highlight</div><div>✅</div></div><div><div><code>cta</code></div><div>dark</div><div>✅</div></div></div><p><strong>Status:</strong> ✅ Fully implemented and available for generation</p></div>
+<div><h3 id="educational--how-to-educational">7. Educational / How-To (<code>educational</code>)</h3><p><strong>Purpose:</strong> Step-by-step instructions or educational content</p><p><strong>Trigger Queries:</strong></p><ul>
+<li>"How to clean my Vitamix"</li>
+<li>"Blending techniques"</li>
+<li>"How to make nut butter"</li>
+</ul><p><strong>Blocks:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block"><div><div><code>hero</code> (split)</div><div>default</div><div>✅</div></div><div><div><code>text</code></div><div>default</div><div>✅</div></div><div><div><code>columns</code></div><div>highlight</div><div>✅</div></div><div><div><code>faq</code></div><div>default</div><div>✅</div></div><div><div><code>cta</code></div><div>dark</div><div>✅</div></div></div><p><strong>Status:</strong> ✅ Fully implemented and available for generation</p></div>
+<div><h3 id="promotional-promotional">8. Promotional (<code>promotional</code>)</h3><p><strong>Purpose:</strong> Sales, offers, and promotional content</p><p><strong>Trigger Queries:</strong></p><ul>
+<li>"Vitamix deals"</li>
+<li>"Current promotions"</li>
+<li>"Best value blender"</li>
+</ul><p><strong>Blocks:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block"><div><div><code>hero</code> (full-width)</div><div>dark</div><div>✅</div></div><div><div><code>cards</code></div><div>default</div><div>✅</div></div><div><div><code>split-content</code></div><div>highlight</div><div>✅</div></div><div><div><code>cta</code></div><div>dark</div><div>✅</div></div></div><p><strong>Status:</strong> ✅ Fully implemented and available for generation</p></div>
+<div><h3 id="quick-answer-quick-answer">9. Quick Answer (<code>quick-answer</code>)</h3><p><strong>Purpose:</strong> Simple, direct answer to a question</p><p><strong>Trigger Queries:</strong></p><ul>
+<li>"What is the warranty"</li>
+<li>"Vitamix return policy"</li>
+<li>"Where is Vitamix made"</li>
+</ul><p><strong>Blocks:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block"><div><div><code>hero</code> (light)</div><div>default</div><div>✅</div></div><div><div><code>text</code></div><div>default</div><div>✅</div></div><div><div><code>cta</code></div><div>highlight</div><div>✅</div></div></div><p><strong>Status:</strong> ✅ Fully implemented and available for generation</p></div>
+<div><h3 id="lifestyle--inspiration-lifestyle">10. Lifestyle &#x26; Inspiration (<code>lifestyle</code>)</h3><p><strong>Purpose:</strong> Inspirational content about healthy living with Vitamix</p><p><strong>Trigger Queries:</strong></p><ul>
+<li>"Healthy eating tips"</li>
+<li>"Whole food nutrition"</li>
+<li>"Kitchen wellness"</li>
+</ul><p><strong>Blocks:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block"><div><div><code>hero</code> (full-width)</div><div>default</div><div>✅</div></div><div><div><code>cards</code></div><div>default</div><div>✅</div></div><div><div><code>split-content</code> (reverse)</div><div>highlight</div><div>✅</div></div><div><div><code>columns</code></div><div>default</div><div>✅</div></div><div><div><code>cta</code></div><div>dark</div><div>✅</div></div></div><p><strong>Status:</strong> ✅ Fully implemented and available for generation</p></div>
+<div><h3 id="single-recipe-single-recipe">11. Single Recipe (<code>single-recipe</code>)</h3><p><strong>Purpose:</strong> Detailed view of a single recipe with ingredients, steps, nutrition, and tips</p><p><strong>Trigger Queries:</strong></p><ul>
+<li>"How to make tomato soup"</li>
+<li>"Green smoothie recipe"</li>
+<li>"Vitamix banana ice cream recipe"</li>
+<li>"Show me a hummus recipe"</li>
+</ul><p><strong>Blocks:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block"><div><div><code>recipe-hero</code></div><div>default</div><div>✅</div></div><div><div><code>ingredients-list</code></div><div>highlight</div><div>✅</div></div><div><div><code>recipe-steps</code></div><div>default</div><div>✅</div></div><div><div><code>nutrition-facts</code></div><div>highlight</div><div>✅</div></div><div><div><code>recipe-tips</code></div><div>default</div><div>✅</div></div><div><div><code>recipe-cards</code> (related)</div><div>highlight</div><div>✅</div></div><div><div><code>cta</code></div><div>dark</div><div>✅</div></div></div><p><strong>Status:</strong> ✅ Fully implemented and available for generation</p></div>
+<div><h3 id="campaign-landing-campaign-landing">12. Campaign Landing (<code>campaign-landing</code>)</h3><p><strong>Purpose:</strong> Seasonal or event-specific promotional campaigns</p><p><strong>Trigger Queries:</strong></p><ul>
+<li>"Mother's Day gifts"</li>
+<li>"Holiday blender deals"</li>
+<li>"Valentine's Day recipes"</li>
+<li>"Black Friday Vitamix"</li>
+<li>"Summer smoothie campaign"</li>
+</ul><p><strong>Blocks:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block"><div><div><code>hero</code> (full-width)</div><div>dark</div><div>✅</div></div><div><div><code>countdown-timer</code></div><div>highlight</div><div>✅</div></div><div><div><code>product-cards</code></div><div>default</div><div>✅</div></div><div><div><code>testimonials</code></div><div>highlight</div><div>✅</div></div><div><div><code>cta</code></div><div>dark</div><div>✅</div></div></div><p><strong>Status:</strong> ✅ Fully implemented and available for generation</p></div>
+<div><h3 id="about--brand-story-about-story">13. About / Brand Story (<code>about-story</code>)</h3><p><strong>Purpose:</strong> Brand story, company history, values, and mission</p><p><strong>Trigger Queries:</strong></p><ul>
+<li>"Vitamix history"</li>
+<li>"About Vitamix"</li>
+<li>"Who makes Vitamix"</li>
+<li>"Vitamix company story"</li>
+<li>"Vitamix brand values"</li>
+</ul><p><strong>Blocks:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block"><div><div><code>hero</code> (full-width)</div><div>default</div><div>✅</div></div><div><div><code>text</code></div><div>default</div><div>✅</div></div><div><div><code>timeline</code></div><div>highlight</div><div>✅</div></div><div><div><code>benefits-grid</code> (values)</div><div>default</div><div>✅</div></div><div><div><code>team-cards</code></div><div>highlight</div><div>✅</div></div><div><div><code>cta</code></div><div>dark</div><div>✅</div></div></div><p><strong>Status:</strong> ✅ Fully implemented and available for generation</p></div>
+<div><h2 id="block-implementation-summary">Block Implementation Summary</h2><h3 id="all-implemented-blocks-39">All Implemented Blocks (39)</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block"><div><div><code>hero</code></div><div>All layouts</div></div><div><div><code>cards</code></div><div>promotional, lifestyle</div></div><div><div><code>product-cards</code></div><div>category-browse</div></div><div><div><code>columns</code></div><div>educational, lifestyle</div></div><div><div><code>split-content</code></div><div>promotional, lifestyle</div></div><div><div><code>text</code></div><div>educational, quick-answer</div></div><div><div><code>cta</code></div><div>All layouts</div></div><div><div><code>faq</code></div><div>support, educational</div></div><div><div><code>benefits-grid</code></div><div>use-case-landing, category-browse</div></div><div><div><code>recipe-cards</code></div><div>use-case-landing</div></div><div><div><code>product-recommendation</code></div><div>use-case-landing</div></div><div><div><code>tips-banner</code></div><div>use-case-landing</div></div><div><div><code>ingredient-search</code></div><div>recipe-collection</div></div><div><div><code>recipe-filter-bar</code></div><div>recipe-collection</div></div><div><div><code>recipe-grid</code></div><div>recipe-collection</div></div><div><div><code>quick-view-modal</code></div><div>recipe-collection</div></div><div><div><code>technique-spotlight</code></div><div>recipe-collection</div></div><div><div><code>support-hero</code></div><div>support</div></div><div><div><code>diagnosis-card</code></div><div>support</div></div><div><div><code>troubleshooting-steps</code></div><div>support</div></div><div><div><code>support-cta</code></div><div>support</div></div><div><div><code>comparison-table</code></div><div>product-comparison</div></div><div><div><code>use-case-cards</code></div><div>(available, not in default layouts)</div></div><div><div><code>verdict-card</code></div><div>product-comparison</div></div><div><div><code>comparison-cta</code></div><div>(available, not in default layouts)</div></div><div><div><code>product-hero</code></div><div>product-detail</div></div><div><div><code>specs-table</code></div><div>product-detail</div></div><div><div><code>feature-highlights</code></div><div>product-detail</div></div><div><div><code>included-accessories</code></div><div>product-detail</div></div><div><div><code>product-cta</code></div><div>product-detail</div></div><div><div><code>recipe-hero</code></div><div>single-recipe</div></div><div><div><code>ingredients-list</code></div><div>single-recipe</div></div><div><div><code>recipe-steps</code></div><div>single-recipe</div></div><div><div><code>nutrition-facts</code></div><div>single-recipe</div></div><div><div><code>recipe-tips</code></div><div>single-recipe</div></div><div><div><code>countdown-timer</code></div><div>campaign-landing</div></div><div><div><code>testimonials</code></div><div>campaign-landing</div></div><div><div><code>timeline</code></div><div>about-story</div></div><div><div><code>team-cards</code></div><div>about-story</div></div></div></div>
+<div><h2 id="quick-reference-query--layout-mapping">Quick Reference: Query → Layout Mapping</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="query-pattern"><div><div>"Tell me about [product]"</div><div>product-detail</div></div><div><div>"[Product] vs [Product]"</div><div>product-comparison</div></div><div><div>"Compare [products]"</div><div>product-comparison</div></div><div><div>"Which [product] should I"</div><div>product-comparison</div></div><div><div>"[Food] recipes"</div><div>recipe-collection</div></div><div><div>"Recipes with [ingredient]"</div><div>recipe-collection</div></div><div><div>"How to make [dish]"</div><div>single-recipe</div></div><div><div>"[Food] recipe"</div><div>single-recipe</div></div><div><div>"I want to [goal]"</div><div>use-case-landing</div></div><div><div>"[Problem] not working"</div><div>support</div></div><div><div>"How to fix [issue]"</div><div>support</div></div><div><div>"Show me all [category]"</div><div>category-browse</div></div><div><div>"[Category] accessories"</div><div>category-browse</div></div><div><div>"How to [task]"</div><div>educational</div></div><div><div>"[Product] deals"</div><div>promotional</div></div><div><div>"What is [question]"</div><div>quick-answer</div></div><div><div>"Healthy [topic]"</div><div>lifestyle</div></div><div><div>"[Holiday] gifts"</div><div>campaign-landing</div></div><div><div>"Black Friday/holiday deals"</div><div>campaign-landing</div></div><div><div>"About Vitamix"</div><div>about-story</div></div><div><div>"Vitamix history"</div><div>about-story</div></div></div></div>
+<div><h2 id="file-locations">File Locations</h2><ul>
+<li>Layout definitions: <code>workers/generative-cerebras/src/prompts/layouts.ts</code></li>
+<li>Content schemas: <code>workers/generative-cerebras/src/prompts/content.ts</code></li>
+<li>HTML builders: <code>workers/generative-cerebras/src/lib/orchestrator.ts</code></li>
+<li>Block types: <code>workers/generative-cerebras/src/types.ts</code></li>
+<li>Frontend blocks: <code>blocks/[block-name]/</code></li>
+</ul></div>
+<div><p><em>Last updated: December 2024</em></p></div>

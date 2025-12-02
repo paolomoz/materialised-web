@@ -52,7 +52,7 @@
   background: #c41230;
   color: #fff;
   font-size: 1.125rem;
-  font-weight: 600;
+  font-weight: 500;
   border-radius: 50%;
 }
 
@@ -63,7 +63,7 @@
 
 .tips-banner-headline {
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 500;
   color: #1a1a1a;
   margin: 0 0 0.5rem;
   line-height: 1.3;

@@ -1,0 +1,129 @@
+/**
+ * Verdict Card Block Styles
+ *
+ * Summary recommendation card with overall verdict.
+ */
+
+.verdict-card {
+  padding: 3rem 1.5rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.verdict-card-inner {
+  background: #fff;
+  border-radius: 8px;
+  padding: 2.5rem;
+  box-shadow: 0 4px 24px rgb(0 0 0 / 8%);
+  border: 1px solid #e5e5e5;
+}
+
+.verdict-card-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.verdict-card-icon svg {
+  width: 48px;
+  height: 48px;
+  color: #c41230;
+}
+
+.verdict-card-title {
+  font-size: 1.5rem;
+  font-weight: 500;
+  text-align: center;
+  color: #1a1a1a;
+  margin: 0 0 1.5rem;
+}
+
+.verdict-card-content p {
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  color: #333;
+  margin: 0 0 1.25rem;
+}
+
+.verdict-card-content p:last-child {
+  margin-bottom: 0;
+}
+
+.verdict-card-recommendations {
+  list-style: none;
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+.verdict-card-recommendations li {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #e5e5e5;
+  color: #333;
+  line-height: 1.6;
+}
+
+.verdict-card-recommendations li:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.verdict-card-recommendations li:first-child {
+  padding-top: 0;
+}
+
+.verdict-card-recommendations strong {
+  color: #c41230;
+}
+
+/* Section variants */
+.section.highlight .verdict-card-inner {
+  background: #fff;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 10%);
+}
+
+.section.dark .verdict-card-inner {
+  background: rgb(255 255 255 / 5%);
+  border-color: rgb(255 255 255 / 15%);
+}
+
+.section.dark .verdict-card-title {
+  color: #fff;
+}
+
+.section.dark .verdict-card-content p {
+  color: rgb(255 255 255 / 85%);
+}
+
+.section.dark .verdict-card-recommendations {
+  background: rgb(255 255 255 / 5%);
+}
+
+.section.dark .verdict-card-recommendations li {
+  border-color: rgb(255 255 255 / 10%);
+  color: rgb(255 255 255 / 85%);
+}
+
+/* Responsive */
+@media (width < 768px) {
+  .verdict-card {
+    padding: 2rem 1rem;
+  }
+
+  .verdict-card-inner {
+    padding: 1.5rem;
+  }
+
+  .verdict-card-title {
+    font-size: 1.25rem;
+  }
+
+  .verdict-card-content p {
+    font-size: 1rem;
+  }
+
+  .verdict-card-recommendations {
+    padding: 1rem;
+  }
+}

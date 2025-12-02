@@ -30,7 +30,7 @@
 
 .filter-label {
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 500;
   color: #1a1a1a;
   white-space: nowrap;
 }
@@ -149,7 +149,7 @@
 }
 
 .count-number {
-  font-weight: 600;
+  font-weight: 500;
   color: #1a1a1a;
 }
 

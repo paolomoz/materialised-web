@@ -1,0 +1,80 @@
+/**
+ * Specs Table Block Styles
+ *
+ * Vertical list layout with label/value pairs.
+ * Handles long text values gracefully.
+ */
+
+.specs-table {
+  padding: 3rem 1.5rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* Each row is a spec item */
+.specs-table > div {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 1.5rem;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid #e5e5e5;
+  align-items: baseline;
+}
+
+.specs-table > div:first-child {
+  border-top: 1px solid #e5e5e5;
+}
+
+/* Label column */
+.specs-table-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #666;
+}
+
+/* Value column */
+.specs-table-value {
+  font-size: 1rem;
+  color: #1a1a1a;
+  line-height: 1.5;
+}
+
+/* Section variants */
+.section.highlight .specs-table > div {
+  border-color: #d4d4d4;
+}
+
+.section.dark .specs-table > div {
+  border-color: rgb(255 255 255 / 15%);
+}
+
+.section.dark .specs-table-label {
+  color: rgb(255 255 255 / 60%);
+}
+
+.section.dark .specs-table-value {
+  color: #fff;
+}
+
+/* Responsive */
+@media (width < 600px) {
+  .specs-table {
+    padding: 2rem 1rem;
+  }
+
+  .specs-table > div {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    padding: 1rem 0;
+  }
+
+  .specs-table-label {
+    font-size: 0.75rem;
+  }
+
+  .specs-table-value {
+    font-size: 0.9375rem;
+  }
+}

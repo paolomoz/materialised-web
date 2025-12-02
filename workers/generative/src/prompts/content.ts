@@ -33,7 +33,7 @@ Return a JSON object with this structure:
   "subheadline": "Supporting text (expand on headline)",
   "blocks": [
     {
-      "type": "hero" | "cards" | "columns" | "split-content" | "text" | "cta" | "faq" | "benefits-grid" | "recipe-cards" | "product-recommendation" | "tips-banner" | "ingredient-search" | "recipe-filter-bar" | "recipe-grid" | "quick-view-modal" | "technique-spotlight" | "support-hero" | "diagnosis-card" | "troubleshooting-steps" | "support-cta",
+      "type": "hero" | "cards" | "columns" | "split-content" | "text" | "cta" | "faq" | "benefits-grid" | "recipe-cards" | "product-recommendation" | "tips-banner" | "ingredient-search" | "recipe-filter-bar" | "recipe-grid" | "quick-view-modal" | "technique-spotlight" | "support-hero" | "diagnosis-card" | "troubleshooting-steps" | "support-cta" | "comparison-table" | "use-case-cards" | "verdict-card" | "comparison-cta" | "product-hero" | "specs-table" | "feature-highlights" | "included-accessories" | "product-cta",
       "variant": "default" | "full-width" | "highlight" | "reverse" | etc.,
       "sectionStyle": "default" | "highlight" | "dark",
       "content": { /* block-specific content */ }
@@ -411,6 +411,187 @@ Return a JSON object with this structure:
 - Primary should be for human support escalation
 - Secondary should be for self-service (parts, warranty, etc.)
 - Descriptions should be encouraging and helpful
+
+### Comparison Table Block (Product Comparison pages)
+{
+  "type": "comparison-table",
+  "content": {
+    "products": ["string (product names like 'A3500', 'A2500', 'E310')"],
+    "specs": [
+      {
+        "name": "string (spec name like 'Price', 'Motor', 'Container')",
+        "values": ["string (value per product, use ✓ for winner, ✗ for missing)"]
+      }
+    ]
+  }
+}
+
+**Comparison Table Notes:**
+- Support 2-4 products in the comparison
+- Include 6-10 spec rows (Price, Motor, Container, Controls, Programs, Self-Detect, Warranty, Noise Level, WiFi/App)
+- Use ✓ to mark winner in category, ✗ for missing features
+- Values array must match products array length
+- Use RAG context for accurate specs - don't invent features
+
+### Use Case Cards Block (Product Comparison pages)
+{
+  "type": "use-case-cards",
+  "content": {
+    "cards": [
+      {
+        "persona": "string (like 'POWER USER', 'MOST POPULAR', 'BEST VALUE')",
+        "product": "string (product name like 'A3500')",
+        "description": "string (why this product fits this persona)",
+        "ctaText": "string (like 'Shop A3500')",
+        "ctaUrl": "string (product page URL)"
+      }
+    ]
+  }
+}
+
+**Use Case Cards Notes:**
+- Generate exactly 3 cards matching the number of products compared
+- Personas should be distinct: tech-savvy, balanced, budget-conscious
+- Description should explain WHY this product fits the persona
+- Keep descriptions concise (1-2 sentences)
+
+### Verdict Card Block (Product Comparison pages)
+{
+  "type": "verdict-card",
+  "content": {
+    "headline": "string (like 'The Verdict')",
+    "mainRecommendation": "string (e.g., 'For most people, we recommend the A2500...')",
+    "recommendations": [
+      {
+        "product": "string (product name)",
+        "condition": "string (when to choose this, e.g., 'You want touchscreen and WiFi')"
+      }
+    ],
+    "closingStatement": "string (optional, e.g., 'All three deliver legendary Vitamix performance')"
+  }
+}
+
+**Verdict Card Notes:**
+- Main recommendation should be objective and helpful
+- Include one recommendation per product compared
+- Conditions should be clear differentiators
+- Closing statement reassures all options are good
+
+### Comparison CTA Block (Product Comparison pages)
+{
+  "type": "comparison-cta",
+  "content": {
+    "products": [
+      {
+        "name": "string (product name)",
+        "price": "string (like '$649')",
+        "ctaText": "string (like 'Shop Now')",
+        "ctaUrl": "string (product page URL)"
+      }
+    ],
+    "footerMessage": "string (like 'All models include free shipping')"
+  }
+}
+
+**Comparison CTA Notes:**
+- Include all products from the comparison
+- Prices should match RAG context
+- Footer message should include trust signals (free shipping, warranty)
+
+### Product Hero Block (Product Detail pages)
+{
+  "type": "product-hero",
+  "content": {
+    "productName": "string (product name like 'Ascent Series A3500')",
+    "description": "string (brief product description)",
+    "price": "string (like '$649.95')",
+    "specs": "string (key specs like '2.2 HP Motor | 64 oz Container | 10-Year Warranty')",
+    "imagePrompt": "string (product image description)",
+    "addToCartUrl": "string (add to cart URL)",
+    "compareUrl": "string (comparison page URL)"
+  }
+}
+
+**Product Hero Notes:**
+- Split layout with image on left, details on right
+- Include price and key specs summary
+- Two CTAs: Add to Cart and Compare Models
+
+### Specs Table Block (Product Detail pages)
+{
+  "type": "specs-table",
+  "content": {
+    "specs": [
+      {
+        "label": "string (spec name like 'Motor')",
+        "value": "string (spec value like '2.2 HP Peak')"
+      }
+    ]
+  }
+}
+
+**Specs Table Notes:**
+- Grid layout showing key specifications
+- Use RAG context for accurate specifications
+- Include 6-8 specs: Motor, Container, Programs, Warranty, Controls, Speed, Dimensions, Weight
+
+### Feature Highlights Block (Product Detail pages)
+{
+  "type": "feature-highlights",
+  "content": {
+    "features": [
+      {
+        "title": "string (feature name like 'Touchscreen Controls')",
+        "description": "string (feature explanation)",
+        "imagePrompt": "string (image showing the feature)"
+      }
+    ]
+  }
+}
+
+**Feature Highlights Notes:**
+- Card layout with image + text for each feature
+- Include 3 key features
+- Images should show the feature in action
+
+### Included Accessories Block (Product Detail pages)
+{
+  "type": "included-accessories",
+  "content": {
+    "accessories": [
+      {
+        "title": "string (accessory name like '64 oz Low-Profile Container')",
+        "description": "string (brief description)",
+        "imagePrompt": "string (accessory image)"
+      }
+    ]
+  }
+}
+
+**Included Accessories Notes:**
+- Card layout showing what's in the box
+- Include 3-4 accessories
+- Each has image, title, and brief description
+
+### Product CTA Block (Product Detail pages)
+{
+  "type": "product-cta",
+  "content": {
+    "headline": "string (like 'Ready to Transform Your Kitchen?')",
+    "description": "string (motivational message)",
+    "primaryCtaText": "string (like 'Add to Cart - $649.95')",
+    "primaryCtaUrl": "string (add to cart URL)",
+    "secondaryCtaText": "string (like 'Find a Retailer')",
+    "secondaryCtaUrl": "string (retailer locator URL)",
+    "tertiaryCtaText": "string (optional, like 'Compare All Models')",
+    "tertiaryCtaUrl": "string (optional)"
+  }
+}
+
+**Product CTA Notes:**
+- Dark background with white text
+- Primary CTA should include price
+- Secondary and tertiary CTAs for additional actions
 
 ## Critical Instructions
 

@@ -423,7 +423,7 @@ img[data-gen-image].loaded {
   background: var(--color-brand-green, #2d8a39);
   color: white;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-radius: 16px;
@@ -436,7 +436,7 @@ img[data-gen-image].loaded {
   background: var(--color-brand-green, #2d8a39);
   color: white;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   border-radius: 16px;
   margin-bottom: 16px;
 }

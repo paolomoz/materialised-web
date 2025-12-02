@@ -117,7 +117,7 @@
 
 .quick-view-title {
   font-size: 1.75rem;
-  font-weight: 600;
+  font-weight: 500;
   color: #1a1a1a;
   margin: 0 0 1rem;
   line-height: 1.2;
@@ -166,7 +166,7 @@
 
 .quick-view-section h3 {
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 500;
   color: #1a1a1a;
   margin: 0 0 0.75rem;
 }
@@ -204,7 +204,7 @@
 
 .steps-list li::marker {
   color: #c41230;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 /* Actions */
@@ -224,7 +224,7 @@
   padding: 0.875rem 1.5rem;
   border-radius: 8px;
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   text-decoration: none;

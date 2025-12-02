@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta
+  http-equiv="Content-Security-Policy"
+  content="script-src 'nonce-aem' 'strict-dynamic' 'unsafe-inline' http: https:; base-uri 'self'; object-src 'none'; connect-src 'self' https://vitamix-generative.paolo-moz.workers.dev https://vitamix-generative-cerebras.paolo-moz.workers.dev;"
+  move-to-http-header="true"
+>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<script nonce="aem" src="/scripts/aem.js" type="module"></script>
+<script nonce="aem" src="/scripts/scripts.js" type="module"></script>
+<script nonce="aem" src="/scripts/cerebras-scripts.js" type="module"></script>
+<link rel="stylesheet" href="/styles/styles.css"/>
+<link rel="stylesheet" href="/styles/skeleton.css"/>
+</head>
+<body>
+<header></header>
+<main>
+<div><h2 id="name-vitamix-design-systemdescription-design-specifications-and-patterns-for-vitamixcom-block-generation-use-when-styling-blocks-creating-css-or-making-design-decisions-for-the-vitamix-generative-website-contains-brand-colors-typography-spacing-and-component-patterns">name: Vitamix Design System
+description: Design specifications and patterns for Vitamix.com block generation. Use when styling blocks, creating CSS, or making design decisions for the Vitamix generative website. Contains brand colors, typography, spacing, and component patterns.</h2>
+<h1 id="vitamix-design-system">Vitamix Design System</h1>
+<p>Design specifications and patterns for Vitamix.com block generation.</p>
+<h2 id="brand-colors">Brand Colors</h2>
+<pre><code class="language-css">:root {
+  /* Primary */
+  --color-brand-red: #C41230;
+  --color-brand-red-dark: #a30f28;
+  --color-brand-dark: #1A1A1A;
+
+  /* Neutrals */
+  --color-charcoal: #333333;
+  --color-dark-gray: #666666;
+  --color-medium-gray: #999999;
+  --color-light-gray: #E5E5E5;
+  --color-off-white: #F5F5F5;
+  --color-white: #FFFFFF;
+
+  /* Accent */
+  --color-star-gold: #FFD700;
+}
+</code></pre>
+<h3 id="color-usage">Color Usage:</h3>
+<ul>
+<li><strong>Brand Red (#C41230)</strong>: CTAs, links, accents, eyebrows</li>
+<li><strong>Brand Dark (#1A1A1A)</strong>: Headlines, primary text</li>
+<li><strong>Charcoal (#333)</strong>: Body text, secondary headlines</li>
+<li><strong>Dark Gray (#666)</strong>: Meta text, descriptions</li>
+<li><strong>Light Gray (#E5E5E5)</strong>: Borders, dividers</li>
+<li><strong>Off-white (#F5F5F5)</strong>: Highlight sections, card backgrounds</li>
+</ul>
+<h2 id="typography">Typography</h2>
+<pre><code class="language-css">:root {
+  --font-family-primary: 'proxima-nova', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+
+  /* Sizes */
+  --font-size-hero: 4.5rem;    /* 72px - Hero headlines */
+  --font-size-5xl: 3rem;       /* 48px - Page titles */
+  --font-size-4xl: 2.25rem;    /* 36px - Section headers */
+  --font-size-3xl: 1.875rem;   /* 30px - Card titles */
+  --font-size-2xl: 1.5rem;     /* 24px - Subheadings */
+  --font-size-xl: 1.25rem;     /* 20px - Large body */
+  --font-size-lg: 1.125rem;    /* 18px - Body emphasis */
+  --font-size-base: 1rem;      /* 16px - Body text */
+  --font-size-sm: 0.875rem;    /* 14px - Small text, buttons */
+  --font-size-xs: 0.75rem;     /* 12px - Eyebrows, labels */
+
+  /* Weights - MAXIMUM 500 */
+  --font-weight-light: 300;    /* Hero headlines */
+  --font-weight-normal: 400;   /* Body text */
+  --font-weight-medium: 500;   /* Emphasis, buttons, headings */
+  --font-weight-semibold: 500; /* Same as medium - no heavier weights */
+  --font-weight-bold: 500;     /* Same as medium - no heavier weights */
+}
+</code></pre>
+<p><strong>IMPORTANT: Maximum font-weight is 500. Never use 600, 700, or bold.</strong></p>
+<h3 id="typography-patterns">Typography Patterns:</h3>
+<p><strong>Eyebrow Text:</strong></p>
+<pre><code class="language-css">.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-brand-red);
+}
+</code></pre>
+<p><strong>Hero Headlines:</strong></p>
+<pre><code class="language-css">.hero h1 {
+  font-size: 4.5rem;
+  font-weight: 300;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+</code></pre>
+<p><strong>Section Headlines:</strong></p>
+<pre><code class="language-css">h2 {
+  font-size: 2.25rem;
+  font-weight: 300;
+  color: var(--color-brand-dark);
+}
+</code></pre>
+<p><strong>Button Text:</strong></p>
+<pre><code class="language-css">.button {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+</code></pre>
+<h2 id="spacing">Spacing</h2>
+<pre><code class="language-css">:root {
+  --spacing-xs: 0.25rem;   /* 4px */
+  --spacing-sm: 0.5rem;    /* 8px */
+  --spacing-md: 1rem;      /* 16px */
+  --spacing-lg: 1.5rem;    /* 24px */
+  --spacing-xl: 2rem;      /* 32px */
+  --spacing-2xl: 3rem;     /* 48px */
+
+  /* Section spacing */
+  --spacing-section-sm: 3rem;   /* 48px */
+  --spacing-section-md: 5rem;   /* 80px */
+  --spacing-section-lg: 8rem;   /* 128px */
+}
+</code></pre>
+<h2 id="buttons">Buttons</h2>
+<h3 id="primary-button-red">Primary Button (Red)</h3>
+<pre><code class="language-css">.button.primary {
+  background-color: var(--color-brand-red);
+  color: var(--color-white);
+  border: none;
+  padding: 0.75rem 2rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 0;  /* Vitamix uses square corners */
+}
+
+.button.primary:hover {
+  background-color: var(--color-brand-red-dark);
+}
+</code></pre>
+<h3 id="secondary-button-outlined">Secondary Button (Outlined)</h3>
+<pre><code class="language-css">.button.secondary {
+  background-color: transparent;
+  border: 1px solid var(--color-brand-dark);
+  color: var(--color-brand-dark);
+}
+
+.button.secondary:hover {
+  background-color: var(--color-brand-dark);
+  color: var(--color-white);
+}
+</code></pre>
+<h3 id="ghost-button-text-link-style">Ghost Button (Text link style)</h3>
+<pre><code class="language-css">.button.ghost {
+  background: transparent;
+  color: var(--color-brand-red);
+  text-decoration: underline;
+  padding: 0.5rem 0;
+}
+</code></pre>
+<h2 id="cards">Cards</h2>
+<h3 id="product-card">Product Card</h3>
+<pre><code class="language-css">.product-card {
+  background: var(--color-white);
+  text-align: center;
+  transition: box-shadow 0.2s ease;
+}
+
+.product-card:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.product-card-image {
+  background: var(--color-off-white);
+  padding: var(--spacing-lg);
+}
+
+.product-card-body {
+  padding: var(--spacing-lg);
+}
+</code></pre>
+<h3 id="recipe-card">Recipe Card</h3>
+<pre><code class="language-css">.recipe-card {
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.recipe-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.recipe-card-image img {
+  aspect-ratio: 4/3;
+  object-fit: cover;
+}
+</code></pre>
+<h2 id="section-styles">Section Styles</h2>
+<h3 id="default-section">Default Section</h3>
+<pre><code class="language-css">.section-default {
+  background: var(--color-white);
+  padding: var(--spacing-section-md) 0;
+}
+</code></pre>
+<h3 id="highlight-section">Highlight Section</h3>
+<pre><code class="language-css">.section-highlight {
+  background: var(--color-off-white);
+  padding: var(--spacing-section-md) 0;
+}
+</code></pre>
+<h3 id="dark-section">Dark Section</h3>
+<pre><code class="language-css">.section-dark {
+  background: var(--color-brand-dark);
+  color: var(--color-white);
+  padding: var(--spacing-section-md) 0;
+}
+
+.section-dark h2,
+.section-dark p {
+  color: var(--color-white);
+}
+</code></pre>
+<h2 id="hero-variants">Hero Variants</h2>
+<h3 id="full-width-hero-dark-overlay">Full-Width Hero (Dark Overlay)</h3>
+<pre><code class="language-css">.hero.full-width {
+  position: relative;
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+}
+
+.hero.full-width::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 26, 26, 0.7);
+}
+
+.hero.full-width .hero-content {
+  position: relative;
+  z-index: 2;
+  color: var(--color-white);
+  max-width: 600px;
+}
+</code></pre>
+<h3 id="light-hero-no-image">Light Hero (No Image)</h3>
+<pre><code class="language-css">.hero.light {
+  background: var(--color-white);
+  padding: var(--spacing-section-md) var(--spacing-lg);
+}
+
+.hero.light h1 {
+  color: var(--color-brand-dark);
+}
+</code></pre>
+<h3 id="split-hero-5050">Split Hero (50/50)</h3>
+<pre><code class="language-css">.hero.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 600px;
+}
+</code></pre>
+<h2 id="icons">Icons</h2>
+<p>Vitamix uses simple line icons. Use inline SVGs with:</p>
+<pre><code class="language-css">svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+}
+</code></pre>
+<p>Common icons needed:</p>
+<ul>
+<li>Clock (time/duration)</li>
+<li>Lightning bolt (difficulty)</li>
+<li>Heart (favorites)</li>
+<li>Search</li>
+<li>Close (X)</li>
+<li>Chevron (accordion expand)</li>
+<li>Check (success)</li>
+<li>Warning (alerts)</li>
+</ul>
+<h2 id="shadows">Shadows</h2>
+<pre><code class="language-css">:root {
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.15);
+}
+</code></pre>
+<h2 id="transitions">Transitions</h2>
+<pre><code class="language-css">:root {
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s ease;
+}
+</code></pre>
+<p>Standard hover transitions:</p>
+<ul>
+<li>Buttons: background-color</li>
+<li>Cards: transform, box-shadow</li>
+<li>Links: color</li>
+<li>Images: transform (scale)</li>
+</ul>
+<h2 id="layout-constraints">Layout Constraints</h2>
+<pre><code class="language-css">:root {
+  --max-width-content: 1200px;
+  --max-width-wide: 1400px;
+  --nav-height: 64px;
+}
+</code></pre>
+<h2 id="responsive-breakpoints">Responsive Breakpoints</h2>
+<pre><code class="language-css">/* Mobile first approach */
+@media (width >= 600px) {  /* Tablet */
+}
+
+@media (width >= 768px) {  /* Tablet landscape */
+}
+
+@media (width >= 900px) {  /* Desktop */
+}
+
+@media (width >= 1200px) { /* Large desktop */
+}
+</code></pre>
+<h2 id="file-locations">File Locations</h2>
+<ul>
+<li>Global styles: <code>styles/styles.css</code></li>
+<li>Block styles: <code>blocks/block-name/block-name.css</code></li>
+</ul>
+<h2 id="related-skills">Related Skills</h2>
+<ul>
+<li><strong>gen-layout-definition</strong> - How to define layouts</li>
+<li><strong>gen-block-implementation</strong> - How to build blocks</li>
+</ul></div>
+</main>
+<footer></footer>
+</body>
+</html>

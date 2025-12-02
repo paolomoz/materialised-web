@@ -1,0 +1,114 @@
+/**
+ * Comparison CTA Block Styles
+ *
+ * Multi-product CTA section with side-by-side purchase options.
+ */
+
+.comparison-cta {
+  padding: 4rem 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.comparison-cta-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.comparison-cta-products {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.comparison-cta-product {
+  background: rgb(255 255 255 / 10%);
+  border-radius: 4px;
+  padding: 1.5rem 2rem;
+  min-width: 180px;
+  border: 1px solid rgb(255 255 255 / 15%);
+  transition: background 0.2s ease;
+}
+
+.comparison-cta-product:hover {
+  background: rgb(255 255 255 / 15%);
+}
+
+.comparison-cta-name {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+
+.comparison-cta-price {
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: #fff;
+  margin-bottom: 1rem;
+}
+
+.comparison-cta-button {
+  display: inline-block;
+  padding: 0.75rem 2rem;
+  background: #c41230;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 0;
+  font-weight: 500;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: background 0.2s ease;
+}
+
+.comparison-cta-button:hover {
+  background: #a30f28;
+  text-decoration: none;
+  color: #fff;
+}
+
+.comparison-cta-footer {
+  font-size: 0.875rem;
+  color: rgb(255 255 255 / 70%);
+}
+
+/* Light section */
+.section:not(.dark) .comparison-cta-product {
+  background: #f5f5f5;
+  border-color: #e5e5e5;
+}
+
+.section:not(.dark) .comparison-cta-product:hover {
+  background: #eee;
+}
+
+.section:not(.dark) .comparison-cta-name,
+.section:not(.dark) .comparison-cta-price {
+  color: #1a1a1a;
+}
+
+.section:not(.dark) .comparison-cta-footer {
+  color: #666;
+}
+
+/* Responsive */
+@media (width < 768px) {
+  .comparison-cta {
+    padding: 3rem 1rem;
+  }
+
+  .comparison-cta-products {
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .comparison-cta-product {
+    width: 100%;
+    max-width: 300px;
+  }
+}

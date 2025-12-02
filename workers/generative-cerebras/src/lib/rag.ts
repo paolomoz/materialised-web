@@ -1,4 +1,5 @@
-import type { Env, RAGContext, RAGChunk, ContentType } from '../types';
+import type { Env, RAGContext, RAGChunk, ContentType, IntentClassification } from '../types';
+import { planRetrieval, type RetrievalPlan, type DedupeMode } from './retrieval-planner';
 
 /**
  * RAG Configuration
@@ -20,6 +21,149 @@ const DEFAULT_CONFIG: RAGConfig = {
   diversityPenalty: 0.1,
   freshnessWeight: 0.1,
 };
+
+/**
+ * Smart retrieval using the retrieval planner
+ * Analyzes the query to determine optimal retrieval strategy
+ */
+export async function smartRetrieve(
+  query: string,
+  intent: IntentClassification,
+  env: Env
+): Promise<RAGContext> {
+  const plan = planRetrieval(query, intent);
+
+  console.log('Retrieval plan:', {
+    query,
+    strategy: plan.strategy,
+    topK: plan.topK,
+    filters: plan.filters,
+    dedupeMode: plan.dedupeMode,
+    maxResults: plan.maxResults,
+    boostTerms: plan.boostTerms,
+    reasoning: plan.reasoning,
+  });
+
+  // Generate embedding for the semantic query
+  const queryEmbedding = await generateQueryEmbedding(plan.semanticQuery, env);
+
+  // Build filter for metadata
+  const filter = buildMetadataFilter({
+    contentTypes: plan.filters.contentTypes,
+    productCategory: plan.filters.productCategory,
+    recipeCategory: plan.filters.recipeCategory,
+  });
+
+  // Query Vectorize with plan parameters (no filter - relying on semantic search)
+  const results = await env.VECTORIZE.query(queryEmbedding, {
+    topK: plan.topK,
+    filter,  // Currently returns undefined - see buildMetadataFilter
+    returnMetadata: 'all',
+  });
+
+  // Process results with plan's relevance threshold
+  let chunks = processResultsWithThreshold(results, plan.relevanceThreshold);
+
+  // Apply boost terms if present (for ingredient queries)
+  if (plan.boostTerms && plan.boostTerms.length > 0) {
+    chunks = boostByTerms(chunks, plan.boostTerms);
+  }
+
+  // Dedupe based on strategy
+  const dedupedChunks = deduplicateByMode(chunks, plan.dedupeMode);
+
+  // Limit to max results
+  const limitedChunks = dedupedChunks.slice(0, plan.maxResults);
+
+  console.log('Retrieval results:', {
+    rawResults: results.matches.length,
+    afterThreshold: chunks.length,
+    afterDedupe: dedupedChunks.length,
+    final: limitedChunks.length,
+  });
+
+  // Debug: Log first chunk's raw metadata to see what's actually indexed
+  if (results.matches.length > 0) {
+    console.log('Sample raw metadata from Vectorize:', results.matches[0].metadata);
+  }
+
+  return assembleContext(limitedChunks);
+}
+
+/**
+ * Process results with custom threshold
+ */
+function processResultsWithThreshold(
+  results: VectorizeMatches,
+  threshold: number
+): RAGChunk[] {
+  return results.matches
+    .filter((match) => match.score >= threshold)
+    .map((match) => ({
+      id: match.id,
+      score: match.score,
+      text: (match.metadata as any)?.chunk_text || '',
+      metadata: {
+        content_type: (match.metadata as any)?.content_type || 'editorial',
+        source_url: (match.metadata as any)?.source_url || '',
+        page_title: (match.metadata as any)?.page_title || '',
+        product_sku: (match.metadata as any)?.product_sku,
+        product_category: (match.metadata as any)?.product_category,
+        recipe_category: (match.metadata as any)?.recipe_category,
+        image_url: (match.metadata as any)?.image_url,
+      },
+    }));
+}
+
+/**
+ * Boost chunks that contain specified terms
+ * Used for ingredient-based recipe searches
+ */
+function boostByTerms(chunks: RAGChunk[], terms: string[]): RAGChunk[] {
+  return chunks
+    .map((chunk) => {
+      const text = chunk.text.toLowerCase();
+      const matchCount = terms.filter((t) =>
+        text.includes(t.toLowerCase())
+      ).length;
+      // 15% boost per matched term, max 60% boost
+      const boost = 1 + Math.min(matchCount * 0.15, 0.6);
+      return { ...chunk, score: chunk.score * boost };
+    })
+    .sort((a, b) => b.score - a.score);
+}
+
+/**
+ * Deduplicate chunks based on the specified mode
+ */
+function deduplicateByMode(chunks: RAGChunk[], mode: DedupeMode): RAGChunk[] {
+  if (mode === 'by-sku') {
+    // Keep one chunk per product SKU (for catalog/comparison queries)
+    const bySku = new Map<string, RAGChunk>();
+    for (const chunk of chunks) {
+      const key = chunk.metadata.product_sku || chunk.metadata.source_url;
+      if (!bySku.has(key) || chunk.score > bySku.get(key)!.score) {
+        bySku.set(key, chunk);
+      }
+    }
+    return [...bySku.values()].sort((a, b) => b.score - a.score);
+  }
+
+  if (mode === 'by-url') {
+    // Keep one chunk per source URL (for recipe queries)
+    const byUrl = new Map<string, RAGChunk>();
+    for (const chunk of chunks) {
+      const key = chunk.metadata.source_url;
+      if (!byUrl.has(key) || chunk.score > byUrl.get(key)!.score) {
+        byUrl.set(key, chunk);
+      }
+    }
+    return [...byUrl.values()].sort((a, b) => b.score - a.score);
+  }
+
+  // Default: similarity-based dedup
+  return deduplicateChunks(chunks, DEFAULT_CONFIG.diversityPenalty);
+}
 
 /**
  * Retrieve relevant context from Vectorize for a query
@@ -74,12 +218,22 @@ async function generateQueryEmbedding(query: string, env: Env): Promise<number[]
 
 /**
  * Build metadata filter for Vectorize query
+ *
+ * NOTE: Metadata filtering is currently DISABLED because the indexed data
+ * doesn't have reliable metadata fields. We rely on semantic search instead.
+ * The retrieval planner includes content type keywords in the semantic query.
  */
-function buildMetadataFilter(options?: {
+function buildMetadataFilter(_options?: {
   contentTypes?: ContentType[];
   productCategory?: string;
   recipeCategory?: string;
 }): Record<string, any> | undefined {
+  // DISABLED: Vectorize filter not matching indexed metadata
+  // Return undefined to skip filtering and rely on semantic search
+  return undefined;
+
+  // Original filter code (kept for future use when metadata is fixed):
+  /*
   if (!options) return undefined;
 
   const filters: Record<string, any> = {};
@@ -98,6 +252,7 @@ function buildMetadataFilter(options?: {
   }
 
   return Object.keys(filters).length > 0 ? filters : undefined;
+  */
 }
 
 /**

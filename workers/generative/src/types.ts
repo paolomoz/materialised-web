@@ -20,13 +20,17 @@ export interface Env {
   DA_REPO: string;
 
   // API Keys (secrets)
-  ANTHROPIC_API_KEY: string;
+  CEREBRAS_API_KEY: string;
   GOOGLE_API_KEY: string;
   GOOGLE_SERVICE_ACCOUNT_JSON: string;
   DA_TOKEN: string;
+  FAL_API_KEY?: string;
 
   // Optional configuration
   VERTEX_AI_REGION?: string;
+
+  // Image provider: 'fal' for FLUX Schnell, 'imagen' for Google Imagen 3
+  IMAGE_PROVIDER?: 'fal' | 'imagen';
 }
 
 /**
@@ -99,7 +103,9 @@ export interface RAGContext {
 export type BlockType = 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq'
   | 'benefits-grid' | 'recipe-cards' | 'product-recommendation' | 'tips-banner'
   | 'ingredient-search' | 'recipe-filter-bar' | 'recipe-grid' | 'quick-view-modal' | 'technique-spotlight'
-  | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta';
+  | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta'
+  | 'comparison-table' | 'use-case-cards' | 'verdict-card' | 'comparison-cta'
+  | 'product-hero' | 'specs-table' | 'feature-highlights' | 'included-accessories' | 'product-cta';
 
 /**
  * Generated content structure

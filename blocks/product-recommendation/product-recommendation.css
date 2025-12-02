@@ -41,7 +41,7 @@
 /* Eyebrow */
 .product-recommendation-eyebrow {
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: #c41230;
@@ -72,7 +72,7 @@
 
 .product-recommendation-price .price {
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 500;
   color: #1a1a1a;
   display: block;
 }
@@ -95,7 +95,7 @@
   display: inline-block;
   padding: 0.875rem 2rem;
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   text-decoration: none;

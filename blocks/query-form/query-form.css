@@ -42,7 +42,7 @@
 .query-form button[type="submit"] {
   padding: 16px 32px;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
   border: none;
   border-radius: 8px;
@@ -252,7 +252,7 @@
   background: var(--color-brand-red, #c00);
   color: white;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   border-radius: 12px;

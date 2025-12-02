@@ -14,11 +14,13 @@ export interface BlockTemplate {
   type: 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq'
     | 'benefits-grid' | 'recipe-cards' | 'product-recommendation' | 'tips-banner'
     | 'ingredient-search' | 'recipe-filter-bar' | 'recipe-grid' | 'quick-view-modal' | 'technique-spotlight'
-    | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta';
+    | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta'
+    | 'comparison-table' | 'use-case-cards' | 'verdict-card' | 'comparison-cta'
+    | 'product-hero' | 'specs-table' | 'feature-highlights' | 'included-accessories' | 'product-cta';
   variant?: string;
   width?: 'full' | 'contained';
   config?: {
-    itemCount?: number; // For cards, columns, faq, benefits-grid, recipe-cards, tips-banner, recipe-grid, troubleshooting-steps
+    itemCount?: number; // For cards, columns, faq, benefits-grid, recipe-cards, tips-banner, recipe-grid, troubleshooting-steps, comparison-table
     hasImage?: boolean;
     [key: string]: any;
   };
@@ -39,12 +41,17 @@ export interface LayoutTemplate {
 
 /**
  * Layout 1: Product Detail
- * Single product focus with specs, features, and FAQ
+ * Matches vitamix.com product page structure:
+ * - Split hero with product image + details
+ * - Specs table grid
+ * - Feature highlights with images
+ * - Included accessories
+ * - Product CTA
  */
 export const LAYOUT_PRODUCT_DETAIL: LayoutTemplate = {
   id: 'product-detail',
   name: 'Product Detail',
-  description: 'Detailed view of a single Vitamix product',
+  description: 'Detailed view of a single Vitamix product (matches vitamix.com)',
   useCases: [
     'Tell me about the A3500',
     'Vitamix Venturist features',
@@ -52,29 +59,36 @@ export const LAYOUT_PRODUCT_DETAIL: LayoutTemplate = {
   ],
   sections: [
     {
+      // Split hero with product image and details
       blocks: [
-        { type: 'hero', variant: 'split', width: 'full', config: { hasImage: true } },
+        { type: 'product-hero' },
       ],
     },
     {
+      // Specs table grid
+      style: 'highlight',
       blocks: [
-        { type: 'columns', variant: 'highlight', config: { itemCount: 3 } },
+        { type: 'specs-table', config: { itemCount: 8 } },
       ],
     },
     {
+      // Feature highlights with images
       blocks: [
-        { type: 'text' },
+        { type: 'feature-highlights', config: { itemCount: 3, hasImage: true } },
       ],
     },
     {
+      // Included accessories
+      style: 'highlight',
       blocks: [
-        { type: 'faq', config: { itemCount: 4 } },
+        { type: 'included-accessories', config: { itemCount: 4, hasImage: true } },
       ],
     },
     {
+      // Product CTA
       style: 'dark',
       blocks: [
-        { type: 'cta' },
+        { type: 'product-cta' },
       ],
     },
   ],
@@ -82,16 +96,18 @@ export const LAYOUT_PRODUCT_DETAIL: LayoutTemplate = {
 
 /**
  * Layout 2: Product Comparison
- * Side-by-side comparison of 2-3 products
+ * Side-by-side comparison of 2-5 Vitamix products with specs, recommendations, and verdict.
  */
 export const LAYOUT_PRODUCT_COMPARISON: LayoutTemplate = {
   id: 'product-comparison',
   name: 'Product Comparison',
-  description: 'Compare multiple Vitamix products',
+  description: 'Side-by-side comparison of 2-5 Vitamix products',
   useCases: [
     'A3500 vs A2500',
     'Compare Ascent models',
     'Which Vitamix should I buy',
+    'Help me choose a blender',
+    'Compare Vitamix blenders',
   ],
   sections: [
     {
@@ -100,24 +116,17 @@ export const LAYOUT_PRODUCT_COMPARISON: LayoutTemplate = {
       ],
     },
     {
+      // Spec comparison grid with winner indicators
+      style: 'highlight',
       blocks: [
-        { type: 'columns', variant: 'highlight', config: { itemCount: 2 } },
+        { type: 'comparison-table', config: { itemCount: 8 } },
       ],
     },
     {
+      // Summary recommendation with per-product guidance
+      style: 'highlight',
       blocks: [
-        { type: 'cards', config: { itemCount: 2 } },
-      ],
-    },
-    {
-      blocks: [
-        { type: 'faq', config: { itemCount: 4 } },
-      ],
-    },
-    {
-      style: 'dark',
-      blocks: [
-        { type: 'cta' },
+        { type: 'verdict-card' },
       ],
     },
   ],
@@ -598,7 +607,9 @@ export function getLayoutForIntent(
 export type BlockType = 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq'
   | 'benefits-grid' | 'recipe-cards' | 'product-recommendation' | 'tips-banner'
   | 'ingredient-search' | 'recipe-filter-bar' | 'recipe-grid' | 'quick-view-modal' | 'technique-spotlight'
-  | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta';
+  | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta'
+  | 'comparison-table' | 'use-case-cards' | 'verdict-card' | 'comparison-cta'
+  | 'product-hero' | 'specs-table' | 'feature-highlights' | 'included-accessories' | 'product-cta';
 
 export function templateToLayoutDecision(layout: LayoutTemplate): {
   blocks: Array<{

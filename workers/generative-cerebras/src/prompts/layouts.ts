@@ -14,11 +14,20 @@ export interface BlockTemplate {
   type: 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq'
     | 'benefits-grid' | 'recipe-cards' | 'product-recommendation' | 'tips-banner'
     | 'ingredient-search' | 'recipe-filter-bar' | 'recipe-grid' | 'quick-view-modal' | 'technique-spotlight'
-    | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta';
+    | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta'
+    | 'comparison-table' | 'use-case-cards' | 'verdict-card' | 'comparison-cta'
+    | 'product-hero' | 'specs-table' | 'feature-highlights' | 'included-accessories' | 'product-cta'
+    | 'product-cards'
+    // Single Recipe blocks
+    | 'recipe-hero' | 'ingredients-list' | 'recipe-steps' | 'nutrition-facts' | 'recipe-tips'
+    // Campaign Landing blocks
+    | 'countdown-timer' | 'testimonials'
+    // About/Story blocks
+    | 'timeline' | 'team-cards';
   variant?: string;
   width?: 'full' | 'contained';
   config?: {
-    itemCount?: number; // For cards, columns, faq, benefits-grid, recipe-cards, tips-banner, recipe-grid, troubleshooting-steps
+    itemCount?: number; // For cards, columns, faq, benefits-grid, recipe-cards, tips-banner, recipe-grid, troubleshooting-steps, comparison-table
     hasImage?: boolean;
     [key: string]: any;
   };
@@ -39,12 +48,17 @@ export interface LayoutTemplate {
 
 /**
  * Layout 1: Product Detail
- * Single product focus with specs, features, and FAQ
+ * Matches vitamix.com product page structure:
+ * - Split hero with product image + details
+ * - Specs table grid
+ * - Feature highlights with images
+ * - Included accessories
+ * - Product CTA
  */
 export const LAYOUT_PRODUCT_DETAIL: LayoutTemplate = {
   id: 'product-detail',
   name: 'Product Detail',
-  description: 'Detailed view of a single Vitamix product',
+  description: 'Detailed view of a single Vitamix product (matches vitamix.com)',
   useCases: [
     'Tell me about the A3500',
     'Vitamix Venturist features',
@@ -52,29 +66,36 @@ export const LAYOUT_PRODUCT_DETAIL: LayoutTemplate = {
   ],
   sections: [
     {
+      // Split hero with product image and details
       blocks: [
-        { type: 'hero', variant: 'split', width: 'full', config: { hasImage: true } },
+        { type: 'product-hero' },
       ],
     },
     {
+      // Specs table grid
+      style: 'highlight',
       blocks: [
-        { type: 'columns', variant: 'highlight', config: { itemCount: 3 } },
+        { type: 'specs-table', config: { itemCount: 8 } },
       ],
     },
     {
+      // Feature highlights with images
       blocks: [
-        { type: 'text' },
+        { type: 'feature-highlights', config: { itemCount: 3, hasImage: true } },
       ],
     },
     {
+      // Included accessories
+      style: 'highlight',
       blocks: [
-        { type: 'faq', config: { itemCount: 4 } },
+        { type: 'included-accessories', config: { itemCount: 4, hasImage: true } },
       ],
     },
     {
+      // Product CTA
       style: 'dark',
       blocks: [
-        { type: 'cta' },
+        { type: 'product-cta' },
       ],
     },
   ],
@@ -82,16 +103,18 @@ export const LAYOUT_PRODUCT_DETAIL: LayoutTemplate = {
 
 /**
  * Layout 2: Product Comparison
- * Side-by-side comparison of 2-3 products
+ * Side-by-side comparison of 2-5 Vitamix products with specs, recommendations, and verdict.
  */
 export const LAYOUT_PRODUCT_COMPARISON: LayoutTemplate = {
   id: 'product-comparison',
   name: 'Product Comparison',
-  description: 'Compare multiple Vitamix products',
+  description: 'Side-by-side comparison of 2-5 Vitamix products',
   useCases: [
     'A3500 vs A2500',
     'Compare Ascent models',
     'Which Vitamix should I buy',
+    'Help me choose a blender',
+    'Compare Vitamix blenders',
   ],
   sections: [
     {
@@ -100,24 +123,17 @@ export const LAYOUT_PRODUCT_COMPARISON: LayoutTemplate = {
       ],
     },
     {
+      // Spec comparison grid with winner indicators
+      style: 'highlight',
       blocks: [
-        { type: 'columns', variant: 'highlight', config: { itemCount: 2 } },
+        { type: 'comparison-table', config: { itemCount: 8 } },
       ],
     },
     {
+      // Summary recommendation with per-product guidance
+      style: 'highlight',
       blocks: [
-        { type: 'cards', config: { itemCount: 2 } },
-      ],
-    },
-    {
-      blocks: [
-        { type: 'faq', config: { itemCount: 4 } },
-      ],
-    },
-    {
-      style: 'dark',
-      blocks: [
-        { type: 'cta' },
+        { type: 'verdict-card' },
       ],
     },
   ],
@@ -317,12 +333,12 @@ export const LAYOUT_SUPPORT: LayoutTemplate = {
 
 /**
  * Layout 6: Category Browse
- * Browse products in a category
+ * Browse products in a category with specialized product cards
  */
 export const LAYOUT_CATEGORY_BROWSE: LayoutTemplate = {
   id: 'category-browse',
   name: 'Category Browse',
-  description: 'Browse products in a category',
+  description: 'Browse products in a category with product cards',
   useCases: [
     'Show me all blenders',
     'Vitamix accessories',
@@ -335,14 +351,16 @@ export const LAYOUT_CATEGORY_BROWSE: LayoutTemplate = {
       ],
     },
     {
+      // Product grid with images, prices, ratings
       blocks: [
-        { type: 'cards', config: { itemCount: 4 } },
+        { type: 'product-cards', config: { itemCount: 4 } },
       ],
     },
     {
+      // Benefits/features of the category
       style: 'highlight',
       blocks: [
-        { type: 'columns', config: { itemCount: 3 } },
+        { type: 'benefits-grid', config: { itemCount: 3 } },
       ],
     },
     {
@@ -516,6 +534,204 @@ export const LAYOUT_LIFESTYLE: LayoutTemplate = {
 };
 
 /**
+ * Layout 11: Single Recipe
+ * Detailed view of a single recipe with ingredients, steps, nutrition, and tips.
+ *
+ * Uses specialized blocks:
+ * - recipe-hero: Full-width hero with dish image and recipe metadata
+ * - ingredients-list: Two-column ingredient list
+ * - recipe-steps: Step-by-step instructions with optional images
+ * - nutrition-facts: Nutrition information grid
+ * - recipe-tips: Pro tips and variations
+ * - recipe-cards: Related recipes
+ */
+export const LAYOUT_SINGLE_RECIPE: LayoutTemplate = {
+  id: 'single-recipe',
+  name: 'Single Recipe',
+  description: 'Detailed view of a single recipe with ingredients, steps, and nutrition',
+  useCases: [
+    'How to make tomato soup',
+    'Green smoothie recipe',
+    'Vitamix banana ice cream recipe',
+    'Show me a hummus recipe',
+  ],
+  sections: [
+    {
+      // Recipe hero with dish image and metadata
+      blocks: [
+        { type: 'recipe-hero', config: { hasImage: true } },
+      ],
+    },
+    {
+      // Ingredients list - two columns
+      style: 'highlight',
+      blocks: [
+        { type: 'ingredients-list' },
+      ],
+    },
+    {
+      // Step-by-step instructions
+      blocks: [
+        { type: 'recipe-steps', config: { itemCount: 5, hasImage: true } },
+      ],
+    },
+    {
+      // Nutrition facts
+      style: 'highlight',
+      blocks: [
+        { type: 'nutrition-facts' },
+      ],
+    },
+    {
+      // Pro tips and variations
+      blocks: [
+        { type: 'recipe-tips', config: { itemCount: 3 } },
+      ],
+    },
+    {
+      // Related recipes
+      style: 'highlight',
+      blocks: [
+        { type: 'recipe-cards', config: { itemCount: 3 } },
+      ],
+    },
+    {
+      // CTA section
+      style: 'dark',
+      blocks: [
+        { type: 'cta' },
+      ],
+    },
+  ],
+};
+
+/**
+ * Layout 12: Campaign Landing
+ * Seasonal or event-specific promotional campaigns.
+ *
+ * Uses specialized blocks:
+ * - hero: Full-width campaign hero
+ * - countdown-timer: Urgency-building countdown
+ * - product-cards: Featured products
+ * - testimonials: Customer quotes
+ * - cta: Campaign call-to-action
+ */
+export const LAYOUT_CAMPAIGN_LANDING: LayoutTemplate = {
+  id: 'campaign-landing',
+  name: 'Campaign Landing',
+  description: 'Seasonal or event-specific promotional campaigns',
+  useCases: [
+    'Mother\'s Day gifts',
+    'Holiday blender deals',
+    'Valentine\'s Day recipes',
+    'Black Friday Vitamix',
+    'Summer smoothie campaign',
+  ],
+  sections: [
+    {
+      // Campaign hero - full width with event imagery
+      style: 'dark',
+      blocks: [
+        { type: 'hero', variant: 'full-width', width: 'full', config: { hasImage: true } },
+      ],
+    },
+    {
+      // Countdown timer - urgency builder
+      style: 'highlight',
+      blocks: [
+        { type: 'countdown-timer' },
+      ],
+    },
+    {
+      // Featured products for the campaign
+      blocks: [
+        { type: 'product-cards', config: { itemCount: 3 } },
+      ],
+    },
+    {
+      // Customer testimonials
+      style: 'highlight',
+      blocks: [
+        { type: 'testimonials', config: { itemCount: 3, hasImage: true } },
+      ],
+    },
+    {
+      // Campaign CTA
+      style: 'dark',
+      blocks: [
+        { type: 'cta' },
+      ],
+    },
+  ],
+};
+
+/**
+ * Layout 13: About / Brand Story
+ * Brand story, company history, values, and mission.
+ *
+ * Uses specialized blocks:
+ * - hero: Brand story hero
+ * - text: Company mission/vision
+ * - timeline: Company history milestones
+ * - benefits-grid: Company values (repurposed)
+ * - team-cards: Leadership team
+ * - cta: Join/connect CTA
+ */
+export const LAYOUT_ABOUT_STORY: LayoutTemplate = {
+  id: 'about-story',
+  name: 'About / Brand Story',
+  description: 'Brand story, company history, values, and mission',
+  useCases: [
+    'Vitamix history',
+    'About Vitamix',
+    'Who makes Vitamix',
+    'Vitamix company story',
+    'Vitamix brand values',
+  ],
+  sections: [
+    {
+      // Brand hero
+      blocks: [
+        { type: 'hero', variant: 'full-width', width: 'full', config: { hasImage: true } },
+      ],
+    },
+    {
+      // Mission statement
+      blocks: [
+        { type: 'text' },
+      ],
+    },
+    {
+      // Company timeline
+      style: 'highlight',
+      blocks: [
+        { type: 'timeline', config: { itemCount: 5 } },
+      ],
+    },
+    {
+      // Company values - using benefits-grid with values focus
+      blocks: [
+        { type: 'benefits-grid', config: { itemCount: 4 } },
+      ],
+    },
+    {
+      // Leadership team
+      style: 'highlight',
+      blocks: [
+        { type: 'team-cards', config: { itemCount: 4, hasImage: true } },
+      ],
+    },
+    {
+      // Connect CTA
+      style: 'dark',
+      blocks: [
+        { type: 'cta' },
+      ],
+    },
+  ],
+};
+
+/**
  * All available layouts
  */
 export const LAYOUTS: LayoutTemplate[] = [
@@ -529,6 +745,9 @@ export const LAYOUTS: LayoutTemplate[] = [
   LAYOUT_PROMOTIONAL,
   LAYOUT_QUICK_ANSWER,
   LAYOUT_LIFESTYLE,
+  LAYOUT_SINGLE_RECIPE,
+  LAYOUT_CAMPAIGN_LANDING,
+  LAYOUT_ABOUT_STORY,
 ];
 
 /**
@@ -545,7 +764,7 @@ export function getLayoutById(id: string): LayoutTemplate | undefined {
 export function getLayoutForIntent(
   intentType: string,
   contentTypes: string[],
-  entities: { products: string[]; goals: string[] }
+  entities: { products: string[]; goals: string[]; ingredients?: string[] }
 ): LayoutTemplate {
   // Support/troubleshooting queries
   if (intentType === 'support') {
@@ -569,6 +788,16 @@ export function getLayoutForIntent(
 
   // Recipe queries
   if (intentType === 'recipe') {
+    // Check for specific recipe indicators (single recipe page)
+    const singleRecipeIndicators = ['how to make', 'recipe for', 'make a', 'make me'];
+    const goalsLower = entities.goals.map((g) => g.toLowerCase()).join(' ');
+
+    // If query has specific recipe keywords and mentions specific ingredients, it's likely a single recipe
+    if (singleRecipeIndicators.some((ind) => goalsLower.includes(ind)) ||
+        (entities.ingredients && entities.ingredients.length >= 2)) {
+      return LAYOUT_SINGLE_RECIPE;
+    }
+
     // If it's a use-case oriented query (morning routine, meal prep, etc.)
     if (entities.goals.some((g) =>
       g.includes('morning') ||
@@ -580,6 +809,23 @@ export function getLayoutForIntent(
       return LAYOUT_USE_CASE_LANDING;
     }
     return LAYOUT_RECIPE_COLLECTION;
+  }
+
+  // Campaign/promotional queries (check before general)
+  const campaignKeywords = [
+    'mother\'s day', 'mothers day', 'father\'s day', 'fathers day',
+    'holiday', 'christmas', 'valentine', 'black friday', 'cyber monday',
+    'summer', 'winter', 'spring', 'fall', 'seasonal', 'gift', 'campaign',
+  ];
+  const goalsLower = entities.goals.map((g) => g.toLowerCase()).join(' ');
+  if (campaignKeywords.some((kw) => goalsLower.includes(kw))) {
+    return LAYOUT_CAMPAIGN_LANDING;
+  }
+
+  // About/brand story queries
+  const aboutKeywords = ['history', 'about', 'company', 'brand', 'story', 'heritage', 'values', 'mission'];
+  if (intentType === 'general' && aboutKeywords.some((kw) => goalsLower.includes(kw))) {
+    return LAYOUT_ABOUT_STORY;
   }
 
   // Educational/how-to queries
@@ -598,7 +844,16 @@ export function getLayoutForIntent(
 export type BlockType = 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq'
   | 'benefits-grid' | 'recipe-cards' | 'product-recommendation' | 'tips-banner'
   | 'ingredient-search' | 'recipe-filter-bar' | 'recipe-grid' | 'quick-view-modal' | 'technique-spotlight'
-  | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta';
+  | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta'
+  | 'comparison-table' | 'use-case-cards' | 'verdict-card' | 'comparison-cta'
+  | 'product-hero' | 'specs-table' | 'feature-highlights' | 'included-accessories' | 'product-cta'
+  | 'product-cards'
+  // Single Recipe blocks
+  | 'recipe-hero' | 'ingredients-list' | 'recipe-steps' | 'nutrition-facts' | 'recipe-tips'
+  // Campaign Landing blocks
+  | 'countdown-timer' | 'testimonials'
+  // About/Story blocks
+  | 'timeline' | 'team-cards';
 
 export function templateToLayoutDecision(layout: LayoutTemplate): {
   blocks: Array<{

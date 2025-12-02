@@ -1,4 +1,9 @@
-# Skill: Vitamix Design System
+---
+name: Vitamix Design System
+description: Design specifications and patterns for Vitamix.com block generation. Use when styling blocks, creating CSS, or making design decisions for the Vitamix generative website. Contains brand colors, typography, spacing, and component patterns.
+---
+
+# Vitamix Design System
 
 Design specifications and patterns for Vitamix.com block generation.
 
@@ -50,14 +55,16 @@ Design specifications and patterns for Vitamix.com block generation.
   --font-size-sm: 0.875rem;    /* 14px - Small text, buttons */
   --font-size-xs: 0.75rem;     /* 12px - Eyebrows, labels */
 
-  /* Weights */
+  /* Weights - MAXIMUM 500 */
   --font-weight-light: 300;    /* Hero headlines */
   --font-weight-normal: 400;   /* Body text */
-  --font-weight-medium: 500;   /* Emphasis */
-  --font-weight-semibold: 600; /* Subheadings, buttons */
-  --font-weight-bold: 700;     /* Strong emphasis */
+  --font-weight-medium: 500;   /* Emphasis, buttons, headings */
+  --font-weight-semibold: 500; /* Same as medium - no heavier weights */
+  --font-weight-bold: 500;     /* Same as medium - no heavier weights */
 }
 ```
+
+**IMPORTANT: Maximum font-weight is 500. Never use 600, 700, or bold.**
 
 ### Typography Patterns:
 
@@ -65,7 +72,7 @@ Design specifications and patterns for Vitamix.com block generation.
 ```css
 .eyebrow {
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--color-brand-red);
@@ -95,7 +102,7 @@ h2 {
 ```css
 .button {
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -128,7 +135,7 @@ h2 {
   color: var(--color-white);
   border: none;
   padding: 0.75rem 2rem;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-radius: 0;  /* Vitamix uses square corners */
@@ -362,27 +369,12 @@ Standard hover transitions:
 }
 ```
 
-## Design Screenshots Reference
-
-Located at: `docs/design-system/screenshots/`
-
-Key references:
-- `homepage-full.png` - Homepage layout
-- `support-full.png` - Support page with icon grid
-- `faq-accordion-expanded.png` - FAQ accordion pattern
-- `product-detail-full.png` - Product detail page
-- `recipes-full.png` - Recipe collection page
-- `learn-page-recipe-cards-metadata.png` - Recipe card with metadata
-
 ## File Locations
 
-- Design tokens: `docs/design-system/tokens.json`
-- Block specs: `docs/design-system/block-specs.md`
-- Patterns: `docs/design-system/patterns.md`
-- Screenshots: `docs/design-system/screenshots/`
 - Global styles: `styles/styles.css`
+- Block styles: `blocks/block-name/block-name.css`
 
 ## Related Skills
 
-- **layout-definition.md** - How to define layouts
-- **block-implementation.md** - How to build blocks
+- **gen-layout-definition** - How to define layouts
+- **gen-block-implementation** - How to build blocks

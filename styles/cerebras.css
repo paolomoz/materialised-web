@@ -52,7 +52,7 @@
 .cerebras-btn {
   padding: 16px 32px;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 500;
   background: var(--cerebras-primary);
   color: white;
   border: none;
@@ -142,7 +142,7 @@
   background: var(--cerebras-primary);
   color: white;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
   border-radius: 24px;
   margin-bottom: 16px;
 }

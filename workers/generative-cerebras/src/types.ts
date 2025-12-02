@@ -51,7 +51,10 @@ export type LayoutId =
   | 'educational'
   | 'promotional'
   | 'quick-answer'
-  | 'lifestyle';
+  | 'lifestyle'
+  | 'single-recipe'
+  | 'campaign-landing'
+  | 'about-story';
 
 /**
  * Intent classification result
@@ -103,7 +106,16 @@ export interface RAGContext {
 export type BlockType = 'hero' | 'cards' | 'columns' | 'split-content' | 'text' | 'cta' | 'faq'
   | 'benefits-grid' | 'recipe-cards' | 'product-recommendation' | 'tips-banner'
   | 'ingredient-search' | 'recipe-filter-bar' | 'recipe-grid' | 'quick-view-modal' | 'technique-spotlight'
-  | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta';
+  | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta'
+  | 'comparison-table' | 'use-case-cards' | 'verdict-card' | 'comparison-cta'
+  | 'product-hero' | 'specs-table' | 'feature-highlights' | 'included-accessories' | 'product-cta'
+  | 'product-cards'
+  // Single Recipe blocks
+  | 'recipe-hero' | 'ingredients-list' | 'recipe-steps' | 'nutrition-facts' | 'recipe-tips'
+  // Campaign Landing blocks
+  | 'countdown-timer' | 'testimonials'
+  // About/Story blocks
+  | 'timeline' | 'team-cards';
 
 /**
  * Generated content structure

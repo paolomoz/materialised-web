@@ -1,4 +1,9 @@
-# Skill: Block Implementation
+---
+name: Generative Block Implementation
+description: Guidelines for implementing EDS blocks that work with the Vitamix generative page system. Use when creating new blocks or modifying existing blocks in the generative website workers.
+---
+
+# Block Implementation
 
 Guidelines for implementing EDS blocks that work with the generative page system.
 
@@ -257,5 +262,5 @@ Always add:
 
 ## Related Skills
 
-- **layout-definition.md** - How to define layouts
-- **vitamix-design-system.md** - Vitamix-specific styling
+- **gen-layout-definition** - How to define layouts
+- **vitamix-design-system** - Vitamix-specific styling guidelines

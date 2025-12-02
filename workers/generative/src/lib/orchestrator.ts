@@ -8,14 +8,14 @@ import type {
   GeneratedImage,
   SSEEvent,
 } from '../types';
-import { classifyIntent, generateContent, validateBrandCompliance } from '../ai-clients/claude';
+import { classifyIntent, generateContent, validateBrandCompliance } from '../ai-clients/cerebras';
 import { analyzeQuery } from '../ai-clients/gemini';
-import { generateImages, decideImageStrategy } from '../ai-clients/imagen';
-import { retrieveContext, expandQuery } from './rag';
+import { generateImages, decideImageStrategy, type ImageProvider } from '../ai-clients/image-router';
+import { smartRetrieve } from './rag';
 import { getLayoutForIntent, templateToLayoutDecision, type LayoutTemplate } from '../prompts/layouts';
 
 // Worker base URL for image serving
-const WORKER_URL = 'https://vitamix-generative.paolo-moz.workers.dev';
+const WORKER_URL = 'https://vitamix-generative-cerebras.paolo-moz.workers.dev';
 
 /**
  * Build predictable image URL for a given slug and image ID
@@ -23,6 +23,30 @@ const WORKER_URL = 'https://vitamix-generative.paolo-moz.workers.dev';
  */
 function buildImageUrl(slug: string, imageId: string): string {
   return `${WORKER_URL}/images/${slug}/${imageId}.png`;
+}
+
+/**
+ * Check if a video URL is valid (must be an actual external video URL)
+ * We only accept http/https URLs that look like actual video content
+ * (e.g., YouTube, Vimeo, or video file extensions)
+ */
+function isValidVideoUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  const trimmed = url.trim().toLowerCase();
+
+  // Reject empty, "#", or placeholder-like URLs
+  if (!trimmed || trimmed === '#' || trimmed === '/#' || trimmed.startsWith('#')) return false;
+
+  // Must be an external URL (not relative paths which are likely placeholders)
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) return false;
+
+  // Check for known video platforms or video file extensions
+  const videoPatterns = [
+    'youtube.com', 'youtu.be', 'vimeo.com', 'wistia.com',
+    '.mp4', '.webm', '.mov', '.avi', '.m4v'
+  ];
+
+  return videoPatterns.some(pattern => trimmed.includes(pattern));
 }
 
 /**
@@ -51,12 +75,14 @@ type SSECallback = (event: SSEEvent) => void;
 
 /**
  * Main orchestration function - coordinates all AI services
+ * @param imageProvider Optional override for image provider ('fal' | 'lora' | 'imagen')
  */
 export async function orchestrate(
   query: string,
   slug: string,
   env: Env,
-  onEvent: SSECallback
+  onEvent: SSECallback,
+  imageProvider?: ImageProvider
 ): Promise<{
   content: GeneratedContent;
   layout: LayoutDecision;
@@ -69,11 +95,10 @@ export async function orchestrate(
     // Stage 1: Intent Classification (fast, blocking)
     ctx.intent = await classifyIntent(query, env);
 
-    // Stage 2: Parallel - RAG retrieval + Query analysis
+    // Stage 2: Parallel - Smart RAG retrieval + Query analysis
+    // smartRetrieve uses the intent to plan the optimal retrieval strategy
     const [ragContext, entities] = await Promise.all([
-      retrieveContext(expandQuery(query), env, {
-        contentTypes: ctx.intent.contentTypes,
-      }),
+      smartRetrieve(query, ctx.intent, env),
       analyzeQuery(query, env),
     ]);
 
@@ -140,7 +165,7 @@ export async function orchestrate(
     }
 
     // Generate images (this is slow, but we've already streamed content)
-    ctx.images = await generateImages(imageRequests, ctx.slug, env);
+    ctx.images = await generateImages(imageRequests, ctx.slug, env, imageProvider);
 
     // Send image ready events
     for (const image of ctx.images) {
@@ -331,9 +356,9 @@ function buildImageRequests(
         break;
 
       case 'technique-spotlight':
-        // Technique spotlight always needs an image (unless using video)
+        // Technique spotlight always needs an image (unless using a valid video URL)
         // The HTML builder adds an image even without imagePrompt, so we must generate one
-        if (!blockContent.videoUrl) {
+        if (!isValidVideoUrl(blockContent.videoUrl)) {
           requests.push({
             id: `technique-${block.id}`,
             blockId: block.id,
@@ -361,6 +386,50 @@ function buildImageRequests(
         }
         break;
 
+      case 'product-hero':
+        if (blockContent.imagePrompt || decision?.prompt) {
+          requests.push({
+            id: `product-hero-${block.id}`,
+            blockId: block.id,
+            prompt: decision?.prompt || blockContent.imagePrompt || `Vitamix blender product shot on neutral gray background`,
+            aspectRatio: '1:1',
+            size: 'card',
+          });
+        }
+        break;
+
+      case 'feature-highlights':
+        if (blockContent.features && Array.isArray(blockContent.features)) {
+          blockContent.features.forEach((feature: any, i: number) => {
+            if (feature && feature.imagePrompt) {
+              requests.push({
+                id: `feature-highlights-${block.id}-${i}`,
+                blockId: block.id,
+                prompt: feature.imagePrompt,
+                aspectRatio: '3:2',
+                size: 'card',
+              });
+            }
+          });
+        }
+        break;
+
+      case 'included-accessories':
+        if (blockContent.accessories && Array.isArray(blockContent.accessories)) {
+          blockContent.accessories.forEach((acc: any, i: number) => {
+            if (acc && acc.imagePrompt) {
+              requests.push({
+                id: `included-accessories-${block.id}-${i}`,
+                blockId: block.id,
+                prompt: acc.imagePrompt,
+                aspectRatio: '1:1',
+                size: 'thumbnail',
+              });
+            }
+          });
+        }
+        break;
+
       // UI-only blocks that don't have images
       case 'ingredient-search':
       case 'recipe-filter-bar':
@@ -373,6 +442,12 @@ function buildImageRequests(
       case 'support-hero':
       case 'diagnosis-card':
       case 'support-cta':
+      case 'comparison-table':
+      case 'use-case-cards':
+      case 'verdict-card':
+      case 'comparison-cta':
+      case 'specs-table':
+      case 'product-cta':
         // No images needed for these blocks
         break;
 
@@ -545,9 +620,235 @@ function buildBlockHTML(
       return buildTroubleshootingStepsHTML(content as any, variant, slug, block.id);
     case 'support-cta':
       return buildSupportCTAHTML(content as any, variant);
+    case 'comparison-table':
+      return buildComparisonTableHTML(content as any, variant);
+    case 'use-case-cards':
+      return buildUseCaseCardsHTML(content as any, variant);
+    case 'verdict-card':
+      return buildVerdictCardHTML(content as any, variant);
+    case 'comparison-cta':
+      return buildComparisonCTAHTML(content as any, variant);
+    case 'product-hero':
+      return buildProductHeroHTML(content as any, variant, slug, block.id);
+    case 'specs-table':
+      return buildSpecsTableHTML(content as any, variant);
+    case 'feature-highlights':
+      return buildFeatureHighlightsHTML(content as any, variant, slug, block.id);
+    case 'included-accessories':
+      return buildIncludedAccessoriesHTML(content as any, variant, slug, block.id);
+    case 'product-cta':
+      return buildProductCTAHTML(content as any, variant);
     default:
       return '';
   }
+}
+
+/**
+ * Build Comparison Table block HTML
+ *
+ * Comparison Table is authored as a table block in DA:
+ * | Comparison Table |                |                |                |
+ * |------------------|----------------|----------------|----------------|
+ * |                  | A3500          | A2500          | E310           |
+ * | **Price**        | $649           | $549           | $349 ✓         |
+ * | **Motor**        | 2.2 HP         | 2.2 HP         | 2.0 HP         |
+ *
+ * HTML structure:
+ * <div class="comparison-table">
+ *   <div><div></div><div>A3500</div><div>A2500</div><div>E310</div></div>
+ *   <div><div><strong>Price</strong></div><div>$649</div><div>$549</div><div>$349 ✓</div></div>
+ *   ...
+ * </div>
+ */
+function buildComparisonTableHTML(content: any, variant: string): string {
+  const products = content.products || [];
+  const specs = content.specs || [];
+
+  if (products.length === 0) {
+    return `<div class="comparison-table${variant !== 'default' ? ` ${variant}` : ''}"></div>`;
+  }
+
+  let rowsHtml = '';
+
+  // Header row: empty cell + product names
+  const headerCells = ['<div></div>'].concat(
+    products.map((p: string) => `<div><strong>${escapeHTML(p)}</strong></div>`)
+  ).join('');
+  rowsHtml += `<div>${headerCells}</div>`;
+
+  // Spec rows
+  for (const spec of specs) {
+    const specCells = [`<div><strong>${escapeHTML(spec.name)}</strong></div>`].concat(
+      (spec.values || []).map((v: string) => `<div>${escapeHTML(v)}</div>`)
+    ).join('');
+    rowsHtml += `<div>${specCells}</div>`;
+  }
+
+  return `
+    <div class="comparison-table${variant !== 'default' ? ` ${variant}` : ''}">
+      ${rowsHtml}
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Use Case Cards block HTML
+ *
+ * Use Case Cards is authored as a table block in DA:
+ * | Use Case Cards |
+ * |----------------|
+ * | **POWER USER** |
+ * | ### A3500 |
+ * | Best for tech-savvy cooks... |
+ * | [Shop A3500](/products/a3500) |
+ *
+ * HTML structure:
+ * <div class="use-case-cards">
+ *   <div><div>
+ *     <p><strong>POWER USER</strong></p>
+ *     <h3>A3500</h3>
+ *     <p>Description...</p>
+ *     <p><a href="...">Shop A3500</a></p>
+ *   </div></div>
+ *   ...
+ * </div>
+ */
+function buildUseCaseCardsHTML(content: any, variant: string): string {
+  const cards = content.cards || [];
+
+  if (cards.length === 0) {
+    return `<div class="use-case-cards${variant !== 'default' ? ` ${variant}` : ''}"></div>`;
+  }
+
+  const cardsHtml = cards.map((card: any) => `
+    <div><div>
+      <p><strong>${escapeHTML(card.persona || '')}</strong></p>
+      <h3>${escapeHTML(card.product || '')}</h3>
+      <p>${escapeHTML(card.description || '')}</p>
+      ${card.ctaText ? `<p><a href="${escapeHTML(card.ctaUrl || '#')}">${escapeHTML(card.ctaText)}</a></p>` : ''}
+    </div></div>
+  `).join('');
+
+  return `
+    <div class="use-case-cards${variant !== 'default' ? ` ${variant}` : ''}">
+      ${cardsHtml}
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Verdict Card block HTML
+ *
+ * Verdict Card is authored as a table block in DA:
+ * | Verdict Card |
+ * |--------------|
+ * | ## The Verdict |
+ * | For most people, we recommend the **A2500**... |
+ * | - **Choose A3500 if:** You want touchscreen... |
+ * | - **Choose A2500 if:** You want great value... |
+ *
+ * HTML structure:
+ * <div class="verdict-card">
+ *   <div><div>
+ *     <h2>The Verdict</h2>
+ *     <p>For most people...</p>
+ *     <ul>
+ *       <li><strong>Choose A3500 if:</strong> ...</li>
+ *       ...
+ *     </ul>
+ *     <p>Closing statement</p>
+ *   </div></div>
+ * </div>
+ */
+function buildVerdictCardHTML(content: any, variant: string): string {
+  let innerHtml = '';
+
+  // Headline
+  if (content.headline) {
+    innerHtml += `<h2>${escapeHTML(content.headline)}</h2>`;
+  }
+
+  // Main recommendation
+  if (content.mainRecommendation) {
+    innerHtml += `<p>${escapeHTML(content.mainRecommendation)}</p>`;
+  }
+
+  // Per-product recommendations as list
+  if (content.recommendations && content.recommendations.length > 0) {
+    const listItems = content.recommendations.map((rec: any) =>
+      `<li><strong>Choose ${escapeHTML(rec.product)} if:</strong> ${escapeHTML(rec.condition)}</li>`
+    ).join('');
+    innerHtml += `<ul>${listItems}</ul>`;
+  }
+
+  // Closing statement
+  if (content.closingStatement) {
+    innerHtml += `<p>${escapeHTML(content.closingStatement)}</p>`;
+  }
+
+  return `
+    <div class="verdict-card${variant !== 'default' ? ` ${variant}` : ''}">
+      <div><div>
+        ${innerHtml}
+      </div></div>
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Comparison CTA block HTML
+ *
+ * Comparison CTA is authored as a table block in DA:
+ * | Comparison CTA |                     |                     |
+ * |----------------|---------------------|---------------------|
+ * | ### A3500      | ### A2500           | ### E310            |
+ * | $649           | $549                | $349                |
+ * | [Shop Now](/p) | [Shop Now](/p)      | [Shop Now](/p)      |
+ * | All models include free shipping                          |
+ *
+ * HTML structure:
+ * <div class="comparison-cta">
+ *   <div><div><h3>A3500</h3></div><div><h3>A2500</h3></div>...</div>
+ *   <div><div>$649</div><div>$549</div>...</div>
+ *   <div><div><a>Shop</a></div>...</div>
+ *   <div><div>Footer message</div></div>
+ * </div>
+ */
+function buildComparisonCTAHTML(content: any, variant: string): string {
+  const products = content.products || [];
+
+  if (products.length === 0) {
+    return `<div class="comparison-cta${variant !== 'default' ? ` ${variant}` : ''}"></div>`;
+  }
+
+  // Row 1: Product names
+  const namesRow = products.map((p: any) =>
+    `<div><h3>${escapeHTML(p.name || '')}</h3></div>`
+  ).join('');
+
+  // Row 2: Prices
+  const pricesRow = products.map((p: any) =>
+    `<div><p>${escapeHTML(p.price || '')}</p></div>`
+  ).join('');
+
+  // Row 3: CTA buttons
+  const ctasRow = products.map((p: any) =>
+    `<div><p><a href="${escapeHTML(p.ctaUrl || '#')}">${escapeHTML(p.ctaText || 'Shop Now')}</a></p></div>`
+  ).join('');
+
+  // Row 4: Footer message
+  const footerRow = content.footerMessage
+    ? `<div><div><p>${escapeHTML(content.footerMessage)}</p></div></div>`
+    : '';
+
+  return `
+    <div class="comparison-cta${variant !== 'default' ? ` ${variant}` : ''}">
+      <div>${namesRow}</div>
+      <div>${pricesRow}</div>
+      <div>${ctasRow}</div>
+      ${footerRow}
+    </div>
+  `.trim();
 }
 
 /**
@@ -1328,8 +1629,8 @@ function buildTechniqueSpotlightHTML(content: any, variant: string, slug: string
 
   let rowsHtml = '';
 
-  // Row 1: Image/Video
-  if (content.videoUrl) {
+  // Row 1: Image/Video (use image if video URL is invalid/placeholder)
+  if (isValidVideoUrl(content.videoUrl)) {
     rowsHtml += `<div><div><a href="${escapeHTML(content.videoUrl)}">${escapeHTML(content.videoUrl)}</a></div></div>`;
   } else {
     rowsHtml += `<div><div><picture><img src="${imageUrl}" alt="${escapeHTML(content.title || 'Technique')}" data-gen-image="${imageId}" loading="lazy"></picture></div></div>`;
@@ -1554,6 +1855,227 @@ function buildSupportCTAHTML(content: any, variant: string): string {
       <div>${descRow}</div>
       <div>${urlRow}</div>
       <div>${styleRow}</div>
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Product Hero block HTML
+ *
+ * Product Hero is authored as a table block in DA:
+ * | Product Hero                    |                              |
+ * |---------------------------------|------------------------------|
+ * | Ascent Series                   | [product-image.jpg]          |
+ * | ## Vitamix A3500                |                              |
+ * | Brushed Stainless               |                              |
+ * | #8B8B8B | #1a1a1a | #d4af37     |                              |
+ * | [[Find Locally]] [[Compare]]   |                              |
+ *
+ * HTML structure:
+ * <div class="product-hero">
+ *   <div>
+ *     <div><!-- details cell: series, name, swatches, buttons --></div>
+ *     <div><picture>...</picture></div>
+ *   </div>
+ * </div>
+ */
+function buildProductHeroHTML(content: any, variant: string, slug: string, blockId: string): string {
+  const imageId = `product-hero-${blockId}`;
+  const imageUrl = buildImageUrl(slug, imageId);
+  const productName = content.productName || '';
+  const description = content.description || '';
+  const price = content.price || '';
+  const specs = content.specs || '';
+  const compareUrl = content.compareUrl || '/compare';
+
+  return `
+    <div class="product-hero${variant !== 'default' ? ` ${variant}` : ''}">
+      <div>
+        <div>
+          <h1>${escapeHTML(productName)}</h1>
+          ${description ? `<p>${escapeHTML(description)}</p>` : ''}
+          ${price ? `<p><strong>${escapeHTML(price)}</strong></p>` : ''}
+          ${specs ? `<p>${escapeHTML(specs)}</p>` : ''}
+          <p><a href="${escapeHTML(compareUrl)}">Compare Models</a></p>
+        </div>
+        <div>
+          <picture>
+            <img loading="lazy" alt="${escapeHTML(productName)}" src="${imageUrl}" data-gen-image="${imageId}">
+          </picture>
+        </div>
+      </div>
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Specs Table block HTML
+ *
+ * Two-row grid layout showing product specifications
+ * Each row contains 4 spec cards with label/value pairs
+ *
+ * HTML structure:
+ * <div class="specs-table">
+ *   <div>
+ *     <div><p><strong>Label</strong></p><p>Value</p></div>
+ *     ...4 specs per row...
+ *   </div>
+ *   <div>...second row of 4 specs...</div>
+ * </div>
+ */
+function buildSpecsTableHTML(content: any, variant: string): string {
+  const specs = content.specs || [];
+  const specsPerRow = 4;
+
+  // Split specs into rows
+  const row1Specs = specs.slice(0, specsPerRow);
+  const row2Specs = specs.slice(specsPerRow, specsPerRow * 2);
+
+  const buildRow = (rowSpecs: any[]) => {
+    if (rowSpecs.length === 0) return '';
+    const cells = rowSpecs.map((spec: any) => `
+          <div>
+            <p><strong>${escapeHTML(spec.label)}</strong></p>
+            <p>${escapeHTML(spec.value)}</p>
+          </div>`).join('');
+    return `<div>${cells}
+        </div>`;
+  };
+
+  return `
+    <div class="specs-table${variant !== 'default' ? ` ${variant}` : ''}">
+        ${buildRow(row1Specs)}
+        ${buildRow(row2Specs)}
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Feature Highlights block HTML
+ *
+ * Feature cards with image + title + description
+ *
+ * HTML structure:
+ * <div class="feature-highlights">
+ *   <div>
+ *     <div><picture><img></picture></div>
+ *     <div><h3>Title</h3><p>Description</p></div>
+ *   </div>
+ *   ...more features...
+ * </div>
+ */
+function buildFeatureHighlightsHTML(content: any, variant: string, slug: string, blockId: string): string {
+  const features = content.features || [];
+
+  const featuresHtml = features.filter((f: any) => f && f.title).map((feature: any, idx: number) => {
+    const imageId = `feature-highlights-${blockId}-${idx}`;
+    const imageUrl = `/images/${slug}/${imageId}.png`;
+    const title = feature.title || 'Feature';
+    const description = feature.description || '';
+
+    return `
+        <div>
+          <div>
+            <picture>
+              <img loading="lazy" alt="${escapeHTML(title)}" src="${imageUrl}" data-gen-image="${imageId}">
+            </picture>
+          </div>
+          <div>
+            <h3>${escapeHTML(title)}</h3>
+            <p>${escapeHTML(description)}</p>
+          </div>
+        </div>`;
+  }).join('');
+
+  return `
+    <div class="feature-highlights${variant !== 'default' ? ` ${variant}` : ''}">${featuresHtml}
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Included Accessories block HTML
+ *
+ * Accessory cards with image + title + description
+ *
+ * HTML structure:
+ * <div class="included-accessories">
+ *   <div>
+ *     <div><picture><img></picture></div>
+ *     <div><p><strong>Title</strong></p><p>Description</p></div>
+ *   </div>
+ *   ...more accessories...
+ * </div>
+ */
+function buildIncludedAccessoriesHTML(content: any, variant: string, slug: string, blockId: string): string {
+  const accessories = content.accessories || [];
+
+  const accessoriesHtml = accessories.filter((acc: any) => acc && acc.title).map((accessory: any, idx: number) => {
+    const imageId = `included-accessories-${blockId}-${idx}`;
+    const imageUrl = `/images/${slug}/${imageId}.png`;
+    const title = accessory.title || 'Accessory';
+    const description = accessory.description || '';
+
+    return `
+        <div>
+          <div>
+            <picture>
+              <img loading="lazy" alt="${escapeHTML(title)}" src="${imageUrl}" data-gen-image="${imageId}">
+            </picture>
+          </div>
+          <div>
+            <p><strong>${escapeHTML(title)}</strong></p>
+            <p>${escapeHTML(description)}</p>
+          </div>
+        </div>`;
+  }).join('');
+
+  return `
+    <div class="included-accessories${variant !== 'default' ? ` ${variant}` : ''}">${accessoriesHtml}
+    </div>
+  `.trim();
+}
+
+/**
+ * Build Product CTA block HTML
+ *
+ * Call-to-action section with headline, description, and multiple CTAs
+ *
+ * HTML structure:
+ * <div class="product-cta">
+ *   <div>
+ *     <div>
+ *       <h2>Headline</h2>
+ *       <p>Description</p>
+ *       <p><a href="...">Primary CTA</a></p>
+ *       <p><a href="...">Secondary CTA</a></p>
+ *       <p><a href="...">Tertiary CTA</a></p>
+ *     </div>
+ *   </div>
+ * </div>
+ */
+function buildProductCTAHTML(content: any, variant: string): string {
+  let ctasHtml = '';
+
+  if (content.primaryCta) {
+    ctasHtml += `<p><a href="${escapeHTML(content.primaryCta.url)}">${escapeHTML(content.primaryCta.text)}</a></p>`;
+  }
+  if (content.secondaryCta) {
+    ctasHtml += `<p><a href="${escapeHTML(content.secondaryCta.url)}">${escapeHTML(content.secondaryCta.text)}</a></p>`;
+  }
+  if (content.tertiaryCta) {
+    ctasHtml += `<p><a href="${escapeHTML(content.tertiaryCta.url)}">${escapeHTML(content.tertiaryCta.text)}</a></p>`;
+  }
+
+  return `
+    <div class="product-cta${variant !== 'default' ? ` ${variant}` : ''}">
+      <div>
+        <div>
+          <h2>${escapeHTML(content.headline || '')}</h2>
+          ${content.description ? `<p>${escapeHTML(content.description)}</p>` : ''}
+          ${ctasHtml}
+        </div>
+      </div>
     </div>
   `.trim();
 }

@@ -1,0 +1,478 @@
+/**
+ * Product Compare Block Styles
+ *
+ * Selectable product cards with comparison modal overlay.
+ */
+
+.product-compare {
+  padding: 3rem 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Header */
+.product-compare-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.product-compare-title {
+  font-size: 1.75rem;
+  font-weight: 300;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.product-compare-btn {
+  padding: 0.75rem 2rem;
+  background: #e5e5e5;
+  color: #666;
+  border: none;
+  border-radius: 0;
+  font-weight: 500;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: not-allowed;
+  transition: all 0.2s ease;
+}
+
+.product-compare-btn.active {
+  background: #c41230;
+  color: #fff;
+  cursor: pointer;
+}
+
+.product-compare-btn.active:hover {
+  background: #a30f28;
+}
+
+/* Product Grid */
+.product-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Product Card */
+.product-compare-card {
+  position: relative;
+  background: #fff;
+  border: 2px solid #e5e5e5;
+  border-radius: 4px;
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.product-compare-card:hover {
+  border-color: #ccc;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 8%);
+}
+
+.product-compare-card.selected {
+  border-color: #c41230;
+  box-shadow: 0 0 0 2px rgb(196 18 48 / 20%);
+}
+
+.product-compare-card.selected .product-compare-checkbox {
+  background: #c41230;
+  border-color: #c41230;
+}
+
+.product-compare-card.selected .product-compare-checkbox svg {
+  opacity: 1;
+}
+
+/* Checkbox */
+.product-compare-checkbox {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #ccc;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.product-compare-checkbox svg {
+  width: 14px;
+  height: 14px;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* Product Image */
+.product-compare-image {
+  height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.product-compare-image img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* Product Name */
+.product-compare-name {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin: 0 0 0.5rem;
+}
+
+/* Product Price */
+.product-compare-price {
+  font-size: 1rem;
+  color: #666;
+}
+
+/* =========================================
+   Comparison Modal Overlay
+   ========================================= */
+
+.comparison-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 50%);
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem;
+  overflow-y: auto;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.comparison-modal-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.comparison-modal {
+  background: #f8f8f8;
+  border-radius: 4px;
+  width: 100%;
+  max-width: 1200px;
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 30%);
+  transform: translateY(-20px);
+  transition: transform 0.3s ease;
+}
+
+.comparison-modal-overlay.open .comparison-modal {
+  transform: translateY(0);
+}
+
+/* Modal Header */
+.comparison-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2rem 2.5rem;
+  border-bottom: 1px solid #e5e5e5;
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.comparison-modal-header h2 {
+  font-size: 1.75rem;
+  font-weight: 300;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.comparison-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.comparison-modal-print {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.comparison-modal-print:hover {
+  text-decoration: underline;
+}
+
+.comparison-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  color: #666;
+  transition: color 0.2s ease;
+}
+
+.comparison-modal-close:hover {
+  color: #1a1a1a;
+}
+
+.comparison-modal-close svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Products Grid */
+.comparison-modal-products {
+  display: grid;
+  padding: 0 2.5rem;
+  background: #fff;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.comparison-modal-corner {
+  padding: 1.5rem 0;
+}
+
+.comparison-modal-product {
+  position: relative;
+  padding: 1.5rem;
+  text-align: center;
+  border-left: 1px solid #e5e5e5;
+}
+
+.comparison-modal-remove {
+  position: absolute;
+  top: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  color: #999;
+  transition: color 0.2s ease;
+}
+
+.comparison-modal-remove:hover {
+  color: #1a1a1a;
+}
+
+.comparison-modal-remove svg {
+  width: 16px;
+  height: 16px;
+}
+
+.comparison-modal-product-image {
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.comparison-modal-product-image img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* Color Swatches */
+.comparison-modal-colors {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  min-height: 24px;
+}
+
+.comparison-modal-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.comparison-modal-swatch.active,
+.comparison-modal-swatch:hover {
+  border-color: #1a1a1a;
+}
+
+.comparison-modal-product-name {
+  font-size: 1.125rem;
+  font-weight: 400;
+  color: #1a1a1a;
+  margin: 0 0 1.5rem;
+}
+
+/* CTA */
+.comparison-modal-cta {
+  min-height: 44px;
+}
+
+.comparison-modal-view-btn {
+  display: inline-block;
+  padding: 0.75rem 2rem;
+  background: #c41230;
+  color: #fff !important;
+  text-decoration: none;
+  border-radius: 0;
+  font-weight: 500;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: background 0.2s ease;
+  line-height: 1.2;
+}
+
+.comparison-modal-view-btn:hover {
+  background: #a30f28;
+  color: #fff;
+}
+
+.comparison-modal-out-of-stock {
+  color: #2563eb;
+  font-size: 0.875rem;
+}
+
+/* Features Section */
+.comparison-modal-features {
+  display: grid;
+  padding: 0 2.5rem 2rem;
+  background: #fff;
+}
+
+.comparison-modal-features-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #666;
+  padding: 1.5rem 0;
+  align-self: start;
+}
+
+.comparison-modal-features-list {
+  padding: 1.5rem;
+  border-left: 1px solid #e5e5e5;
+}
+
+.comparison-modal-feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+  color: #333;
+  text-align: left;
+}
+
+.comparison-modal-feature-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.comparison-modal-na {
+  color: #999;
+  font-size: 0.875rem;
+}
+
+/* Responsive */
+@media (width < 900px) {
+  .comparison-modal-overlay {
+    padding: 1rem;
+  }
+
+  .comparison-modal-header {
+    padding: 1.5rem;
+  }
+
+  .comparison-modal-products,
+  .comparison-modal-features {
+    padding: 0 1rem;
+    overflow-x: auto;
+  }
+
+  .comparison-modal-product-image {
+    height: 150px;
+  }
+}
+
+@media (width < 600px) {
+  .product-compare {
+    padding: 2rem 1rem;
+  }
+
+  .product-compare-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .product-compare-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .product-compare-card {
+    padding: 1rem;
+  }
+
+  .product-compare-image {
+    height: 120px;
+  }
+
+  .product-compare-name {
+    font-size: 0.9375rem;
+  }
+
+  .comparison-modal-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .comparison-modal-product-image {
+    height: 100px;
+  }
+
+  .comparison-modal-view-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.6875rem;
+  }
+}
+
+/* Print styles */
+@media print {
+  .comparison-modal-overlay {
+    position: static;
+    background: none;
+    padding: 0;
+  }
+
+  .comparison-modal {
+    box-shadow: none;
+    max-height: none;
+  }
+
+  .comparison-modal-close,
+  .comparison-modal-print,
+  .comparison-modal-remove {
+    display: none;
+  }
+}

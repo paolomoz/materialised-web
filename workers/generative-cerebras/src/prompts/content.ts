@@ -33,7 +33,7 @@ Return a JSON object with this structure:
   "subheadline": "Supporting text (expand on headline)",
   "blocks": [
     {
-      "type": "hero" | "cards" | "columns" | "split-content" | "text" | "cta" | "faq" | "benefits-grid" | "recipe-cards" | "product-recommendation" | "tips-banner" | "ingredient-search" | "recipe-filter-bar" | "recipe-grid" | "quick-view-modal" | "technique-spotlight" | "support-hero" | "diagnosis-card" | "troubleshooting-steps" | "support-cta",
+      "type": "hero" | "cards" | "columns" | "split-content" | "text" | "cta" | "faq" | "benefits-grid" | "recipe-cards" | "product-recommendation" | "tips-banner" | "ingredient-search" | "recipe-filter-bar" | "recipe-grid" | "quick-view-modal" | "technique-spotlight" | "support-hero" | "diagnosis-card" | "troubleshooting-steps" | "support-cta" | "comparison-table" | "use-case-cards" | "verdict-card" | "comparison-cta" | "product-hero" | "specs-table" | "feature-highlights" | "included-accessories" | "product-cta" | "product-cards" | "recipe-hero" | "ingredients-list" | "recipe-steps" | "nutrition-facts" | "recipe-tips" | "countdown-timer" | "testimonials" | "timeline" | "team-cards",
       "variant": "default" | "full-width" | "highlight" | "reverse" | etc.,
       "sectionStyle": "default" | "highlight" | "dark",
       "content": { /* block-specific content */ }
@@ -201,6 +201,29 @@ Return a JSON object with this structure:
 - Used on use-case landing pages to showcase relevant recipes
 - Always include difficulty and time for each recipe
 - Image prompts should describe the finished dish in appetizing detail
+
+### Product Cards Block (Category Browse pages)
+{
+  "type": "product-cards",
+  "content": {
+    "products": [
+      {
+        "name": "string (product name like 'Vitamix A3500')",
+        "price": "string (like '$649.95')",
+        "reviewCount": "string (like '1,234')",
+        "url": "string (product page URL)",
+        "ctaText": "string (like 'Shop Now' or 'Learn More')",
+        "imagePrompt": "string (product photo description)"
+      }
+    ]
+  }
+}
+
+**Product Cards Notes:**
+- Used on category browse pages to display product grids
+- Use RAG context for accurate product names, prices, and URLs
+- Image prompts should describe clean product photos on neutral backgrounds
+- Include 3-6 products per block
 
 ### Product Recommendation Block (Use Case Landing pages)
 {
@@ -411,6 +434,390 @@ Return a JSON object with this structure:
 - Primary should be for human support escalation
 - Secondary should be for self-service (parts, warranty, etc.)
 - Descriptions should be encouraging and helpful
+
+### Comparison Table Block (Product Comparison pages)
+{
+  "type": "comparison-table",
+  "content": {
+    "products": ["string (product names like 'A3500', 'A2500', 'E310')"],
+    "specs": [
+      {
+        "name": "string (spec name like 'Price', 'Motor', 'Container')",
+        "values": ["string (value per product, use ✓ for winner, ✗ for missing)"]
+      }
+    ]
+  }
+}
+
+**Comparison Table Notes:**
+- Support 2-4 products in the comparison
+- Include 6-10 spec rows (Price, Motor, Container, Controls, Programs, Self-Detect, Warranty, Noise Level, WiFi/App)
+- Use ✓ to mark winner in category, ✗ for missing features
+- Values array must match products array length
+- Use RAG context for accurate specs - don't invent features
+
+### Use Case Cards Block (Product Comparison pages)
+{
+  "type": "use-case-cards",
+  "content": {
+    "cards": [
+      {
+        "persona": "string (like 'POWER USER', 'MOST POPULAR', 'BEST VALUE')",
+        "product": "string (product name like 'A3500')",
+        "description": "string (why this product fits this persona)",
+        "ctaText": "string (like 'Shop A3500')",
+        "ctaUrl": "string (product page URL)"
+      }
+    ]
+  }
+}
+
+**Use Case Cards Notes:**
+- Generate exactly 3 cards matching the number of products compared
+- Personas should be distinct: tech-savvy, balanced, budget-conscious
+- Description should explain WHY this product fits the persona
+- Keep descriptions concise (1-2 sentences)
+
+### Verdict Card Block (Product Comparison pages)
+{
+  "type": "verdict-card",
+  "content": {
+    "headline": "string (like 'The Verdict')",
+    "mainRecommendation": "string (e.g., 'For most people, we recommend the A2500...')",
+    "recommendations": [
+      {
+        "product": "string (product name)",
+        "condition": "string (when to choose this, e.g., 'You want touchscreen and WiFi')"
+      }
+    ],
+    "closingStatement": "string (optional, e.g., 'All three deliver legendary Vitamix performance')"
+  }
+}
+
+**Verdict Card Notes:**
+- Main recommendation should be objective and helpful
+- Include one recommendation per product compared
+- Conditions should be clear differentiators
+- Closing statement reassures all options are good
+
+### Comparison CTA Block (Product Comparison pages)
+{
+  "type": "comparison-cta",
+  "content": {
+    "products": [
+      {
+        "name": "string (product name)",
+        "price": "string (like '$649')",
+        "ctaText": "string (like 'Shop Now')",
+        "ctaUrl": "string (product page URL)"
+      }
+    ],
+    "footerMessage": "string (like 'All models include free shipping')"
+  }
+}
+
+**Comparison CTA Notes:**
+- Include all products from the comparison
+- Prices should match RAG context
+- Footer message should include trust signals (free shipping, warranty)
+
+### Product Hero Block (Product Detail pages)
+{
+  "type": "product-hero",
+  "content": {
+    "productName": "string (product name like 'Ascent Series A3500')",
+    "description": "string (brief product description)",
+    "price": "string (like '$649.95')",
+    "specs": "string (key specs like '2.2 HP Motor | 64 oz Container | 10-Year Warranty')",
+    "imagePrompt": "string (product image description)",
+    "addToCartUrl": "string (add to cart URL)",
+    "compareUrl": "string (comparison page URL)"
+  }
+}
+
+**Product Hero Notes:**
+- Split layout with image on left, details on right
+- Include price and key specs summary
+- Two CTAs: Add to Cart and Compare Models
+
+### Specs Table Block (Product Detail pages)
+{
+  "type": "specs-table",
+  "content": {
+    "specs": [
+      {
+        "label": "string (spec name like 'Motor')",
+        "value": "string (spec value like '2.2 HP Peak')"
+      }
+    ]
+  }
+}
+
+**Specs Table Notes:**
+- Grid layout showing key specifications
+- Use RAG context for accurate specifications
+- Include 6-8 specs: Motor, Container, Programs, Warranty, Controls, Speed, Dimensions, Weight
+
+### Feature Highlights Block (Product Detail pages)
+{
+  "type": "feature-highlights",
+  "content": {
+    "features": [
+      {
+        "title": "string (feature name like 'Touchscreen Controls')",
+        "description": "string (feature explanation)",
+        "imagePrompt": "string (image showing the feature)"
+      }
+    ]
+  }
+}
+
+**Feature Highlights Notes:**
+- Card layout with image + text for each feature
+- Include 3 key features
+- Images should show the feature in action
+
+### Included Accessories Block (Product Detail pages)
+{
+  "type": "included-accessories",
+  "content": {
+    "accessories": [
+      {
+        "title": "string (accessory name like '64 oz Low-Profile Container')",
+        "description": "string (brief description)",
+        "imagePrompt": "string (accessory image)"
+      }
+    ]
+  }
+}
+
+**Included Accessories Notes:**
+- Card layout showing what's in the box
+- Include 3-4 accessories
+- Each has image, title, and brief description
+
+### Product CTA Block (Product Detail pages)
+{
+  "type": "product-cta",
+  "content": {
+    "headline": "string (like 'Ready to Transform Your Kitchen?')",
+    "description": "string (motivational message)",
+    "primaryCtaText": "string (like 'Add to Cart - $649.95')",
+    "primaryCtaUrl": "string (add to cart URL)",
+    "secondaryCtaText": "string (like 'Find a Retailer')",
+    "secondaryCtaUrl": "string (retailer locator URL)",
+    "tertiaryCtaText": "string (optional, like 'Compare All Models')",
+    "tertiaryCtaUrl": "string (optional)"
+  }
+}
+
+**Product CTA Notes:**
+- Dark background with white text
+- Primary CTA should include price
+- Secondary and tertiary CTAs for additional actions
+
+### Recipe Hero Block (Single Recipe pages)
+{
+  "type": "recipe-hero",
+  "content": {
+    "title": "string (recipe name like 'Classic Tomato Soup')",
+    "description": "string (1-2 sentences about the dish)",
+    "imagePrompt": "string (describe the finished dish)",
+    "prepTime": "string (like '10 min')",
+    "cookTime": "string (like '20 min')",
+    "totalTime": "string (like '30 min')",
+    "servings": "string (like '4 servings')",
+    "difficulty": "string (Easy, Medium, Hard)",
+    "category": "string (like 'Soups', 'Smoothies', 'Desserts')"
+  }
+}
+
+**Recipe Hero Notes:**
+- Full-width hero with large dish image
+- Metadata bar shows prep time, cook time, servings, difficulty
+- Description should be appetizing and inviting
+
+### Ingredients List Block (Single Recipe pages)
+{
+  "type": "ingredients-list",
+  "content": {
+    "title": "string (optional, default 'Ingredients')",
+    "servingsNote": "string (optional, like 'For 4 servings')",
+    "sections": [
+      {
+        "name": "string (optional, group name like 'For the Soup')",
+        "items": [
+          {
+            "amount": "string (like '2 cups', '1 tablespoon')",
+            "item": "string (ingredient name like 'fresh tomatoes')",
+            "note": "string (optional, like 'diced', 'room temperature')"
+          }
+        ]
+      }
+    ]
+  }
+}
+
+**Ingredients List Notes:**
+- Two-column layout for easy reading
+- Group ingredients into sections if recipe has multiple components
+- Include preparation notes (diced, chopped, etc.)
+- Use RAG context for accurate measurements
+
+### Recipe Steps Block (Single Recipe pages)
+{
+  "type": "recipe-steps",
+  "content": {
+    "title": "string (optional, default 'Instructions')",
+    "steps": [
+      {
+        "stepNumber": number (1, 2, 3...),
+        "title": "string (short step title like 'Blend the Base')",
+        "instruction": "string (detailed step instruction)",
+        "tip": "string (optional, pro tip for this step)",
+        "imagePrompt": "string (optional, describe step illustration)"
+      }
+    ]
+  }
+}
+
+**Recipe Steps Notes:**
+- Numbered steps with clear titles
+- Include detailed instructions for each step
+- Optional images for key steps (Vitamix settings, technique)
+- Tips should add value (speed settings, timing cues)
+
+### Nutrition Facts Block (Single Recipe pages)
+{
+  "type": "nutrition-facts",
+  "content": {
+    "title": "string (optional, default 'Nutrition Facts')",
+    "servingSize": "string (like 'Per 1 cup serving')",
+    "facts": [
+      {
+        "label": "string (like 'Calories', 'Protein', 'Fiber')",
+        "value": "string (like '120', '5g', '3g')",
+        "dailyValue": "string (optional, like '10%')"
+      }
+    ]
+  }
+}
+
+**Nutrition Facts Notes:**
+- Grid layout showing key nutritional information
+- Include 6-8 facts: Calories, Protein, Carbs, Fat, Fiber, Sugar, Sodium
+- Only include facts if they're available in RAG context
+- Don't invent nutrition data
+
+### Recipe Tips Block (Single Recipe pages)
+{
+  "type": "recipe-tips",
+  "content": {
+    "title": "string (optional, default 'Pro Tips')",
+    "tips": [
+      {
+        "title": "string (short tip title)",
+        "description": "string (tip explanation)",
+        "icon": "string (optional, icon name like 'lightbulb', 'clock', 'star')"
+      }
+    ],
+    "variations": [
+      {
+        "name": "string (variation name like 'Spicy Version')",
+        "description": "string (how to modify the recipe)"
+      }
+    ]
+  }
+}
+
+**Recipe Tips Notes:**
+- Include 3-5 helpful tips
+- Tips should be specific to this recipe
+- Variations offer alternative versions (dietary, flavor)
+
+### Countdown Timer Block (Campaign Landing pages)
+{
+  "type": "countdown-timer",
+  "content": {
+    "headline": "string (like 'Sale Ends In')",
+    "endDate": "string (ISO date like '2024-12-25T23:59:59Z')",
+    "expiredMessage": "string (like 'This offer has ended')",
+    "urgencyMessage": "string (optional, like 'Limited Time Only!')"
+  }
+}
+
+**Countdown Timer Notes:**
+- Displays days, hours, minutes, seconds
+- Use urgencyMessage for additional pressure
+- JS handles the countdown animation
+
+### Testimonials Block (Campaign Landing pages)
+{
+  "type": "testimonials",
+  "content": {
+    "title": "string (optional, like 'What Our Customers Say')",
+    "testimonials": [
+      {
+        "quote": "string (customer quote)",
+        "author": "string (customer name)",
+        "location": "string (optional, city/state)",
+        "product": "string (optional, product they purchased)",
+        "rating": number (optional, 1-5 stars),
+        "imagePrompt": "string (optional, customer photo description)"
+      }
+    ]
+  }
+}
+
+**Testimonials Notes:**
+- Include 3 testimonials
+- Quotes should be authentic-sounding
+- Include star rating when available
+- Use real testimonials from RAG context if available
+
+### Timeline Block (About/Brand Story pages)
+{
+  "type": "timeline",
+  "content": {
+    "title": "string (optional, like 'Our Journey')",
+    "events": [
+      {
+        "year": "string (like '1921', '2010s')",
+        "title": "string (milestone title)",
+        "description": "string (1-2 sentences about the event)",
+        "highlight": boolean (optional, emphasize key moments)
+      }
+    ]
+  }
+}
+
+**Timeline Notes:**
+- Chronological company history
+- Include 5-7 key milestones
+- Use RAG context for accurate dates and facts
+- Highlight 1-2 most important moments
+
+### Team Cards Block (About/Brand Story pages)
+{
+  "type": "team-cards",
+  "content": {
+    "title": "string (optional, like 'Our Leadership')",
+    "members": [
+      {
+        "name": "string (full name)",
+        "role": "string (job title)",
+        "bio": "string (1-2 sentences about them)",
+        "imagePrompt": "string (professional headshot description)"
+      }
+    ]
+  }
+}
+
+**Team Cards Notes:**
+- Grid of leadership team cards
+- Include 3-4 team members
+- Professional headshot images
+- Brief, engaging bios
 
 ## Critical Instructions
 

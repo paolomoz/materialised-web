@@ -195,10 +195,117 @@ function extractBodyText(html: string): string {
 }
 
 /**
+ * Check if URL is a valid content image (not tracking pixel, icon, etc.)
+ */
+function isValidContentImageUrl(url: string): boolean {
+  const urlLower = url.toLowerCase();
+
+  // Exclude tracking pixels and analytics
+  const trackingPatterns = [
+    'facebook.com/tr',
+    'doubleclick',
+    'googleads',
+    'google-analytics',
+    'analytics',
+    'pixel',
+    'tracking',
+    '1x1',
+    'beacon',
+    'spacer',
+    'blank.gif',
+    'clear.gif',
+    'noscript',
+  ];
+
+  if (trackingPatterns.some(pattern => urlLower.includes(pattern))) {
+    return false;
+  }
+
+  // Exclude UI elements and icons
+  const uiPatterns = [
+    '/icons/',
+    '/icon-',
+    '/icon.',
+    '/logo',
+    '/ui/',
+    '/assets/icons/',
+    '/favicon',
+    '/sprite',
+    '/placeholder',
+    '/loading',
+    '/button',
+    '/arrow',
+    '/chevron',
+    '/badge',
+    '/ribbon',
+    '/star-rating',
+    'data:image', // inline data URIs (usually tiny)
+  ];
+
+  if (uiPatterns.some(pattern => urlLower.includes(pattern))) {
+    return false;
+  }
+
+  // Must be an actual image file (not a tracking endpoint)
+  const hasImageExtension = /\.(jpg|jpeg|png|webp|gif)(\?|$|#)/i.test(urlLower);
+  const isImageCdn = urlLower.includes('scene7') ||
+    urlLower.includes('cloudinary') ||
+    urlLower.includes('imgix') ||
+    urlLower.includes('ctfassets') ||
+    urlLower.includes('/media/') ||
+    urlLower.includes('/images/');
+
+  return hasImageExtension || isImageCdn;
+}
+
+/**
+ * Extract og:image meta tag (usually the best quality content image)
+ */
+function extractOgImage(html: string, baseUrl: string): ImageInfo | null {
+  const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+    || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i);
+
+  if (ogImageMatch) {
+    let src = ogImageMatch[1];
+
+    // Resolve relative URLs
+    try {
+      src = new URL(src, baseUrl).href;
+    } catch {
+      // Keep original
+    }
+
+    if (isValidContentImageUrl(src)) {
+      // Get og:image:alt if available
+      const altMatch = html.match(/<meta[^>]*property=["']og:image:alt["'][^>]*content=["']([^"']+)["']/i);
+      const alt = altMatch ? decodeHtmlEntities(altMatch[1]) : '';
+
+      return {
+        src,
+        alt,
+        context: 'Primary page image (og:image)',
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
  * Extract images with context
  */
 function extractImages(html: string, baseUrl: string): ImageInfo[] {
   const images: ImageInfo[] = [];
+  const seenUrls = new Set<string>();
+
+  // First, try to get og:image (usually the best content image)
+  const ogImage = extractOgImage(html, baseUrl);
+  if (ogImage) {
+    images.push(ogImage);
+    seenUrls.add(ogImage.src);
+  }
+
+  // Then extract images from img tags
   const imgRegex = /<img[^>]*src=["']([^"']+)["'][^>]*(?:alt=["']([^"']*)["'])?[^>]*>/gi;
   let match;
 
@@ -206,18 +313,20 @@ function extractImages(html: string, baseUrl: string): ImageInfo[] {
     const src = match[1];
     const alt = match[2] || '';
 
-    // Skip tiny images (likely icons/tracking pixels)
-    if (src.includes('1x1') || src.includes('pixel') || src.includes('tracking')) {
-      continue;
-    }
-
     // Resolve relative URLs
     let absoluteSrc = src;
     try {
       absoluteSrc = new URL(src, baseUrl).href;
     } catch {
-      // Keep original if URL parsing fails
+      continue; // Skip if URL is invalid
     }
+
+    // Skip if already seen or not a valid content image
+    if (seenUrls.has(absoluteSrc) || !isValidContentImageUrl(absoluteSrc)) {
+      continue;
+    }
+
+    seenUrls.add(absoluteSrc);
 
     // Extract surrounding context (text near the image)
     const contextStart = Math.max(0, match.index - 200);

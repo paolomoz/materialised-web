@@ -1,0 +1,127 @@
+/**
+ * Included Accessories Block Styles
+ *
+ * Shows what's in the box with product images and descriptions.
+ */
+
+.included-accessories {
+  padding: 4rem 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.included-accessories-wrapper {
+  text-align: center;
+}
+
+.included-accessories-title {
+  font-size: 1.75rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin: 0 0 2.5rem;
+}
+
+.included-accessories-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2rem;
+}
+
+.included-accessory-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.included-accessory-image {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.included-accessory-image picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.included-accessory-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 0.75rem;
+}
+
+.included-accessory-name {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin: 0 0 0.5rem;
+}
+
+.included-accessory-description {
+  font-size: 0.875rem;
+  color: #666;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Section variants */
+.section.highlight .included-accessories-title {
+  color: #1a1a1a;
+}
+
+.section.highlight .included-accessory-image {
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+}
+
+.section.dark .included-accessories-title {
+  color: #fff;
+}
+
+.section.dark .included-accessory-image {
+  background: rgb(255 255 255 / 10%);
+}
+
+.section.dark .included-accessory-name {
+  color: #fff;
+}
+
+.section.dark .included-accessory-description {
+  color: rgb(255 255 255 / 70%);
+}
+
+/* Responsive */
+@media (width < 900px) {
+  .included-accessories-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (width < 480px) {
+  .included-accessories {
+    padding: 3rem 1rem;
+  }
+
+  .included-accessories-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  .included-accessory-image {
+    width: 100px;
+    height: 100px;
+  }
+
+  .included-accessory-name {
+    font-size: 0.9375rem;
+  }
+}

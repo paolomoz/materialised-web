@@ -1,4 +1,9 @@
-# Skill: Layout Definition
+---
+name: Generative Layout Definition
+description: Guidelines for defining page layouts that map user intent to structured page experiences in the Vitamix generative website system. Use when creating new layouts or modifying existing layout templates in the workers/generative system.
+---
+
+# Layout Definition
 
 Guidelines for defining page layouts that map user intent to structured page experiences.
 
@@ -137,5 +142,5 @@ Layout templates: `workers/generative/src/prompts/layouts.ts`
 
 ## Related Skills
 
-- **block-implementation.md** - How to build blocks
-- **vitamix-design-system.md** - Vitamix-specific styling
+- **gen-block-implementation** - How to build blocks for the generative system
+- **vitamix-design-system** - Vitamix-specific styling guidelines

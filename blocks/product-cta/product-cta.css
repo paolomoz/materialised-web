@@ -1,0 +1,119 @@
+/**
+ * Product CTA Block Styles
+ *
+ * Final call-to-action for product detail page.
+ */
+
+.product-cta {
+  padding: 4rem 1.5rem;
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.product-cta-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.product-cta-title {
+  font-size: 2rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.product-cta-description {
+  font-size: 1.125rem;
+  color: #666;
+  margin: 0;
+  max-width: 500px;
+  line-height: 1.6;
+}
+
+.product-cta-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.product-cta-button {
+  display: inline-block;
+  padding: 0.75rem 2rem;
+  border-radius: 0;
+  font-weight: 500;
+  font-size: 0.875rem;
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.2s ease;
+}
+
+.product-cta-button.primary {
+  background: #c41230;
+  color: #fff;
+}
+
+.product-cta-button.primary:hover {
+  background: #a30f28;
+  color: #fff;
+}
+
+.product-cta-button.secondary {
+  background: transparent;
+  color: #1a1a1a;
+  border: 2px solid #1a1a1a;
+}
+
+.product-cta-button.secondary:hover {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+/* Section variants */
+.section.highlight .product-cta-title {
+  color: #1a1a1a;
+}
+
+.section.dark .product-cta-title {
+  color: #fff;
+}
+
+.section.dark .product-cta-description {
+  color: rgb(255 255 255 / 70%);
+}
+
+.section.dark .product-cta-button.secondary {
+  color: #fff;
+  border-color: #fff;
+}
+
+.section.dark .product-cta-button.secondary:hover {
+  background: #fff;
+  color: #1a1a1a;
+}
+
+/* Responsive */
+@media (width < 600px) {
+  .product-cta {
+    padding: 3rem 1rem;
+  }
+
+  .product-cta-title {
+    font-size: 1.5rem;
+  }
+
+  .product-cta-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .product-cta-button {
+    width: 100%;
+    text-align: center;
+  }
+}

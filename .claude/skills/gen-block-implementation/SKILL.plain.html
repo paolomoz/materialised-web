@@ -1,0 +1,228 @@
+<div><h2 id="name-generative-block-implementationdescription-guidelines-for-implementing-eds-blocks-that-work-with-the-vitamix-generative-page-system-use-when-creating-new-blocks-or-modifying-existing-blocks-in-the-generative-website-workers">name: Generative Block Implementation
+description: Guidelines for implementing EDS blocks that work with the Vitamix generative page system. Use when creating new blocks or modifying existing blocks in the generative website workers.</h2>
+<h1 id="block-implementation">Block Implementation</h1>
+<p>Guidelines for implementing EDS blocks that work with the generative page system.</p>
+<h2 id="block-architecture-overview">Block Architecture Overview</h2>
+<p>Each block requires implementation in 3 layers:</p>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│  1. FRONTEND BLOCK (blocks/block-name/)                     │
+│     - block-name.js  → Decorator (DOM manipulation)         │
+│     - block-name.css → Styling                              │
+├─────────────────────────────────────────────────────────────┤
+│  2. HTML BUILDER (workers/generative/src/lib/orchestrator)  │
+│     - buildBlockNameHTML() function                         │
+│     - Case in buildBlockHTML() switch                       │
+├─────────────────────────────────────────────────────────────┤
+│  3. CONTENT GENERATION (workers/generative/src/prompts/)    │
+│     - Block spec in content.ts                              │
+│     - Content schema for Gemini                             │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<h2 id="content-model-da-table-structure">Content Model (DA Table Structure)</h2>
+<p>Every block is authored as a table in Document Authoring:</p>
+<pre><code>| Block Name (variant) |              |              |
+|----------------------|--------------|--------------|
+| Cell 1,1             | Cell 1,2     | Cell 1,3     |
+| Cell 2,1             | Cell 2,2     | Cell 2,3     |
+</code></pre>
+<h3 id="key-principles">Key Principles:</h3>
+<ul>
+<li>First row = block name (with optional variant in parentheses)</li>
+<li>Subsequent rows = content</li>
+<li>Rows = semantic groups</li>
+<li>Cells can contain: text, <code>**bold**</code>, <code>[links](url)</code>, <code>&#x3C;picture></code> elements</li>
+</ul>
+<h3 id="common-patterns">Common Patterns:</h3>
+<p><strong>Column-based (items as columns):</strong></p>
+<pre><code>| Recipe Grid    |              |              |
+|----------------|--------------|--------------|
+| [image1]       | [image2]     | [image3]     |
+| **Title 1**    | **Title 2**  | **Title 3**  |
+| Meta 1         | Meta 2       | Meta 3       |
+</code></pre>
+<p><strong>Row-based (items as rows):</strong></p>
+<pre><code>| FAQ            |              |
+|----------------|--------------|
+| Question 1?    | Answer 1     |
+| Question 2?    | Answer 2     |
+</code></pre>
+<p><strong>Single-column (flowing content):</strong></p>
+<pre><code>| Text           |
+|----------------|
+| ## Headline    |
+| Paragraph 1    |
+| Paragraph 2    |
+</code></pre>
+<h2 id="javascript-decorator-pattern">JavaScript Decorator Pattern</h2>
+<pre><code class="language-javascript">/**
+ * Block Name Block
+ *
+ * Description of what the block does.
+ *
+ * Content Model (DA Table):
+ * | Block Name |           |
+ * |------------|-----------|
+ * | ...        | ...       |
+ *
+ * HTML structure after EDS processing:
+ * &#x3C;div class="block-name">
+ *   &#x3C;div>              &#x3C;!-- row -->
+ *     &#x3C;div>...&#x3C;/div>   &#x3C;!-- cell -->
+ *   &#x3C;/div>
+ * &#x3C;/div>
+ */
+export default function decorate(block) {
+  // 1. Query existing DOM structure
+  const rows = [...block.children];
+
+  // 2. Parse/extract data from cells
+  const items = [];
+  rows.forEach((row) => {
+    const cells = [...row.children];
+    // Extract content from cells...
+  });
+
+  // 3. Rebuild HTML if needed (for complex transformations)
+  // block.innerHTML = newHTML;
+
+  // 4. Add event listeners
+  // 5. Add accessibility attributes (aria-*, role, tabindex)
+}
+</code></pre>
+<h2 id="html-builder-pattern">HTML Builder Pattern</h2>
+<p>In <code>orchestrator.ts</code>:</p>
+<pre><code class="language-typescript">// 1. Add case in buildBlockHTML switch
+case 'block-name':
+  return buildBlockNameHTML(content as any, variant, slug, block.id);
+
+// 2. Builder function
+function buildBlockNameHTML(
+  content: any,
+  variant: string,
+  slug: string,
+  blockId: string
+): string {
+  // Generate DA-compatible HTML structure
+  return `
+    &#x3C;div class="block-name${variant !== 'default' ? ` ${variant}` : ''}">
+      &#x3C;div>&#x3C;div>Cell content&#x3C;/div>&#x3C;/div>
+    &#x3C;/div>
+  `.trim();
+}
+</code></pre>
+<h3 id="html-structure-rules">HTML Structure Rules:</h3>
+<ul>
+<li>Outer div = block class</li>
+<li>Inner divs = rows and cells</li>
+<li>Match the structure EDS expects</li>
+<li>Use <code>escapeHTML()</code> for user content</li>
+</ul>
+<h2 id="image-handling">Image Handling</h2>
+<p>For blocks with AI-generated images:</p>
+<pre><code class="language-typescript">// 1. In buildImageRequests() function
+case 'block-name':
+  requests.push({
+    id: `blockname-${blockId}`,      // Unique ID for SSE updates
+    blockId: block.id,
+    prompt: content.imagePrompt || 'fallback prompt',
+    aspectRatio: '4:3',              // '16:9', '1:1', '4:3'
+    size: 'card',                    // 'hero', 'card', 'column'
+  });
+  break;
+
+// 2. In HTML, use data-gen-image for SSE updates
+const imageUrl = buildImageUrl(slug, `blockname-${blockId}`);
+const html = `&#x3C;img src="${imageUrl}" alt="..." data-gen-image="blockname-${blockId}" loading="lazy">`;
+</code></pre>
+<h3 id="critical-preserve-data-gen-image">Critical: Preserve data-gen-image</h3>
+<p>When decorators rebuild HTML, they MUST preserve the <code>data-gen-image</code> attribute:</p>
+<pre><code class="language-javascript">// In decorator
+const img = cell.querySelector('img');
+const genImageId = img?.dataset?.genImage || '';
+
+// When rebuilding
+const genImageAttr = genImageId ? ` data-gen-image="${genImageId}"` : '';
+newImg.setAttribute('data-gen-image', genImageId);
+</code></pre>
+<h2 id="css-structure">CSS Structure</h2>
+<pre><code class="language-css">/* Block container */
+.block-name {
+  max-width: var(--max-width-content);
+  margin: 0 auto;
+  padding: var(--spacing-section-md) var(--spacing-lg);
+}
+
+/* Target EDS structure */
+.block-name > div {           /* row */
+  display: grid;
+  gap: var(--spacing-lg);
+}
+
+.block-name > div > div {     /* cell */
+  /* cell styles */
+}
+
+/* Variants */
+.block-name.compact { }
+.block-name.dark { }
+
+/* Override global styles with specificity */
+.block-name .button,
+.block-name .button:any-link {
+  /* Block-specific button styles */
+}
+
+/* Responsive */
+@media (width &#x3C; 768px) {
+  .block-name > div {
+    grid-template-columns: 1fr;
+  }
+}
+</code></pre>
+<h2 id="common-gotchas">Common Gotchas</h2>
+<h3 id="css-specificity">1. CSS Specificity</h3>
+<p>Global styles in <code>styles.css</code> can override block styles:</p>
+<pre><code class="language-css">/* Bad - gets overridden */
+.action-button { color: white; }
+
+/* Good - higher specificity */
+.block-name .action-button { color: white; }
+</code></pre>
+<h3 id="eds-processing">2. EDS Processing</h3>
+<p>The HTML you generate must match what EDS expects after processing the DA table.</p>
+<h3 id="sse-image-updates">3. SSE Image Updates</h3>
+<p>The <code>image-ready</code> SSE event finds images by <code>data-gen-image</code> attribute. If your decorator removes this, images won't update.</p>
+<h3 id="accessibility">4. Accessibility</h3>
+<p>Always add:</p>
+<ul>
+<li><code>role</code> attributes for interactive elements</li>
+<li><code>aria-expanded</code> for accordions/dropdowns</li>
+<li><code>aria-label</code> for icon-only buttons</li>
+<li><code>tabindex="0"</code> for custom focusable elements</li>
+</ul>
+<h2 id="block-implementation-checklist">Block Implementation Checklist</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled> Define content model (DA Table structure)</li>
+<li class="task-list-item"><input type="checkbox" disabled> Create <code>blocks/block-name/block-name.js</code></li>
+<li class="task-list-item"><input type="checkbox" disabled> Create <code>blocks/block-name/block-name.css</code></li>
+<li class="task-list-item"><input type="checkbox" disabled> Add <code>buildBlockNameHTML()</code> in orchestrator.ts</li>
+<li class="task-list-item"><input type="checkbox" disabled> Add case in <code>buildBlockHTML()</code> switch</li>
+<li class="task-list-item"><input type="checkbox" disabled> Add image requests if block has images</li>
+<li class="task-list-item"><input type="checkbox" disabled> Add block type to <code>buildImageRequests()</code> switch</li>
+<li class="task-list-item"><input type="checkbox" disabled> Test with generated content</li>
+<li class="task-list-item"><input type="checkbox" disabled> Verify SSE image updates work</li>
+<li class="task-list-item"><input type="checkbox" disabled> Check responsive behavior</li>
+<li class="task-list-item"><input type="checkbox" disabled> Verify accessibility</li>
+</ul>
+<h2 id="file-locations">File Locations</h2>
+<ul>
+<li>Frontend blocks: <code>blocks/block-name/</code></li>
+<li>HTML builders: <code>workers/generative/src/lib/orchestrator.ts</code></li>
+<li>Content prompts: <code>workers/generative/src/prompts/content.ts</code></li>
+<li>Layout templates: <code>workers/generative/src/prompts/layouts.ts</code></li>
+</ul>
+<h2 id="related-skills">Related Skills</h2>
+<ul>
+<li><strong>gen-layout-definition</strong> - How to define layouts</li>
+<li><strong>vitamix-design-system</strong> - Vitamix-specific styling guidelines</li>
+</ul></div>

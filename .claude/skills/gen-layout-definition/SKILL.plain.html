@@ -1,0 +1,177 @@
+<div><h2 id="name-generative-layout-definitiondescription-guidelines-for-defining-page-layouts-that-map-user-intent-to-structured-page-experiences-in-the-vitamix-generative-website-system-use-when-creating-new-layouts-or-modifying-existing-layout-templates-in-the-workersgenerative-system">name: Generative Layout Definition
+description: Guidelines for defining page layouts that map user intent to structured page experiences in the Vitamix generative website system. Use when creating new layouts or modifying existing layout templates in the workers/generative system.</h2>
+<h1 id="layout-definition">Layout Definition</h1>
+<p>Guidelines for defining page layouts that map user intent to structured page experiences.</p>
+<h2 id="what-is-a-layout">What is a Layout?</h2>
+<p>A layout is a predefined page structure that:</p>
+<ol>
+<li>Maps to specific user intents (queries/needs)</li>
+<li>Defines the exact sequence of blocks</li>
+<li>Specifies section styles and block variants</li>
+<li>Ensures consistent, on-point page generation</li>
+</ol>
+<h2 id="layout-structure">Layout Structure</h2>
+<p>Each layout is defined in <code>workers/generative/src/prompts/layouts.ts</code> as a <code>LayoutTemplate</code>:</p>
+<pre><code class="language-typescript">export const LAYOUT_NAME: LayoutTemplate = {
+  id: 'layout-id',           // Unique identifier (kebab-case)
+  name: 'Layout Display Name',
+  description: 'What this layout is for',
+  useCases: [                // Example queries that trigger this layout
+    'User query example 1',
+    'User query example 2',
+  ],
+  sections: [
+    {
+      // Section 1
+      style: 'default',      // Optional: 'default' | 'highlight' | 'dark'
+      blocks: [
+        { type: 'block-name', variant: 'variant-name', config: { ... } },
+      ],
+    },
+    {
+      // Section 2
+      style: 'highlight',
+      blocks: [
+        { type: 'another-block', config: { itemCount: 3 } },
+      ],
+    },
+  ],
+};
+</code></pre>
+<h2 id="design-principles">Design Principles</h2>
+<h3 id="intent-first-design">1. Intent-First Design</h3>
+<ul>
+<li>Start with the user's goal, not the blocks</li>
+<li>Ask: "What does the user need to accomplish?"</li>
+<li>Design the flow to guide them to success</li>
+</ul>
+<h3 id="progressive-disclosure">2. Progressive Disclosure</h3>
+<ul>
+<li>Most important content first (hero)</li>
+<li>Supporting content in middle sections</li>
+<li>Call-to-action at the end</li>
+</ul>
+<h3 id="visual-rhythm">3. Visual Rhythm</h3>
+<ul>
+<li>Alternate section styles for visual interest</li>
+<li>Use <code>highlight</code> for emphasis, <code>dark</code> for contrast</li>
+<li>Group related blocks in the same section</li>
+</ul>
+<h3 id="block-specialization">4. Block Specialization</h3>
+<ul>
+<li>Prefer specialized blocks over generic ones</li>
+<li><code>recipe-cards</code> > <code>cards</code> for recipes</li>
+<li><code>support-hero</code> > <code>hero</code> for troubleshooting</li>
+<li>Specialized blocks = better UX + better AI content</li>
+</ul>
+<h2 id="layout-categories">Layout Categories</h2>
+<h3 id="transactional-layouts">Transactional Layouts</h3>
+<p>Goal: Help user make a purchase decision</p>
+<ul>
+<li>Product Detail</li>
+<li>Product Comparison</li>
+<li>Category Browse</li>
+</ul>
+<h3 id="informational-layouts">Informational Layouts</h3>
+<p>Goal: Help user learn or solve a problem</p>
+<ul>
+<li>Support/Troubleshooting</li>
+<li>Educational/How-To</li>
+<li>Quick Answer</li>
+</ul>
+<h3 id="inspirational-layouts">Inspirational Layouts</h3>
+<p>Goal: Engage user with content</p>
+<ul>
+<li>Recipe Collection</li>
+<li>Lifestyle/Inspiration</li>
+<li>Use Case Landing</li>
+</ul>
+<h3 id="promotional-layouts">Promotional Layouts</h3>
+<p>Goal: Drive specific actions</p>
+<ul>
+<li>Promotional</li>
+<li>Campaign Landing</li>
+</ul>
+<h2 id="creating-a-new-layout">Creating a New Layout</h2>
+<ol>
+<li>
+<p><strong>Identify the Intent</strong></p>
+<ul>
+<li>What queries will trigger this layout?</li>
+<li>What is the user's end goal?</li>
+</ul>
+</li>
+<li>
+<p><strong>Map the Journey</strong></p>
+<ul>
+<li>What do they need to see first?</li>
+<li>What information builds confidence?</li>
+<li>What action should they take?</li>
+</ul>
+</li>
+<li>
+<p><strong>Select Blocks</strong></p>
+<ul>
+<li>Choose specialized blocks when available</li>
+<li>Define variants for each block</li>
+<li>Set configuration (itemCount, hasImage, etc.)</li>
+</ul>
+</li>
+<li>
+<p><strong>Define Sections</strong></p>
+<ul>
+<li>Group related blocks</li>
+<li>Apply appropriate section styles</li>
+<li>Ensure visual flow</li>
+</ul>
+</li>
+<li>
+<p><strong>Document Use Cases</strong></p>
+<ul>
+<li>Add example queries</li>
+<li>Test with real prompts</li>
+<li>Refine based on generated content</li>
+</ul>
+</li>
+</ol>
+<h2 id="section-styles">Section Styles</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="style"><div><div><code>default</code></div><div>Standard content</div><div>White background</div></div><div><div><code>highlight</code></div><div>Emphasis, CTAs</div><div>Light gray/off-white background</div></div><div><div><code>dark</code></div><div>Contrast, premium feel</div><div>Dark background, white text</div></div></div>
+<h2 id="block-configuration">Block Configuration</h2>
+<p>Common config options:</p>
+<ul>
+<li><code>hasImage: boolean</code> - Whether block includes images</li>
+<li><code>itemCount: number</code> - Number of items (cards, steps, etc.)</li>
+<li><code>variant: string</code> - Block variant name</li>
+</ul>
+<h2 id="file-location">File Location</h2>
+<p>Layout templates: <code>workers/generative/src/prompts/layouts.ts</code></p>
+<h2 id="related-skills">Related Skills</h2>
+<ul>
+<li><strong>gen-block-implementation</strong> - How to build blocks for the generative system</li>
+<li><strong>vitamix-design-system</strong> - Vitamix-specific styling guidelines</li>
+</ul></div>
