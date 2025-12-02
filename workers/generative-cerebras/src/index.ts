@@ -1,4 +1,4 @@
-import type { Env, GenerationState } from './types';
+import type { Env, GenerationState, SessionContextParam } from './types';
 import { orchestrate } from './lib/orchestrator';
 import { createCallbackSSEStream } from './lib/stream-handler';
 import { persistAndPublish, DAClient, createPlaceholderPage } from './lib/da-client';
@@ -239,9 +239,21 @@ function handleStream(request: Request, env: Env): Response {
   const query = url.searchParams.get('query');
   const slug = url.searchParams.get('slug');
   const imageProvider = url.searchParams.get('images') as 'fal' | 'lora' | 'imagen' | null;
+  const contextParam = url.searchParams.get('ctx');
 
   if (!query || !slug) {
     return new Response('Missing query or slug', { status: 400 });
+  }
+
+  // Parse session context if provided
+  let sessionContext: SessionContextParam | undefined;
+  if (contextParam) {
+    try {
+      sessionContext = JSON.parse(decodeURIComponent(contextParam));
+      console.log('[handleStream] Session context:', sessionContext?.previousQueries?.length || 0, 'previous queries');
+    } catch (e) {
+      console.warn('[handleStream] Failed to parse session context:', e);
+    }
   }
 
   const path = `/discover/${slug}`;
@@ -256,8 +268,8 @@ function handleStream(request: Request, env: Env): Response {
     } as GenerationState), { expirationTtl: 300 });
 
     try {
-      // Run orchestration with optional image provider override
-      const result = await orchestrate(query, slug, env, emit, imageProvider || undefined);
+      // Run orchestration with optional image provider and session context
+      const result = await orchestrate(query, slug, env, emit, imageProvider || undefined, sessionContext);
 
       // Note: We don't auto-persist to DA here because images are generated
       // asynchronously and the HTML would have placeholder URLs.

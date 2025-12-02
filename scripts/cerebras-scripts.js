@@ -12,6 +12,7 @@ import {
   decorateIcons,
   loadCSS,
 } from './aem.js';
+import { SessionContextManager } from './session-context.js';
 
 // Cerebras worker URL
 const CEREBRAS_WORKER_URL = 'https://vitamix-generative-cerebras.paolo-moz.workers.dev';
@@ -161,9 +162,32 @@ async function renderCachedPage() {
     }
   });
 
-  eventSource.addEventListener('generation-complete', () => {
+  eventSource.addEventListener('generation-complete', (e) => {
     eventSource.close();
     console.log('[Cerebras] All images loaded');
+
+    // Parse intent data if available
+    let intent = null;
+    if (e.data) {
+      try {
+        const data = JSON.parse(e.data);
+        intent = data.intent;
+      } catch {
+        // No intent data
+      }
+    }
+
+    // Record this query in session context
+    SessionContextManager.addQuery({
+      query,
+      timestamp: Date.now(),
+      intent: intent?.intentType || 'general',
+      entities: intent?.entities || { products: [], ingredients: [], goals: [] },
+      generatedPath: `/discover/${slug}`,
+    });
+
+    console.log(`[Cerebras] Session context updated, total queries: ${SessionContextManager.getContext().queries.length}`);
+
     // Show publish button now that all images are ready
     addPublishButton();
   });
@@ -212,8 +236,14 @@ async function renderWithSSE(query, imageProvider) {
   // Reset original blocks storage for this generation
   originalBlocksData = [];
 
-  // Connect to SSE stream
-  const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}&images=${imageProvider}`;
+  // Track intent from layout event for session recording
+  let intentData = null;
+
+  // Build session context for the request
+  const contextParam = SessionContextManager.buildEncodedContextParam();
+
+  // Connect to SSE stream with session context
+  const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}&images=${imageProvider}&ctx=${contextParam}`;
   const eventSource = new EventSource(streamUrl);
 
   console.log(`[Cerebras] Starting SSE stream for: ${query}`);
@@ -241,11 +271,33 @@ async function renderWithSSE(query, imageProvider) {
     }
   });
 
-  eventSource.addEventListener('generation-complete', () => {
+  eventSource.addEventListener('generation-complete', (e) => {
     eventSource.close();
     const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
 
     console.log(`[Cerebras] Complete in ${totalTime}s`);
+
+    // Parse intent data if available
+    let intent = null;
+    if (e.data) {
+      try {
+        const data = JSON.parse(e.data);
+        intent = data.intent;
+      } catch {
+        // No intent data
+      }
+    }
+
+    // Record this query in session context
+    SessionContextManager.addQuery({
+      query,
+      timestamp: Date.now(),
+      intent: intent?.intentType || 'general',
+      entities: intent?.entities || { products: [], ingredients: [], goals: [] },
+      generatedPath: `/discover/${slug}`,
+    });
+
+    console.log(`[Cerebras] Session context updated, total queries: ${SessionContextManager.getContext().queries.length}`);
 
     // Update title
     const h1 = content.querySelector('h1');
@@ -349,8 +401,11 @@ async function startGeneration(query) {
   let expectedBlocks = 0;
   let hasNavigated = false;
 
-  // Connect to SSE stream
-  const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}&images=${imageProvider}`;
+  // Build session context for the request
+  const contextParam = SessionContextManager.buildEncodedContextParam();
+
+  // Connect to SSE stream with session context
+  const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}&images=${imageProvider}&ctx=${contextParam}`;
   const eventSource = new EventSource(streamUrl);
 
   eventSource.addEventListener('layout', (e) => {
@@ -799,6 +854,43 @@ function setupHeaderSearch() {
 }
 
 /**
+ * Setup click handlers for explore CTAs
+ * These CTAs trigger new page generation when clicked
+ */
+function setupExploreCTAs() {
+  // Use event delegation with capturing to handle clicks on explore CTAs
+  // Capturing mode ensures we intercept before default link behavior
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('a[data-cta-type="explore"]');
+    if (!link) return;
+
+    // Allow Cmd/Ctrl+click to open in new tab normally
+    if (e.metaKey || e.ctrlKey) return;
+
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    // Get the generation hint from the CTA
+    const generationHint = link.dataset.generationHint;
+    if (!generationHint) {
+      console.warn('[Cerebras] Explore CTA missing generation-hint');
+      return;
+    }
+
+    console.log(`[Cerebras] Explore CTA clicked: "${generationHint}"`);
+
+    // Show loading state on the button
+    link.classList.add('generating');
+    link.innerHTML = '<div class="generating-spinner"></div><span>Loading...</span>';
+
+    // Start generation with the hint as the query
+    startGeneration(generationHint);
+  }, true); // true = capturing phase
+
+  console.log('[Cerebras] Explore CTA handlers attached');
+}
+
+/**
  * Initialize
  */
 async function init() {
@@ -807,6 +899,9 @@ async function init() {
 
   // Always setup header search (works on all pages)
   setupHeaderSearch();
+
+  // Always setup explore CTA handlers (for contextual browsing)
+  setupExploreCTAs();
 
   // Check if this is a generation request
   if (isCerebrasGeneration()) {

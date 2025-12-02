@@ -133,14 +133,16 @@ Extract ONLY products from this list. Do not guess or invent product names.
 ### Product Layouts (pay attention to comparison signals)
 | Query | Layout | Reason |
 |-------|--------|--------|
+| "A3500" | product-detail | Bare product name = single product info |
+| "a3500" | product-detail | Lowercase product name = single product info |
 | "Tell me about the A3500" | product-detail | Single specific product |
+| "A3500 features" | product-detail | Single product features |
 | "A3500 vs A2500" | product-comparison | Explicit "vs" comparison |
 | "Which blender for soup?" | product-comparison | "Which" = choosing between options |
 | "Best Vitamix blender" | product-comparison | "Best" superlative = comparison |
 | "All blenders" | category-browse | Catalog browsing |
 | "What Vitamix should I buy?" | product-comparison | Buying decision = comparison |
 | "Ascent series features" | category-browse | Series (multiple products) |
-| "A3500 features" | product-detail | Single product features |
 
 ### Edge Cases
 | Query | Layout | Reason |
@@ -265,6 +267,32 @@ Query: "How to clean my Vitamix container"
     "products": [],
     "ingredients": [],
     "goals": ["cleaning", "maintenance"]
+  }
+}
+
+Query: "A3500"
+{
+  "intent_type": "product_info",
+  "confidence": 0.95,
+  "layout_id": "product-detail",
+  "content_types": ["product"],
+  "entities": {
+    "products": ["A3500"],
+    "ingredients": [],
+    "goals": ["product info"]
+  }
+}
+
+Query: "a3500"
+{
+  "intent_type": "product_info",
+  "confidence": 0.95,
+  "layout_id": "product-detail",
+  "content_types": ["product"],
+  "entities": {
+    "products": ["A3500"],
+    "ingredients": [],
+    "goals": ["product info"]
   }
 }
 

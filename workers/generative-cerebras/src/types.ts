@@ -189,6 +189,14 @@ export interface TextContent {
 }
 
 /**
+ * CTA type for distinguishing actionable buttons
+ * - 'explore': Triggers new page generation (e.g., "See recipes", "Learn more")
+ * - 'shop': Links to product/cart pages (e.g., "Shop Now", "Add to Cart")
+ * - 'external': Links to external sites (e.g., "Find Retailer")
+ */
+export type CTAType = 'explore' | 'shop' | 'external';
+
+/**
  * CTA block content
  */
 export interface CTAContent {
@@ -196,8 +204,9 @@ export interface CTAContent {
   text?: string;
   buttonText: string;
   buttonUrl: string;
-  isGenerative?: boolean;
-  generationHint?: string;
+  ctaType?: CTAType;
+  generationHint?: string; // Required for explore CTAs - describes what to generate
+  isGenerative?: boolean; // @deprecated Use ctaType === 'explore' instead
 }
 
 /**
@@ -307,4 +316,25 @@ export interface BrandComplianceResult {
     text: string;
     suggestion: string;
   }>;
+}
+
+/**
+ * Query history entry for session context
+ */
+export interface QueryHistoryEntry {
+  query: string;
+  intent: string;
+  entities: {
+    products: string[];
+    ingredients: string[];
+    goals: string[];
+  };
+}
+
+/**
+ * Session context parameter passed from frontend
+ * Contains previous queries from the same browser tab session
+ */
+export interface SessionContextParam {
+  previousQueries: QueryHistoryEntry[];
 }

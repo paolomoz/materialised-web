@@ -346,6 +346,36 @@ picture:has(img[data-gen-image].loaded) {
   flex-shrink: 0;
 }
 
+/* Explore CTA loading state */
+a.button.generating,
+a.button[data-cta-type="explore"].generating {
+  pointer-events: none;
+  opacity: 0.8;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+a.button.generating .generating-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Contextual CTA badge (optional visual indicator) */
+.contextual-cta a[data-cta-type="explore"]::after {
+  content: '→';
+  margin-left: 4px;
+  transition: transform 0.2s ease;
+}
+
+.contextual-cta a[data-cta-type="explore"]:hover::after {
+  transform: translateX(4px);
+}
+
 /* Responsive */
 @media (max-width: 600px) {
   .query-input-wrapper {

@@ -107,16 +107,19 @@ export async function orchestrate(
 
     // Get layout template based on intent (needed for content generation)
     // Now passes LLM's layoutId and confidence for smarter selection
+    // Also passes original query for bare product name detection
     let layoutTemplate = getLayoutForIntent(
       ctx.intent.intentType,
       ctx.intent.contentTypes,
       ctx.intent.entities,
       ctx.intent.layoutId,  // LLM's layout choice
-      ctx.intent.confidence // LLM's confidence score
+      ctx.intent.confidence, // LLM's confidence score
+      query  // Original query for bare product name check
     );
 
     // Adjust layout based on RAG results (e.g., no recipes found → fallback)
-    layoutTemplate = adjustLayoutForRAGContent(layoutTemplate, ragContext);
+    // Pass query to prevent bare product queries from being overridden
+    layoutTemplate = adjustLayoutForRAGContent(layoutTemplate, ragContext, query);
 
     console.log('Layout selection:', {
       query,

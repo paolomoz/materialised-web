@@ -808,6 +808,28 @@ function matchesPatterns(text: string, patterns: RegExp[]): boolean {
   return patterns.some(pattern => pattern.test(text));
 }
 
+/** Known Vitamix product names (lowercase for matching) */
+const KNOWN_PRODUCTS = [
+  'a3500', 'a2500', 'a2300',           // Ascent Series
+  'e310', 'e320',                       // Explorian Series
+  'pro 750', 'pro750', 'pro 500', 'pro500',  // Professional Series
+  '5200', '5300', '7500',               // Legacy Series
+  'immersion blender',                  // Immersion
+];
+
+/**
+ * Check if query is a bare product name (just the product, nothing else)
+ * This catches queries like "a3500" or "A3500" or "pro 750"
+ */
+function isBareProductQuery(query: string): boolean {
+  const normalized = query.trim().toLowerCase();
+  return KNOWN_PRODUCTS.some(product =>
+    normalized === product ||
+    normalized === `the ${product}` ||
+    normalized === `vitamix ${product}`
+  );
+}
+
 // ============================================================================
 // Layout Selection
 // ============================================================================
@@ -817,6 +839,7 @@ function matchesPatterns(text: string, patterns: RegExp[]): boolean {
  * Maps intent types to appropriate layouts
  *
  * Priority:
+ * 0. Bare product query always → product-detail (highest priority override)
  * 1. Trust LLM's layoutId if confidence >= 0.85
  * 2. Apply rule-based fallback logic for edge cases
  */
@@ -825,8 +848,23 @@ export function getLayoutForIntent(
   contentTypes: string[],
   entities: { products: string[]; goals: string[]; ingredients?: string[] },
   llmLayoutId?: string,
-  confidence?: number
+  confidence?: number,
+  originalQuery?: string
 ): LayoutTemplate {
+  // 0a. HIGHEST PRIORITY: Bare product query always gets product-detail
+  // This catches "a3500", "A3500", "the A3500", "Vitamix A3500" etc.
+  if (originalQuery && isBareProductQuery(originalQuery)) {
+    console.log(`[Layout] Override: bare product query "${originalQuery}" → product-detail`);
+    return LAYOUT_PRODUCT_DETAIL;
+  }
+
+  // 0b. Defensive override: Single product in entities should not be comparison
+  if (entities.products.length === 1 &&
+      (llmLayoutId === 'product-comparison' || intentType === 'comparison')) {
+    console.log('[Layout] Override: single product detected → product-detail (not comparison)');
+    return LAYOUT_PRODUCT_DETAIL;
+  }
+
   // 1. Trust LLM's layout choice when confident
   if (llmLayoutId && confidence !== undefined && confidence >= 0.85) {
     const llmLayout = getLayoutById(llmLayoutId);
@@ -847,7 +885,12 @@ export function getLayoutForIntent(
   }
 
   // Product comparison queries
+  // But if only 1 product is detected, it's likely a single product query misclassified
   if (intentType === 'comparison') {
+    if (entities.products.length === 1) {
+      console.log('[Layout] Demoting comparison → product-detail (only 1 product detected)');
+      return LAYOUT_PRODUCT_DETAIL;
+    }
     return LAYOUT_PRODUCT_COMPARISON;
   }
 
@@ -910,7 +953,8 @@ export function adjustLayoutForRAGContent(
     hasProductInfo: boolean;
     hasRecipes: boolean;
     chunks: Array<{ metadata: { content_type: string } }>;
-  }
+  },
+  originalQuery?: string
 ): LayoutTemplate {
   const productCount = ragContext.chunks.filter(
     c => c.metadata.content_type === 'product'
@@ -932,9 +976,15 @@ export function adjustLayoutForRAGContent(
   }
 
   // If we chose product-detail but found multiple products, switch to comparison
+  // UNLESS the query is a bare product name - then user wants that specific product
   if (layout.id === 'product-detail' && productCount > 1) {
-    console.log('[Layout Adjust] product-detail → product-comparison (multiple products in RAG)');
-    return LAYOUT_PRODUCT_COMPARISON;
+    // Don't override if user asked for a specific product by name
+    if (originalQuery && isBareProductQuery(originalQuery)) {
+      console.log('[Layout Adjust] Keeping product-detail (bare product query, ignoring multiple RAG products)');
+    } else {
+      console.log('[Layout Adjust] product-detail → product-comparison (multiple products in RAG)');
+      return LAYOUT_PRODUCT_COMPARISON;
+    }
   }
 
   // If we chose product-detail but found no products, fall back to category-browse

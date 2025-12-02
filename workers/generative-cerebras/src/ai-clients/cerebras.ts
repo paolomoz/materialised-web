@@ -1,4 +1,4 @@
-import type { Env, IntentClassification, GeneratedContent, RAGContext } from '../types';
+import type { Env, IntentClassification, GeneratedContent, RAGContext, SessionContextParam } from '../types';
 import { BRAND_VOICE_SYSTEM_PROMPT } from '../prompts/brand-voice';
 import { INTENT_CLASSIFICATION_PROMPT } from '../prompts/intent';
 import { CONTENT_GENERATION_SYSTEM, buildContentGenerationPrompt } from '../prompts/content';
@@ -94,8 +94,21 @@ async function callCerebras(
  */
 export async function classifyIntent(
   query: string,
-  env: Env
+  env: Env,
+  sessionContext?: SessionContextParam
 ): Promise<IntentClassification> {
+  // Build session context string if available
+  let sessionContextStr = '';
+  if (sessionContext?.previousQueries && sessionContext.previousQueries.length > 0) {
+    const prevQueries = sessionContext.previousQueries.slice(-5).map((q) => {
+      const context = [q.intent];
+      if (q.entities.ingredients.length > 0) context.push(`ingredients: ${q.entities.ingredients.join(', ')}`);
+      if (q.entities.products.length > 0) context.push(`products: ${q.entities.products.join(', ')}`);
+      return `"${q.query}" (${context.join(', ')})`;
+    });
+    sessionContextStr = `\n\nSession Context: Previous queries: [${prevQueries.join(', ')}]`;
+  }
+
   const messages: CerebrasMessage[] = [
     {
       role: 'system',
@@ -103,7 +116,7 @@ export async function classifyIntent(
     },
     {
       role: 'user',
-      content: `${INTENT_CLASSIFICATION_PROMPT}\n\nUser Query: "${query}"`,
+      content: `${INTENT_CLASSIFICATION_PROMPT}${sessionContextStr}\n\nUser Query: "${query}"`,
     },
   ];
 
@@ -163,9 +176,10 @@ export async function generateContent(
   ragContext: RAGContext,
   intent: IntentClassification,
   layout: LayoutTemplate,
-  env: Env
+  env: Env,
+  sessionContext?: SessionContextParam
 ): Promise<GeneratedContent> {
-  const userPrompt = buildContentGenerationPrompt(query, ragContext, intent, layout);
+  const userPrompt = buildContentGenerationPrompt(query, ragContext, intent, layout, sessionContext);
 
   const messages: CerebrasMessage[] = [
     {

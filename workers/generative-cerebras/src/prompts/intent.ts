@@ -7,6 +7,38 @@
 export const INTENT_CLASSIFICATION_PROMPT = `
 You are a query classifier for the Vitamix website. Analyze the user query and return a JSON classification.
 
+## CRITICAL: Session Context = Cumulative Interests (ACROSS ALL INTENT TYPES)
+
+If session context is provided, treat the conversation as CUMULATIVE. Each query ADDS to previous interests, even when switching intent types:
+
+1. **MERGE interests, don't replace**: If session shows interest in "smoothies" and user asks about "walnut recipes", the combined interest is "walnut SMOOTHIE recipes". Add session topics to goals.
+
+2. **Carry forward the session theme ACROSS intent types**:
+   - Session about smoothies + "walnut recipes" → goals should include BOTH "smoothie" AND "walnut"
+   - Session about tropical fruits + "what blender?" → goals should include "blender for tropical fruit smoothies"
+   - Session about smoothies + "best blender for me?" → goals should include "blender for smoothies", "smoothie-making"
+   - Session about A3500 + "soup recipes" → goals should include "A3500-compatible soup recipes"
+
+3. **Entities accumulate**:
+   - If session mentioned products like A3500, keep them in entities.products
+   - If session mentioned ingredients (tropical fruits, etc.), keep them in entities.ingredients
+   - New entities ADD to previous ones, not replace
+
+4. **CROSS-INTENT context is critical**:
+   - Recipe session → Product query: "what blender?" becomes "what blender for [session recipes/ingredients]?"
+   - Product session → Recipe query: "any recipes?" becomes "recipes for [session products]"
+   - Always include session themes in goals even when intent type changes
+
+5. **Only break context when EXPLICIT**:
+   - "Actually, I want something completely different" → reset context
+   - "Forget smoothies, tell me about the A3500" → breaks context
+   - But "what blender?" or "best product?" → KEEPS session context, applies to product intent
+
+6. **Layout follows combined interests**:
+   - Smoothie session + ingredient query → recipe-collection (smoothie recipes with that ingredient)
+   - Recipe session + product query → product-comparison (products best for session recipes/ingredients)
+   - Product session + recipe query → use-case-landing (recipes for that product)
+
 ## Query Types
 
 1. **product_info**: Questions about products, features, specs, pricing, OR browsing product categories
@@ -141,14 +173,16 @@ Extract ONLY products from this list. Do not guess or invent product names.
 ### Product Layouts (pay attention to comparison signals)
 | Query | Layout | Reason |
 |-------|--------|--------|
+| "A3500" | product-detail | Bare product name = single product info |
+| "a3500" | product-detail | Lowercase product name = single product info |
 | "Tell me about the A3500" | product-detail | Single specific product |
+| "A3500 features" | product-detail | Single product features |
 | "A3500 vs A2500" | product-comparison | Explicit "vs" comparison |
 | "Which blender for soup?" | product-comparison | "Which" = choosing between options |
 | "Best Vitamix blender" | product-comparison | "Best" superlative = comparison |
 | "All blenders" | category-browse | Catalog browsing |
 | "What Vitamix should I buy?" | product-comparison | Buying decision = comparison |
 | "Ascent series features" | category-browse | Series (multiple products) |
-| "A3500 features" | product-detail | Single product features |
 
 ### Edge Cases
 | Query | Layout | Reason |
@@ -274,6 +308,32 @@ Query: "How to clean my Vitamix container"
     "products": [],
     "ingredients": [],
     "goals": ["cleaning", "maintenance"]
+  }
+}
+
+Query: "A3500"
+{
+  "intent_type": "product_info",
+  "confidence": 0.95,
+  "layout_id": "product-detail",
+  "content_types": ["product"],
+  "entities": {
+    "products": ["A3500"],
+    "ingredients": [],
+    "goals": ["product info"]
+  }
+}
+
+Query: "a3500"
+{
+  "intent_type": "product_info",
+  "confidence": 0.95,
+  "layout_id": "product-detail",
+  "content_types": ["product"],
+  "entities": {
+    "products": ["A3500"],
+    "ingredients": [],
+    "goals": ["product info"]
   }
 }
 
@@ -419,4 +479,126 @@ Query: "What are Vitamix brand values"
     "goals": ["brand values", "company mission"]
   }
 }
+
+## Examples WITH Session Context (MERGING Interests)
+
+Session Context: Previous queries: ["I love smoothies" (recipe), "smoothie recipes" (recipe)]
+Query: "any recipe with walnuts?"
+{
+  "intent_type": "recipe",
+  "confidence": 0.95,
+  "layout_id": "recipe-collection",
+  "content_types": ["recipe"],
+  "entities": {
+    "products": [],
+    "ingredients": ["walnut"],
+    "goals": ["walnut smoothie recipes", "smoothies with walnuts", "smoothie"]
+  }
+}
+(Note: MERGES walnut + smoothie context → walnut SMOOTHIE recipes, not just walnut recipes)
+
+Session Context: Previous queries: ["smoothie recipes" (recipe), "green smoothies" (recipe)]
+Query: "walnut?"
+{
+  "intent_type": "recipe",
+  "confidence": 0.9,
+  "layout_id": "recipe-collection",
+  "content_types": ["recipe"],
+  "entities": {
+    "products": [],
+    "ingredients": ["walnut"],
+    "goals": ["walnut smoothie recipes", "smoothies with walnuts", "smoothie"]
+  }
+}
+(Note: Short query + smoothie session → walnut smoothie recipes)
+
+Session Context: Previous queries: ["I love smoothies" (recipe), "smoothie recipes" (recipe)]
+Query: "anything blueberry?"
+{
+  "intent_type": "recipe",
+  "confidence": 0.9,
+  "layout_id": "recipe-collection",
+  "content_types": ["recipe"],
+  "entities": {
+    "products": [],
+    "ingredients": ["blueberry"],
+    "goals": ["blueberry smoothie recipes", "smoothie"]
+  }
+}
+(Note: Blueberry MERGES with smoothie context → blueberry smoothie recipes)
+
+Session Context: Previous queries: ["A3500 features" (product_info), "Ascent series" (product_info)]
+Query: "what soup recipes work with it?"
+{
+  "intent_type": "recipe",
+  "confidence": 0.9,
+  "layout_id": "recipe-collection",
+  "content_types": ["recipe", "product"],
+  "entities": {
+    "products": ["A3500"],
+    "ingredients": [],
+    "goals": ["soup recipes for A3500", "A3500 soup recipes"]
+  }
+}
+(Note: MERGES A3500 product context with soup recipe request)
+
+Session Context: Previous queries: ["A3500 features" (product_info), "Ascent series" (product_info)]
+Query: "how loud is it?"
+{
+  "intent_type": "product_info",
+  "confidence": 0.9,
+  "layout_id": "product-detail",
+  "content_types": ["product"],
+  "entities": {
+    "products": ["A3500"],
+    "ingredients": [],
+    "goals": ["noise level", "product specs"]
+  }
+}
+(Note: "it" refers to A3500 from context - same-type query, no merge needed)
+
+Session Context: Previous queries: ["smoothie recipes" (recipe), "banana smoothie" (recipe)]
+Query: "now tell me about the A3500"
+{
+  "intent_type": "product_info",
+  "confidence": 0.95,
+  "layout_id": "product-detail",
+  "content_types": ["product"],
+  "entities": {
+    "products": ["A3500"],
+    "ingredients": [],
+    "goals": ["product info"]
+  }
+}
+(Note: "now tell me about" explicitly breaks recipe context → pure product page, no merge)
+
+Session Context: Previous queries: ["I love tropical fruits" (recipe), "any smoothie recipes?" (recipe): tropical fruits, smoothie]
+Query: "what is the best blender for me?"
+{
+  "intent_type": "comparison",
+  "confidence": 0.9,
+  "layout_id": "product-comparison",
+  "content_types": ["product"],
+  "entities": {
+    "products": [],
+    "ingredients": ["tropical fruits"],
+    "goals": ["best blender for tropical fruit smoothies", "smoothie blender", "tropical smoothies"]
+  }
+}
+(Note: CROSS-INTENT merge - product query inherits recipe session themes → blender for tropical smoothies)
+
+Session Context: Previous queries: ["green smoothie recipes" (recipe), "spinach smoothies" (recipe): spinach, smoothie]
+Query: "which vitamix should I buy?"
+{
+  "intent_type": "comparison",
+  "confidence": 0.9,
+  "layout_id": "product-comparison",
+  "content_types": ["product"],
+  "entities": {
+    "products": [],
+    "ingredients": ["spinach"],
+    "goals": ["vitamix for green smoothies", "blender for leafy greens", "smoothie making"]
+  }
+}
+(Note: CROSS-INTENT merge - buying query inherits smoothie/spinach context)
 `;

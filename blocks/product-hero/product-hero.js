@@ -2,102 +2,114 @@
  * Product Hero Block
  *
  * Split hero with product details on left, product image on right.
- * Gray background matching vitamix.com product pages.
+ * Expects a two-column structure: image | content
  *
- * Content Model (DA table):
+ * Content Model:
  * | Product Hero |
- * |--------------|
- * | Ascent Series |
- * | A3500i |
- * | [product-image.png] |
- * | Brushed Stainless |
- * | #888888 |
- * | /find-locally |
- * | /compare |
+ * | [image] | <h1>Title</h1><p>Desc</p><p><strong>Price</strong></p><p>Specs</p><p><a>CTA</a></p> |
  */
 export default function decorate(block) {
-  const rows = [...block.children];
+  const row = block.children[0];
+  if (!row) return;
 
-  // Parse content
-  const series = rows[0]?.textContent?.trim() || '';
-  const productName = rows[1]?.textContent?.trim() || '';
-  const imageEl = rows[2]?.querySelector('picture') || rows[2]?.querySelector('img');
-  const colorName = rows[3]?.textContent?.trim() || '';
+  const cols = [...row.children];
+  const col1 = cols[0];
+  const col2 = cols[1];
 
-  // Collect colors (rows 4+ until we hit URLs)
-  const colors = [];
-  let findLocallyUrl = '/find-locally';
-  let compareUrl = '/compare';
+  // Determine which column has the image
+  let imageCol = col1;
+  let contentCol = col2;
 
-  for (let i = 4; i < rows.length; i++) {
-    const text = rows[i]?.textContent?.trim() || '';
-    if (text.startsWith('#') && text.length === 7) {
-      colors.push(text);
-    } else if (text.startsWith('/') || text.startsWith('http')) {
-      if (!findLocallyUrl || findLocallyUrl === '/find-locally') {
-        findLocallyUrl = text;
-      } else {
-        compareUrl = text;
-      }
-    }
+  // Check if image is in col2 instead
+  if (col2?.querySelector('picture, img') && !col1?.querySelector('picture, img')) {
+    imageCol = col2;
+    contentCol = col1;
   }
 
-  if (colors.length === 0) colors.push('#888888');
+  // Extract image
+  const picture = imageCol?.querySelector('picture');
+  const img = imageCol?.querySelector('img');
+
+  // Extract content elements
+  const h1 = contentCol?.querySelector('h1');
+  const paragraphs = contentCol?.querySelectorAll('p') || [];
+
+  // Parse paragraphs into: description, price, specs, ctas
+  let description = '';
+  let price = '';
+  let specs = '';
+  const ctas = [];
+
+  paragraphs.forEach((p) => {
+    const link = p.querySelector('a');
+    const strong = p.querySelector('strong');
+
+    if (link) {
+      ctas.push({ text: link.textContent.trim(), href: link.href });
+    } else if (strong) {
+      price = strong.textContent.trim();
+    } else {
+      const text = p.textContent.trim();
+      if (text.includes('|')) {
+        specs = text;
+      } else if (!description) {
+        description = text;
+      }
+    }
+  });
 
   // Build new structure
   block.innerHTML = '';
 
-  // Left side - product details
+  // Left side - details
   const detailsDiv = document.createElement('div');
   detailsDiv.className = 'product-hero-details';
 
-  if (series) {
-    const seriesEl = document.createElement('p');
-    seriesEl.className = 'product-hero-series';
-    seriesEl.textContent = series;
-    detailsDiv.appendChild(seriesEl);
+  if (h1) {
+    const titleEl = document.createElement('h1');
+    titleEl.className = 'product-hero-title';
+    titleEl.textContent = h1.textContent.trim();
+    detailsDiv.appendChild(titleEl);
   }
 
-  const nameEl = document.createElement('h1');
-  nameEl.className = 'product-hero-name';
-  nameEl.textContent = productName;
-  detailsDiv.appendChild(nameEl);
+  if (description) {
+    const descEl = document.createElement('p');
+    descEl.className = 'product-hero-description';
+    descEl.textContent = description;
+    detailsDiv.appendChild(descEl);
+  }
 
-  // Color swatches
-  const swatchContainer = document.createElement('div');
-  swatchContainer.className = 'product-hero-swatches';
-  swatchContainer.innerHTML = \`<span class="product-hero-swatch-label">Swatch Color <strong>\${colorName}</strong></span>\`;
+  if (price) {
+    const priceEl = document.createElement('p');
+    priceEl.className = 'product-hero-price';
+    priceEl.textContent = price;
+    detailsDiv.appendChild(priceEl);
+  }
 
-  const swatchRow = document.createElement('div');
-  swatchRow.className = 'product-hero-swatch-row';
-  colors.forEach((color, i) => {
-    const swatch = document.createElement('button');
-    swatch.className = \`product-hero-swatch\${i === 0 ? ' active' : ''}\`;
-    swatch.style.backgroundColor = color;
-    swatchRow.appendChild(swatch);
+  if (specs) {
+    const specsEl = document.createElement('p');
+    specsEl.className = 'product-hero-specs';
+    specsEl.textContent = specs;
+    detailsDiv.appendChild(specsEl);
+  }
+
+  // Add CTA buttons
+  ctas.forEach((cta, index) => {
+    const btn = document.createElement('a');
+    btn.href = cta.href;
+    btn.textContent = cta.text;
+    btn.className = index === 0 ? 'product-hero-cta primary' : 'product-hero-cta secondary';
+    detailsDiv.appendChild(btn);
   });
-  swatchContainer.appendChild(swatchRow);
-  detailsDiv.appendChild(swatchContainer);
-
-  // Buttons
-  const findBtn = document.createElement('a');
-  findBtn.className = 'button primary product-hero-find';
-  findBtn.href = findLocallyUrl;
-  findBtn.textContent = 'Find Locally';
-  detailsDiv.appendChild(findBtn);
-
-  const compareRow = document.createElement('div');
-  compareRow.className = 'product-hero-compare-row';
-  compareRow.innerHTML = \`
-    <a class="button secondary product-hero-compare" href="\${compareUrl}">Compare</a>
-    <a class="product-hero-compare-list" href="\${compareUrl}#list">View Comparison List.</a>
-  \`;
-  detailsDiv.appendChild(compareRow);
 
   // Right side - image
   const imageDiv = document.createElement('div');
   imageDiv.className = 'product-hero-image';
-  if (imageEl) imageDiv.appendChild(imageEl.cloneNode(true));
+  if (picture) {
+    imageDiv.appendChild(picture.cloneNode(true));
+  } else if (img) {
+    imageDiv.appendChild(img.cloneNode(true));
+  }
 
   block.appendChild(detailsDiv);
   block.appendChild(imageDiv);

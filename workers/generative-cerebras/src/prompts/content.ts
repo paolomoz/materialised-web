@@ -1,4 +1,4 @@
-import type { RAGContext, IntentClassification } from '../types';
+import type { RAGContext, IntentClassification, SessionContextParam } from '../types';
 import { BRAND_VOICE_SYSTEM_PROMPT } from './brand-voice';
 import { type LayoutTemplate, formatLayoutForPrompt } from './layouts';
 
@@ -142,10 +142,27 @@ Return a JSON object with this structure:
     "text": "string (optional)",
     "buttonText": "string",
     "buttonUrl": "string",
+    "ctaType": "explore" | "shop" | "external",
+    "generationHint": "string (REQUIRED for explore CTAs)",
     "secondaryButtonText": "string (optional)",
     "secondaryButtonUrl": "string (optional)"
   }
 }
+
+**CTA Type Rules:**
+- "explore": Triggers new page generation (e.g., "See Recipes", "Learn More", "Explore Smoothies")
+  - REQUIRES generationHint: a phrase describing what content to generate
+  - buttonUrl should be a path like "/recipes/smoothies" (not external URL)
+  - Example: ctaType "explore", buttonText "See Energy Smoothies", generationHint "collection of energy-boosting smoothie recipes"
+- "shop": Links to vitamix.com shopping/cart (e.g., "Shop Now", "Add to Cart", "Buy Now")
+  - buttonUrl should link to vitamix.com product/cart pages
+- "external": Links to external sites (e.g., "Find Retailer")
+  - buttonUrl is a full external URL
+
+**Default ctaType inference (if not specified):**
+- If buttonText contains "Shop", "Buy", "Cart", "Order" → shop
+- If buttonText contains "Learn", "See", "Explore", "Discover", "Browse", "View", "Find recipes" → explore
+- If buttonUrl starts with "http" and not vitamix.com → external
 
 ### FAQ Block
 {
@@ -854,7 +871,8 @@ export function buildContentGenerationPrompt(
   query: string,
   ragContext: RAGContext,
   intent: IntentClassification,
-  layout: LayoutTemplate
+  layout: LayoutTemplate,
+  sessionContext?: SessionContextParam
 ): string {
   // Format RAG context for the prompt
   const ragSection = ragContext.chunks.length > 0
@@ -872,10 +890,63 @@ ${chunk.text}
   // Format layout template
   const layoutSection = formatLayoutForPrompt(layout);
 
+  // Build session context section if available
+  let sessionSection = '';
+  if (sessionContext?.previousQueries && sessionContext.previousQueries.length > 0) {
+    const historyLines = sessionContext.previousQueries.slice(-5).map((q) => {
+      const entitiesList = [
+        ...q.entities.products,
+        ...q.entities.ingredients,
+        ...q.entities.goals,
+      ].filter(Boolean);
+      return `- "${q.query}" (${q.intent})${entitiesList.length > 0 ? `: ${entitiesList.join(', ')}` : ''}`;
+    }).join('\n');
+
+    // Extract session themes for explicit merging instruction
+    const allGoals = sessionContext.previousQueries.flatMap((q) => q.entities.goals).filter(Boolean);
+    const allIngredients = sessionContext.previousQueries.flatMap((q) => q.entities.ingredients).filter(Boolean);
+    const allProducts = sessionContext.previousQueries.flatMap((q) => q.entities.products).filter(Boolean);
+    const sessionThemes = [...new Set([...allGoals, ...allIngredients])].slice(0, 5);
+    const sessionProducts = [...new Set(allProducts)].slice(0, 3);
+
+    sessionSection = `
+## Session Context (BLEND with Current Query - ACROSS ALL INTENT TYPES)
+
+Previous queries in this session:
+${historyLines}
+
+**Session Themes to MERGE with current query:** ${sessionThemes.length > 0 ? sessionThemes.join(', ') : 'general exploration'}
+${sessionProducts.length > 0 ? `**Products from session:** ${sessionProducts.join(', ')}` : ''}
+
+**CRITICAL: Content Blending Instructions (applies to ALL page types):**
+
+1. **COMBINE session themes with current query - even across intent types**:
+   - Recipe session + recipe query: "smoothies" + "walnut" → "Walnut Smoothie Recipes"
+   - Recipe session + product query: "tropical smoothies" + "best blender" → "Best Blenders for Tropical Smoothies"
+   - Product session + recipe query: "A3500" + "soup recipes" → "Soup Recipes for Your A3500"
+
+2. **For PRODUCT pages when session was about recipes/ingredients:**
+   - Headlines should reference the use case: "Best Blenders for Tropical Fruit Smoothies" not just "Best Blenders"
+   - Product descriptions should explain WHY each product is good for the session use case
+   - Comparison criteria should prioritize features relevant to session (e.g., "ice crushing for frozen fruit")
+   - Verdict should recommend based on session context ("For your tropical smoothie needs, we recommend...")
+
+3. **For RECIPE pages when session mentioned products:**
+   - Reference the product: "Recipes Perfect for Your A3500"
+   - Include tips specific to that product's features
+
+4. **Headlines MUST reflect the blend**:
+   - Session: tropical fruits, smoothies → Product query → "Best Vitamix for Tropical Smoothies"
+   - NOT just "Best Vitamix Blenders"
+
+5. **Don't just acknowledge context - WEAVE it into every piece of content**
+`;
+  }
+
   return `
 ## User Query
 "${query}"
-
+${sessionSection}
 ## Intent Classification
 - Type: ${intent.intentType}
 - Confidence: ${(intent.confidence * 100).toFixed(0)}%

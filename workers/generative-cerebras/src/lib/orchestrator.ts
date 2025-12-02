@@ -7,6 +7,7 @@ import type {
   ImageRequest,
   GeneratedImage,
   SSEEvent,
+  SessionContextParam,
 } from '../types';
 import { classifyIntent, generateContent, validateBrandCompliance } from '../ai-clients/cerebras';
 import { analyzeQuery } from '../ai-clients/gemini';
@@ -76,13 +77,15 @@ type SSECallback = (event: SSEEvent) => void;
 /**
  * Main orchestration function - coordinates all AI services
  * @param imageProvider Optional override for image provider ('fal' | 'lora' | 'imagen')
+ * @param sessionContext Optional session context with previous queries from the same browser tab
  */
 export async function orchestrate(
   query: string,
   slug: string,
   env: Env,
   onEvent: SSECallback,
-  imageProvider?: ImageProvider
+  imageProvider?: ImageProvider,
+  sessionContext?: SessionContextParam
 ): Promise<{
   content: GeneratedContent;
   layout: LayoutDecision;
@@ -93,7 +96,8 @@ export async function orchestrate(
 
   try {
     // Stage 1: Intent Classification (fast, blocking)
-    ctx.intent = await classifyIntent(query, env);
+    // Pass session context so classifier can interpret short queries in context
+    ctx.intent = await classifyIntent(query, env, sessionContext);
 
     // Stage 2: Parallel - Smart RAG retrieval + Query analysis
     // smartRetrieve uses the intent to plan the optimal retrieval strategy
@@ -107,16 +111,19 @@ export async function orchestrate(
 
     // Get layout template based on intent (needed for content generation)
     // Now passes LLM's layoutId and confidence for smarter selection
+    // Also passes original query for bare product name detection
     let layoutTemplate = getLayoutForIntent(
       ctx.intent.intentType,
       ctx.intent.contentTypes,
       ctx.intent.entities,
       ctx.intent.layoutId,  // LLM's layout choice
-      ctx.intent.confidence // LLM's confidence score
+      ctx.intent.confidence, // LLM's confidence score
+      query  // Original query for bare product name check
     );
 
     // Adjust layout based on RAG results (e.g., no recipes found → fallback)
-    layoutTemplate = adjustLayoutForRAGContent(layoutTemplate, ragContext);
+    // Pass query to prevent bare product queries from being overridden
+    layoutTemplate = adjustLayoutForRAGContent(layoutTemplate, ragContext, query);
 
     console.log('Layout selection:', {
       query,
@@ -140,7 +147,7 @@ export async function orchestrate(
     });
 
     // Stage 3: Content Generation (main LLM call)
-    ctx.content = await generateContent(query, ragContext, ctx.intent, layoutTemplate, env);
+    ctx.content = await generateContent(query, ragContext, ctx.intent, layoutTemplate, env, sessionContext);
 
     // Stage 4: Derive layout from template + Image decisions
     // No Gemini call - we use the predefined layout template directly
@@ -989,6 +996,34 @@ function buildHeroHTML(content: any, variant: string, slug: string): string {
   // Use predictable URL - image will be served once generated
   const imageUrl = buildImageUrl(slug, 'hero');
 
+  // Determine CTA type for hero button
+  let ctaHtml = '';
+  if (content.ctaText) {
+    const buttonText = (content.ctaText || '').toLowerCase();
+    const buttonUrl = content.ctaUrl || '/products/blenders';
+
+    // Infer if this should be an explore CTA
+    let ctaType = content.ctaType;
+    if (!ctaType) {
+      if (buttonUrl.startsWith('http') && !buttonUrl.includes('vitamix.com')) {
+        ctaType = 'external';
+      } else if (/shop|buy|cart|order|add to/i.test(buttonText)) {
+        ctaType = 'shop';
+      } else if (/learn|see|explore|discover|browse|view|find\s+recipes?|get\s+recipes?|try|recipes/i.test(buttonText)) {
+        ctaType = 'explore';
+      } else {
+        ctaType = 'shop'; // Default for hero CTAs
+      }
+    }
+
+    const isExplore = ctaType === 'explore';
+    const exploreAttrs = isExplore
+      ? ` data-cta-type="explore" data-generation-hint="${escapeHTML(content.generationHint || content.ctaText || '')}"`
+      : '';
+
+    ctaHtml = `<p><a href="${escapeHTML(buttonUrl)}" class="button"${exploreAttrs}>${escapeHTML(content.ctaText)}</a></p>`;
+  }
+
   return `
     <div class="hero${variant !== 'default' ? ` ${variant}` : ''}">
       <div>
@@ -1000,7 +1035,7 @@ function buildHeroHTML(content: any, variant: string, slug: string): string {
         <div>
           <h1>${escapeHTML(content.headline)}</h1>
           ${content.subheadline ? `<p>${escapeHTML(content.subheadline)}</p>` : ''}
-          ${content.ctaText ? `<p><a href="${escapeHTML(content.ctaUrl || '/products/blenders')}" class="button">${escapeHTML(content.ctaText)}</a></p>` : ''}
+          ${ctaHtml}
         </div>
       </div>
     </div>
@@ -1169,16 +1204,35 @@ function buildTextHTML(content: any, variant: string): string {
  * </div>
  */
 function buildCTAHTML(content: any, variant: string): string {
-  const isGenerative = content.isGenerative && content.buttonUrl.startsWith('/discover/');
+  // Determine CTA type with inference if not explicitly set
+  let ctaType = content.ctaType;
+  if (!ctaType) {
+    const buttonText = (content.buttonText || '').toLowerCase();
+    const buttonUrl = content.buttonUrl || '';
+
+    if (buttonUrl.startsWith('http') && !buttonUrl.includes('vitamix.com')) {
+      ctaType = 'external';
+    } else if (/shop|buy|cart|order|add to/i.test(buttonText)) {
+      ctaType = 'shop';
+    } else if (/learn|see|explore|discover|browse|view|find\s+recipes?/i.test(buttonText)) {
+      ctaType = 'explore';
+    } else if (buttonUrl.match(/^\/(recipes|smoothies|compare|products|tips|discover)\//)) {
+      ctaType = 'explore';
+    } else {
+      ctaType = 'shop'; // Default to shop for safety
+    }
+  }
+
+  const isExplore = ctaType === 'explore';
 
   return `
-    <div class="cta${variant !== 'default' ? ` ${variant}` : ''}${isGenerative ? ' generative-cta' : ''}">
+    <div class="cta${variant !== 'default' ? ` ${variant}` : ''}${isExplore ? ' contextual-cta' : ''}">
       <div><div>
         <h2>${escapeHTML(content.headline)}</h2>
         ${content.text ? `<p>${escapeHTML(content.text)}</p>` : ''}
         <p>
           <a href="${escapeHTML(content.buttonUrl)}" class="button primary"
-             ${isGenerative ? `data-generation-hint="${escapeHTML(content.generationHint || '')}"` : ''}>
+             ${isExplore ? `data-cta-type="explore" data-generation-hint="${escapeHTML(content.generationHint || '')}"` : ''}>
             ${escapeHTML(content.buttonText)}
           </a>
         </p>
