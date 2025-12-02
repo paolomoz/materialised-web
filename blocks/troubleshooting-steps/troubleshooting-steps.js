@@ -31,7 +31,6 @@ export default function decorate(block) {
         number: parseInt(numberText, 10),
         title,
         instructions,
-        image: cells[2]?.querySelector('picture, img')?.cloneNode(true) || null,
         safetyNote: safetyCell.replace(/^safety[:\s]*/i, ''),
       });
     }

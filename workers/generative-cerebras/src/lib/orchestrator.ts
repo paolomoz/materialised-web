@@ -12,7 +12,7 @@ import { classifyIntent, generateContent, validateBrandCompliance } from '../ai-
 import { analyzeQuery } from '../ai-clients/gemini';
 import { generateImages, decideImageStrategy, type ImageProvider } from '../ai-clients/image-router';
 import { smartRetrieve } from './rag';
-import { getLayoutForIntent, templateToLayoutDecision, type LayoutTemplate } from '../prompts/layouts';
+import { getLayoutForIntent, adjustLayoutForRAGContent, templateToLayoutDecision, type LayoutTemplate } from '../prompts/layouts';
 
 // Worker base URL for image serving
 const WORKER_URL = 'https://vitamix-generative-cerebras.paolo-moz.workers.dev';
@@ -106,15 +106,23 @@ export async function orchestrate(
     ctx.entities = entities;
 
     // Get layout template based on intent (needed for content generation)
-    const layoutTemplate = getLayoutForIntent(
+    // Now passes LLM's layoutId and confidence for smarter selection
+    let layoutTemplate = getLayoutForIntent(
       ctx.intent.intentType,
       ctx.intent.contentTypes,
-      ctx.intent.entities
+      ctx.intent.entities,
+      ctx.intent.layoutId,  // LLM's layout choice
+      ctx.intent.confidence // LLM's confidence score
     );
+
+    // Adjust layout based on RAG results (e.g., no recipes found → fallback)
+    layoutTemplate = adjustLayoutForRAGContent(layoutTemplate, ragContext);
 
     console.log('Layout selection:', {
       query,
       intentType: ctx.intent.intentType,
+      llmLayoutId: ctx.intent.layoutId,
+      llmConfidence: ctx.intent.confidence,
       contentTypes: ctx.intent.contentTypes,
       entities: ctx.intent.entities,
       selectedLayout: layoutTemplate.id,
@@ -1947,18 +1955,16 @@ function buildTroubleshootingStepsHTML(content: any, variant: string, slug: stri
 
   steps.forEach((step: any, index: number) => {
     // Each step is ONE row with cells: | number | title | instructions | safety? |
-    let instructionsContent = escapeHTML(step.instructions || '');
-    if (step.imagePrompt) {
-      const imageId = `step-${blockId}-${index}`;
-      const imageUrl = buildImageUrl(slug, imageId);
-      instructionsContent += `<br><picture><img src="${imageUrl}" alt="${escapeHTML(step.title || '')}" data-gen-image="${imageId}" loading="lazy"></picture>`;
-    }
+    const title = step.title || '';
+    // Use instructions field - provide a minimal fallback if not generated
+    const instructions = step.instructions || 'Refer to your Owner\'s Manual or contact customer service for detailed guidance.';
+    const instructionsContent = escapeHTML(instructions);
 
     // Build the row with all cells for this step
     rowsHtml += `
       <div>
         <div>${step.stepNumber || index + 1}</div>
-        <div>${escapeHTML(step.title || '')}</div>
+        <div>${escapeHTML(title)}</div>
         <div>${instructionsContent}</div>
         ${step.safetyNote ? `<div>safety:${escapeHTML(step.safetyNote)}</div>` : ''}
       </div>

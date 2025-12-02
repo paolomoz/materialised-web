@@ -547,15 +547,59 @@ export function getLayoutById(id: string): LayoutTemplate | undefined {
   return LAYOUTS.find((layout) => layout.id === id);
 }
 
+// ============================================================================
+// Semantic Pattern Matching (replaces brittle keyword includes)
+// ============================================================================
+
+/** Patterns indicating a use-case/routine-focused query */
+const USE_CASE_PATTERNS = [
+  /every\s+(morning|day|week|night|evening)/i,
+  /daily\s+(routine|habit|use|smoothie|juice)/i,
+  /(morning|evening|breakfast|lunch|dinner)\s+routine/i,
+  /meal\s+prep/i,
+  /for\s+(breakfast|lunch|dinner)\s+(every|daily|each)/i,
+  /\b(weekly|daily)\s+(meal|food|nutrition)/i,
+  /start\s+(my|the|your)\s+(day|morning)/i,
+  /each\s+(morning|day|week)/i,
+];
+
+function matchesPatterns(text: string, patterns: RegExp[]): boolean {
+  return patterns.some(pattern => pattern.test(text));
+}
+
+// ============================================================================
+// Layout Selection
+// ============================================================================
+
 /**
  * Get layout for intent type
  * Maps intent types to appropriate layouts
+ *
+ * Priority:
+ * 1. Trust LLM's layoutId if confidence >= 0.85
+ * 2. Apply rule-based fallback logic for edge cases
  */
 export function getLayoutForIntent(
   intentType: string,
   contentTypes: string[],
-  entities: { products: string[]; goals: string[] }
+  entities: { products: string[]; goals: string[] },
+  llmLayoutId?: string,
+  confidence?: number
 ): LayoutTemplate {
+  // 1. Trust LLM's layout choice when confident
+  if (llmLayoutId && confidence !== undefined && confidence >= 0.85) {
+    const llmLayout = getLayoutById(llmLayoutId);
+    if (llmLayout) {
+      console.log(`[Layout] Trusting LLM choice: ${llmLayoutId} (confidence: ${confidence})`);
+      return llmLayout;
+    }
+  }
+
+  // 2. Fallback: Rule-based logic for low confidence or invalid layout
+  console.log(`[Layout] Using rule-based fallback (LLM confidence: ${confidence ?? 'N/A'})`);
+
+  const goalsText = entities.goals.map((g) => g.toLowerCase()).join(' ');
+
   // Support/troubleshooting queries
   if (intentType === 'support') {
     return LAYOUT_SUPPORT;
@@ -576,16 +620,10 @@ export function getLayoutForIntent(
     return LAYOUT_CATEGORY_BROWSE;
   }
 
-  // Recipe queries
+  // Recipe queries - use semantic patterns instead of includes()
   if (intentType === 'recipe') {
-    // If it's a use-case oriented query (morning routine, meal prep, etc.)
-    if (entities.goals.some((g) =>
-      g.includes('morning') ||
-      g.includes('daily') ||
-      g.includes('routine') ||
-      g.includes('every') ||
-      g.includes('prep')
-    )) {
+    // Check for use-case/routine patterns
+    if (matchesPatterns(goalsText, USE_CASE_PATTERNS)) {
       return LAYOUT_USE_CASE_LANDING;
     }
     return LAYOUT_RECIPE_COLLECTION;
@@ -598,6 +636,56 @@ export function getLayoutForIntent(
 
   // Default to lifestyle for general queries
   return LAYOUT_LIFESTYLE;
+}
+
+// ============================================================================
+// Post-RAG Layout Adjustment
+// ============================================================================
+
+/**
+ * Adjust layout based on RAG retrieval results
+ * Called after RAG to ensure layout matches available content
+ */
+export function adjustLayoutForRAGContent(
+  layout: LayoutTemplate,
+  ragContext: {
+    hasProductInfo: boolean;
+    hasRecipes: boolean;
+    chunks: Array<{ metadata: { content_type: string } }>;
+  }
+): LayoutTemplate {
+  const productCount = ragContext.chunks.filter(
+    c => c.metadata.content_type === 'product'
+  ).length;
+  const recipeCount = ragContext.chunks.filter(
+    c => c.metadata.content_type === 'recipe'
+  ).length;
+
+  // If we chose recipe-collection but found no recipes, fall back to lifestyle
+  if (layout.id === 'recipe-collection' && recipeCount === 0) {
+    console.log('[Layout Adjust] recipe-collection → lifestyle (no recipes in RAG)');
+    return LAYOUT_LIFESTYLE;
+  }
+
+  // If we chose product-detail but found multiple products, switch to comparison
+  if (layout.id === 'product-detail' && productCount > 1) {
+    console.log('[Layout Adjust] product-detail → product-comparison (multiple products in RAG)');
+    return LAYOUT_PRODUCT_COMPARISON;
+  }
+
+  // If we chose product-detail but found no products, fall back to category-browse
+  if (layout.id === 'product-detail' && productCount === 0) {
+    console.log('[Layout Adjust] product-detail → category-browse (no products in RAG)');
+    return LAYOUT_CATEGORY_BROWSE;
+  }
+
+  // If we chose category-browse but found only 1 product, switch to product-detail
+  if (layout.id === 'category-browse' && productCount === 1) {
+    console.log('[Layout Adjust] category-browse → product-detail (single product in RAG)');
+    return LAYOUT_PRODUCT_DETAIL;
+  }
+
+  return layout;
 }
 
 /**

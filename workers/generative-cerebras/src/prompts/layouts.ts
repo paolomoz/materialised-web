@@ -757,15 +757,90 @@ export function getLayoutById(id: string): LayoutTemplate | undefined {
   return LAYOUTS.find((layout) => layout.id === id);
 }
 
+// ============================================================================
+// Semantic Pattern Matching (replaces brittle keyword includes)
+// ============================================================================
+
+/** Patterns indicating a use-case/routine-focused query */
+const USE_CASE_PATTERNS = [
+  /every\s+(morning|day|week|night|evening)/i,
+  /daily\s+(routine|habit|use|smoothie|juice)/i,
+  /(morning|evening|breakfast|lunch|dinner)\s+routine/i,
+  /meal\s+prep/i,
+  /for\s+(breakfast|lunch|dinner)\s+(every|daily|each)/i,
+  /\b(weekly|daily)\s+(meal|food|nutrition)/i,
+  /start\s+(my|the|your)\s+(day|morning)/i,
+  /each\s+(morning|day|week)/i,
+];
+
+/** Patterns indicating a single specific recipe request */
+const SINGLE_RECIPE_PATTERNS = [
+  /how\s+(do\s+i|to|can\s+i)\s+make/i,
+  /recipe\s+for\s+\w+/i,
+  /make\s+(a|me|some)\s+\w+/i,
+  /\w+\s+recipe$/i,  // ends with "recipe" (e.g., "hummus recipe")
+  /show\s+me\s+(a|the)\s+\w+\s+recipe/i,
+];
+
+/** Patterns indicating campaign/seasonal content */
+const CAMPAIGN_PATTERNS = [
+  /mother'?s?\s*day/i,
+  /father'?s?\s*day/i,
+  /valentine'?s?\s*(day)?/i,
+  /black\s*friday/i,
+  /cyber\s*monday/i,
+  /(christmas|holiday|thanksgiving)\s*(gift|deal|sale|special)?/i,
+  /(summer|winter|spring|fall)\s+(sale|special|campaign|collection)/i,
+  /\b(gift\s+guide|gift\s+ideas?)\b/i,
+  /\bseasonal\s+(offer|deal|special)/i,
+];
+
+/** Patterns indicating brand/about content */
+const ABOUT_PATTERNS = [
+  /\b(vitamix|company|brand)\s*(history|story|heritage)/i,
+  /\babout\s+(vitamix|the\s+company|us)\b/i,
+  /\b(who|what)\s+(makes?|is)\s+vitamix/i,
+  /\b(our|vitamix)\s+(values|mission|vision)\b/i,
+  /\bfounded|founder|origins?\b/i,
+];
+
+function matchesPatterns(text: string, patterns: RegExp[]): boolean {
+  return patterns.some(pattern => pattern.test(text));
+}
+
+// ============================================================================
+// Layout Selection
+// ============================================================================
+
 /**
  * Get layout for intent type
  * Maps intent types to appropriate layouts
+ *
+ * Priority:
+ * 1. Trust LLM's layoutId if confidence >= 0.85
+ * 2. Apply rule-based fallback logic for edge cases
  */
 export function getLayoutForIntent(
   intentType: string,
   contentTypes: string[],
-  entities: { products: string[]; goals: string[]; ingredients?: string[] }
+  entities: { products: string[]; goals: string[]; ingredients?: string[] },
+  llmLayoutId?: string,
+  confidence?: number
 ): LayoutTemplate {
+  // 1. Trust LLM's layout choice when confident
+  if (llmLayoutId && confidence !== undefined && confidence >= 0.85) {
+    const llmLayout = getLayoutById(llmLayoutId);
+    if (llmLayout) {
+      console.log(`[Layout] Trusting LLM choice: ${llmLayoutId} (confidence: ${confidence})`);
+      return llmLayout;
+    }
+  }
+
+  // 2. Fallback: Rule-based logic for low confidence or invalid layout
+  console.log(`[Layout] Using rule-based fallback (LLM confidence: ${confidence ?? 'N/A'})`);
+
+  const goalsText = entities.goals.map((g) => g.toLowerCase()).join(' ');
+
   // Support/troubleshooting queries
   if (intentType === 'support') {
     return LAYOUT_SUPPORT;
@@ -786,45 +861,29 @@ export function getLayoutForIntent(
     return LAYOUT_CATEGORY_BROWSE;
   }
 
-  // Recipe queries
+  // Recipe queries - use semantic patterns instead of includes()
   if (intentType === 'recipe') {
-    // Check for specific recipe indicators (single recipe page)
-    const singleRecipeIndicators = ['how to make', 'recipe for', 'make a', 'make me'];
-    const goalsLower = entities.goals.map((g) => g.toLowerCase()).join(' ');
-
-    // If query has specific recipe keywords and mentions specific ingredients, it's likely a single recipe
-    if (singleRecipeIndicators.some((ind) => goalsLower.includes(ind)) ||
+    // Check for specific recipe request patterns
+    if (matchesPatterns(goalsText, SINGLE_RECIPE_PATTERNS) ||
         (entities.ingredients && entities.ingredients.length >= 2)) {
       return LAYOUT_SINGLE_RECIPE;
     }
 
-    // If it's a use-case oriented query (morning routine, meal prep, etc.)
-    if (entities.goals.some((g) =>
-      g.includes('morning') ||
-      g.includes('daily') ||
-      g.includes('routine') ||
-      g.includes('every') ||
-      g.includes('prep')
-    )) {
+    // Check for use-case/routine patterns
+    if (matchesPatterns(goalsText, USE_CASE_PATTERNS)) {
       return LAYOUT_USE_CASE_LANDING;
     }
+
     return LAYOUT_RECIPE_COLLECTION;
   }
 
-  // Campaign/promotional queries (check before general)
-  const campaignKeywords = [
-    'mother\'s day', 'mothers day', 'father\'s day', 'fathers day',
-    'holiday', 'christmas', 'valentine', 'black friday', 'cyber monday',
-    'summer', 'winter', 'spring', 'fall', 'seasonal', 'gift', 'campaign',
-  ];
-  const goalsLower = entities.goals.map((g) => g.toLowerCase()).join(' ');
-  if (campaignKeywords.some((kw) => goalsLower.includes(kw))) {
+  // Campaign/promotional queries - use semantic patterns
+  if (matchesPatterns(goalsText, CAMPAIGN_PATTERNS)) {
     return LAYOUT_CAMPAIGN_LANDING;
   }
 
-  // About/brand story queries
-  const aboutKeywords = ['history', 'about', 'company', 'brand', 'story', 'heritage', 'values', 'mission'];
-  if (intentType === 'general' && aboutKeywords.some((kw) => goalsLower.includes(kw))) {
+  // About/brand story queries - use semantic patterns
+  if (intentType === 'general' && matchesPatterns(goalsText, ABOUT_PATTERNS)) {
     return LAYOUT_ABOUT_STORY;
   }
 
@@ -835,6 +894,62 @@ export function getLayoutForIntent(
 
   // Default to lifestyle for general queries
   return LAYOUT_LIFESTYLE;
+}
+
+// ============================================================================
+// Post-RAG Layout Adjustment
+// ============================================================================
+
+/**
+ * Adjust layout based on RAG retrieval results
+ * Called after RAG to ensure layout matches available content
+ */
+export function adjustLayoutForRAGContent(
+  layout: LayoutTemplate,
+  ragContext: {
+    hasProductInfo: boolean;
+    hasRecipes: boolean;
+    chunks: Array<{ metadata: { content_type: string } }>;
+  }
+): LayoutTemplate {
+  const productCount = ragContext.chunks.filter(
+    c => c.metadata.content_type === 'product'
+  ).length;
+  const recipeCount = ragContext.chunks.filter(
+    c => c.metadata.content_type === 'recipe'
+  ).length;
+
+  // If we chose single-recipe but found no recipes, fall back to educational
+  if (layout.id === 'single-recipe' && recipeCount === 0) {
+    console.log('[Layout Adjust] single-recipe → educational (no recipes in RAG)');
+    return LAYOUT_EDUCATIONAL;
+  }
+
+  // If we chose recipe-collection but found no recipes, fall back to lifestyle
+  if (layout.id === 'recipe-collection' && recipeCount === 0) {
+    console.log('[Layout Adjust] recipe-collection → lifestyle (no recipes in RAG)');
+    return LAYOUT_LIFESTYLE;
+  }
+
+  // If we chose product-detail but found multiple products, switch to comparison
+  if (layout.id === 'product-detail' && productCount > 1) {
+    console.log('[Layout Adjust] product-detail → product-comparison (multiple products in RAG)');
+    return LAYOUT_PRODUCT_COMPARISON;
+  }
+
+  // If we chose product-detail but found no products, fall back to category-browse
+  if (layout.id === 'product-detail' && productCount === 0) {
+    console.log('[Layout Adjust] product-detail → category-browse (no products in RAG)');
+    return LAYOUT_CATEGORY_BROWSE;
+  }
+
+  // If we chose category-browse but found only 1 product, switch to product-detail
+  if (layout.id === 'category-browse' && productCount === 1) {
+    console.log('[Layout Adjust] category-browse → product-detail (single product in RAG)');
+    return LAYOUT_PRODUCT_DETAIL;
+  }
+
+  return layout;
 }
 
 /**

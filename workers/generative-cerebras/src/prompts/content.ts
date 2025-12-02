@@ -398,21 +398,21 @@ Return a JSON object with this structure:
     "steps": [
       {
         "stepNumber": number (1, 2, 3...),
-        "title": "string (action title like 'Check for trapped ingredients')",
-        "instructions": "string (detailed step instructions)",
-        "safetyNote": "string (optional, safety warning like 'Always unplug first')",
-        "imagePrompt": "string (optional, describe illustration for this step)"
+        "title": "string (short 2-4 word action like 'Check Blade Assembly')",
+        "instructions": "string (REQUIRED - user-facing explanation telling them exactly what to do, 1-2 sentences)",
+        "safetyNote": "string (optional)"
       }
     ]
   }
 }
 
-**Troubleshooting Steps Notes:**
-- Provide 3-5 steps in logical order (easiest fixes first)
-- Always start with safety-related steps (unplug, etc.)
+**Troubleshooting Steps - IMPORTANT:**
+- instructions is REQUIRED for every step - this tells the user what to actually do
+- DO NOT describe images or photos - write actual user instructions
+- Example good instructions: "Remove the container and inspect the blade assembly for wear. Look for cracks, rust, or wobbling in the bearing."
+- Example bad instructions: "A photo of a blade assembly" (WRONG - this describes an image, not an instruction)
+- Provide 3-5 steps, easiest fixes first
 - Include safetyNote for steps involving blades or electrical components
-- Instructions should be detailed but actionable
-- imagePrompt optional - use for steps that benefit from visual guidance
 
 ### Support CTA Block (Support/Troubleshooting pages)
 {
