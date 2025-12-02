@@ -132,11 +132,11 @@
 /* Responsive */
 @media (width >= 900px) {
   .support-hero {
-    min-height: 500px;
+    min-height: 400px;
   }
 
   .support-hero-content {
-    padding: var(--spacing-section-lg) var(--spacing-xl);
+    padding: 10px var(--spacing-xl);
     max-width: 900px;
   }
 

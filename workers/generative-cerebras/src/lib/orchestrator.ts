@@ -12,7 +12,7 @@ import type {
 import { classifyIntent, generateContent, validateBrandCompliance } from '../ai-clients/cerebras';
 import { analyzeQuery } from '../ai-clients/gemini';
 import { generateImages, decideImageStrategy, type ImageProvider } from '../ai-clients/image-router';
-import { smartRetrieve } from './rag';
+import { smartRetrieve, findProductImage } from './rag';
 import { getLayoutForIntent, adjustLayoutForRAGContent, templateToLayoutDecision, type LayoutTemplate } from '../prompts/layouts';
 
 // Worker base URL for image serving
@@ -166,10 +166,11 @@ export async function orchestrate(
     ctx.layout = layout;
 
     // Stream block content as we have it (with predictable image URLs)
-    await streamBlockContent(ctx.content, layout, ctx.slug, onEvent);
+    await streamBlockContent(ctx.content, layout, ctx.slug, onEvent, ctx.ragContext);
 
     // Stage 5: Image Generation (conditional)
-    const imageRequests = buildImageRequests(ctx.content, imageDecisions);
+    // Pass RAG context so product-hero can skip generation if RAG image exists
+    const imageRequests = buildImageRequests(ctx.content, imageDecisions, ctx.ragContext);
 
     // Send image placeholders
     for (const request of imageRequests) {
@@ -200,7 +201,8 @@ export async function orchestrate(
     }
 
     // Build final HTML (images already have predictable URLs based on slug)
-    const html = buildEDSHTML(ctx.content, ctx.layout, ctx.slug);
+    // Pass RAG context so product-hero can use existing images
+    const html = buildEDSHTML(ctx.content, ctx.layout, ctx.slug, ctx.ragContext);
 
     // Signal completion
     onEvent({
@@ -255,7 +257,8 @@ async function decideImagesForContent(
  */
 function buildImageRequests(
   content: GeneratedContent,
-  decisions: Map<string, { useExisting: boolean; url?: string; prompt?: string }>
+  decisions: Map<string, { useExisting: boolean; url?: string; prompt?: string }>,
+  ragContext?: RAGContext
 ): ImageRequest[] {
   const requests: ImageRequest[] = [];
 
@@ -417,7 +420,15 @@ function buildImageRequests(
         }
         break;
 
-      case 'product-hero':
+      case 'product-hero': {
+        // Skip generation if we can find a product image from RAG
+        const ragImage = ragContext && blockContent.productName
+          ? findProductImage(blockContent.productName, ragContext)
+          : undefined;
+        if (ragImage) {
+          console.log(`[buildImageRequests] Skipping product-hero generation - using RAG image for "${blockContent.productName}"`);
+          break;
+        }
         if (blockContent.imagePrompt || decision?.prompt) {
           requests.push({
             id: `product-hero-${block.id}`,
@@ -428,6 +439,7 @@ function buildImageRequests(
           });
         }
         break;
+      }
 
       case 'feature-highlights':
         if (blockContent.features && Array.isArray(blockContent.features)) {
@@ -624,7 +636,8 @@ async function streamBlockContent(
   content: GeneratedContent,
   layout: LayoutDecision,
   slug: string,
-  onEvent: SSECallback
+  onEvent: SSECallback,
+  ragContext?: RAGContext
 ): Promise<void> {
   for (let i = 0; i < layout.blocks.length; i++) {
     const layoutBlock = layout.blocks[i];
@@ -643,7 +656,7 @@ async function streamBlockContent(
     });
 
     // Build HTML for this block (with predictable image URLs)
-    const blockHtml = buildBlockHTML(contentBlock, layoutBlock, slug);
+    const blockHtml = buildBlockHTML(contentBlock, layoutBlock, slug, ragContext);
 
     // Send block content with section style
     onEvent({
@@ -670,7 +683,8 @@ async function streamBlockContent(
 function buildBlockHTML(
   block: GeneratedContent['blocks'][0],
   layoutBlock: LayoutDecision['blocks'][0],
-  slug: string
+  slug: string,
+  ragContext?: RAGContext
 ): string {
   const content = block.content;
   const variant = layoutBlock.variant;
@@ -726,8 +740,14 @@ function buildBlockHTML(
       return buildVerdictCardHTML(content as any, variant);
     case 'comparison-cta':
       return buildComparisonCTAHTML(content as any, variant);
-    case 'product-hero':
-      return buildProductHeroHTML(content as any, variant, slug, block.id);
+    case 'product-hero': {
+      // Try to find a product image from RAG context
+      const productContent = content as any;
+      const ragImageUrl = ragContext && productContent.productName
+        ? findProductImage(productContent.productName, ragContext)
+        : undefined;
+      return buildProductHeroHTML(productContent, variant, slug, block.id, ragImageUrl);
+    }
     case 'specs-table':
       return buildSpecsTableHTML(content as any, variant);
     case 'feature-highlights':
@@ -2099,14 +2119,24 @@ function buildSupportCTAHTML(content: any, variant: string): string {
  *   </div>
  * </div>
  */
-function buildProductHeroHTML(content: any, variant: string, slug: string, blockId: string): string {
+function buildProductHeroHTML(content: any, variant: string, slug: string, blockId: string, ragImageUrl?: string): string {
   const imageId = `product-hero-${blockId}`;
-  const imageUrl = buildImageUrl(slug, imageId);
+  // Use RAG image if available, otherwise use generated image URL
+  const imageUrl = ragImageUrl || buildImageUrl(slug, imageId);
   const productName = content.productName || '';
   const description = content.description || '';
   const price = content.price || '';
   const specs = content.specs || '';
   const compareUrl = content.compareUrl || '/compare';
+
+  // If using RAG image, don't add data-gen-image attribute (no generation needed)
+  const imgAttributes = ragImageUrl
+    ? `loading="lazy" alt="${escapeHTML(productName)}" src="${imageUrl}"`
+    : `loading="lazy" alt="${escapeHTML(productName)}" src="${imageUrl}" data-gen-image="${imageId}"`;
+
+  if (ragImageUrl) {
+    console.log(`[buildProductHeroHTML] Using RAG image for "${productName}": ${ragImageUrl}`);
+  }
 
   return `
     <div class="product-hero${variant !== 'default' ? ` ${variant}` : ''}">
@@ -2120,7 +2150,7 @@ function buildProductHeroHTML(content: any, variant: string, slug: string, block
         </div>
         <div>
           <picture>
-            <img loading="lazy" alt="${escapeHTML(productName)}" src="${imageUrl}" data-gen-image="${imageId}">
+            <img ${imgAttributes}>
           </picture>
         </div>
       </div>
@@ -2313,14 +2343,15 @@ function buildProductCTAHTML(content: any, variant: string): string {
 function buildEDSHTML(
   content: GeneratedContent,
   layout: LayoutDecision,
-  slug: string
+  slug: string,
+  ragContext?: RAGContext
 ): string {
   // Build blocks HTML (images have predictable URLs based on slug)
   const blocksHtml = layout.blocks.map((layoutBlock) => {
     const contentBlock = content.blocks[layoutBlock.contentIndex];
     if (!contentBlock) return '';
 
-    const blockHtml = buildBlockHTML(contentBlock, layoutBlock, slug);
+    const blockHtml = buildBlockHTML(contentBlock, layoutBlock, slug, ragContext);
 
     // Build section-metadata if section has a style
     let sectionMetadataHtml = '';

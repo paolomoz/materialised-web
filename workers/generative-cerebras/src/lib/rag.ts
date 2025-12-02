@@ -427,3 +427,90 @@ export function findExistingImages(context: RAGContext): Array<{
 
   return images;
 }
+
+/**
+ * Predefined product image map for Vitamix blenders
+ * Maps product SKUs/names to their official product images
+ * This is more reliable than RAG-based image lookup
+ */
+const PRODUCT_IMAGE_MAP: Record<string, string> = {
+  // Ascent Series (new naming)
+  'x5': 'https://www.vitamix.com/us/en_us/products/media_7ca6b121cca4cd1397c0c9bf32637ef925950836.png',
+  'x4': 'https://www.vitamix.com/us/en_us/products/media_3f3eeec71d9e88c78b005868ddc8805b28b122b0.png',
+  'x3': 'https://www.vitamix.com/us/en_us/products/media_9dce4f483d4ee81ca0a5e651c27156551f2bccbf.png',
+  'x2': 'https://www.vitamix.com/us/en_us/products/media_335b90c4a88f4c5c43cf4c729084121123c0ce9a.png',
+  // Ascent Series (legacy naming - map to same images)
+  'a3500': 'https://www.vitamix.com/media/catalog/product/cache/0ec3c615634740d8dc65133430b5196f/a/3/a3500_brushedstainless_build_2500x2500.png',
+  'a2500': 'https://www.vitamix.com/media/catalog/product/cache/0ec3c615634740d8dc65133430b5196f/a/2/a2500_black_front_build_2x_1.jpg',
+  'a2300': 'https://www.vitamix.com/us/en_us/products/media_335b90c4a88f4c5c43cf4c729084121123c0ce9a.png', // Same as X2
+  // Explorian Series
+  'e310': 'https://www.vitamix.com/us/en_us/products/media_9bda4788608eabaa7bbbf3bfa59803af269b7f77.jpg',
+  'e320': 'https://www.vitamix.com/us/en_us/products/media_9bda4788608eabaa7bbbf3bfa59803af269b7f77.jpg', // Same as E310
+  // Classic/Legacy Series
+  '5200': 'https://www.vitamix.com/us/en_us/products/media_bcd9b471a9b8219de3198529327044da42150284.jpg',
+  '5300': 'https://www.vitamix.com/us/en_us/products/media_bcd9b471a9b8219de3198529327044da42150284.jpg', // Similar to 5200
+  '7500': 'https://www.vitamix.com/us/en_us/products/media_bcd9b471a9b8219de3198529327044da42150284.jpg', // Similar style
+  // Professional Series
+  '750': 'https://www.vitamix.com/us/en_us/products/media_bcd9b471a9b8219de3198529327044da42150284.jpg',
+  'pro750': 'https://www.vitamix.com/us/en_us/products/media_bcd9b471a9b8219de3198529327044da42150284.jpg',
+};
+
+/**
+ * Find a product image by matching product name against predefined image map
+ * Falls back to undefined if no match (will trigger AI image generation)
+ */
+export function findProductImage(
+  productName: string,
+  _context: RAGContext
+): string | undefined {
+  if (!productName) return undefined;
+
+  const normalizedName = productName.toLowerCase();
+
+  // Extract SKU patterns from product name
+  // Matches: X5, X4, X3, X2, A3500, A2500, E310, 5200, 750, Pro 750, etc.
+  const patterns = [
+    /\bx([2-5])\b/i,                    // X2, X3, X4, X5
+    /\ba([23]\d{3})\b/i,                // A3500, A2500, A2300
+    /\be([23]\d{2})\b/i,                // E310, E320
+    /\b([57]\d{3})\b/,                  // 5200, 5300, 7500
+    /\bpro\s*(\d{3})\b/i,               // Pro 750
+    /\b(\d{3})\b/,                      // 750
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalizedName.match(pattern);
+    if (match) {
+      // Build the lookup key
+      let key: string;
+      if (pattern.source.includes('x')) {
+        key = `x${match[1]}`;
+      } else if (pattern.source.includes('\\ba')) {
+        key = `a${match[1]}`;
+      } else if (pattern.source.includes('\\be')) {
+        key = `e${match[1]}`;
+      } else if (pattern.source.includes('pro')) {
+        key = `pro${match[1]}`;
+      } else {
+        key = match[1];
+      }
+
+      const imageUrl = PRODUCT_IMAGE_MAP[key.toLowerCase()];
+      if (imageUrl) {
+        console.log(`[findProductImage] Found image for "${productName}" via key "${key}"`);
+        return imageUrl;
+      }
+    }
+  }
+
+  // Try direct lookup by common product names
+  for (const [key, url] of Object.entries(PRODUCT_IMAGE_MAP)) {
+    if (normalizedName.includes(key)) {
+      console.log(`[findProductImage] Found image for "${productName}" via direct match "${key}"`);
+      return url;
+    }
+  }
+
+  console.log(`[findProductImage] No predefined image found for "${productName}"`);
+  return undefined;
+}

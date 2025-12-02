@@ -1,4 +1,4 @@
-import type { RAGContext, IntentClassification, SessionContextParam } from '../types';
+import type { RAGContext, IntentClassification, SessionContextParam, UserContext } from '../types';
 import { BRAND_VOICE_SYSTEM_PROMPT } from './brand-voice';
 import { type LayoutTemplate, formatLayoutForPrompt } from './layouts';
 
@@ -909,6 +909,22 @@ ${chunk.text}
     const sessionThemes = [...new Set([...allGoals, ...allIngredients])].slice(0, 5);
     const sessionProducts = [...new Set(allProducts)].slice(0, 3);
 
+    // Accumulate user context from session (dietary restrictions persist)
+    const sessionDietaryAvoid = sessionContext.previousQueries
+      .flatMap((q) => q.entities.userContext?.dietary?.avoid || []);
+    const sessionDietaryPrefs = sessionContext.previousQueries
+      .flatMap((q) => q.entities.userContext?.dietary?.preferences || []);
+    const sessionAudience = sessionContext.previousQueries
+      .flatMap((q) => q.entities.userContext?.audience || []);
+    const sessionOccasion = sessionContext.previousQueries
+      .flatMap((q) => q.entities.userContext?.occasion || []);
+    const sessionSeason = sessionContext.previousQueries
+      .flatMap((q) => q.entities.userContext?.season || []);
+    const sessionLifestyle = sessionContext.previousQueries
+      .flatMap((q) => q.entities.userContext?.lifestyle || []);
+    const sessionConstraints = sessionContext.previousQueries
+      .flatMap((q) => q.entities.userContext?.constraints || []);
+
     sessionSection = `
 ## Session Context (BLEND with Current Query - ACROSS ALL INTENT TYPES)
 
@@ -935,18 +951,234 @@ ${sessionProducts.length > 0 ? `**Products from session:** ${sessionProducts.joi
    - Reference the product: "Recipes Perfect for Your A3500"
    - Include tips specific to that product's features
 
-4. **Headlines MUST reflect the blend**:
-   - Session: tropical fruits, smoothies → Product query → "Best Vitamix for Tropical Smoothies"
-   - NOT just "Best Vitamix Blenders"
+4. **For EDUCATIONAL pages (settings, tips, techniques):**
+   - Connect to session themes: "creamy soups" session + "baby food settings" → reference smooth textures, similar techniques
+   - "You've been exploring creamy soups - the same smooth-blending techniques work great for baby food"
+   - If products were compared, reference which settings work on those models
+   - Build on accumulated knowledge: session about textures/techniques should inform new technique queries
 
-5. **Don't just acknowledge context - WEAVE it into every piece of content**
+5. **Headlines MUST reflect the blend**:
+   - Session: tropical fruits, smoothies → Product query → "Best Vitamix for Tropical Smoothies"
+   - Session: creamy soups, blender comparison → Baby food query → "Baby Food Settings: Smooth Textures Like Your Favorite Soups"
+   - NOT just generic headlines
+
+6. **ACCUMULATE context across 3+ queries**:
+   - Query 1: soups → Query 2: blenders for soups → Query 3: baby food should reference BOTH soups AND blenders
+   - Example: "Using the blenders you compared, here's how to achieve the same creamy texture for baby food"
+   - The conversation builds - each page should feel like a continuation, not a fresh start
+
+7. **Don't just acknowledge context - WEAVE it into every piece of content**
+`;
+  }
+
+  // Compute merged user context (current intent + session history)
+  // Helper to merge arrays from current context and session
+  const currentContext = intent.entities.userContext;
+  type QueryHistoryEntry = NonNullable<SessionContextParam>['previousQueries'][0];
+  const mergeArrays = <T>(
+    getCurrent: () => T[] | undefined,
+    getFromSession: (q: QueryHistoryEntry) => T[] | undefined
+  ): T[] => [...new Set([
+    ...(getCurrent() || []),
+    ...(sessionContext?.previousQueries?.flatMap((q) => getFromSession(q) || []) || []),
+  ])];
+
+  const mergedUserContext = {
+    // Dietary & Health
+    dietaryAvoid: mergeArrays(() => currentContext?.dietary?.avoid, (q) => q.entities.userContext?.dietary?.avoid),
+    dietaryPrefs: mergeArrays(() => currentContext?.dietary?.preferences, (q) => q.entities.userContext?.dietary?.preferences),
+    healthConditions: mergeArrays(() => currentContext?.health?.conditions, (q) => q.entities.userContext?.health?.conditions),
+    healthGoals: mergeArrays(() => currentContext?.health?.goals, (q) => q.entities.userContext?.health?.goals),
+    healthConsiderations: mergeArrays(() => currentContext?.health?.considerations, (q) => q.entities.userContext?.health?.considerations),
+
+    // Audience & Household
+    audience: mergeArrays(() => currentContext?.audience, (q) => q.entities.userContext?.audience),
+    pickyEaters: mergeArrays(() => currentContext?.household?.pickyEaters, (q) => q.entities.userContext?.household?.pickyEaters),
+    texture: mergeArrays(() => currentContext?.household?.texture, (q) => q.entities.userContext?.household?.texture),
+    spiceLevel: mergeArrays(() => currentContext?.household?.spiceLevel, (q) => q.entities.userContext?.household?.spiceLevel),
+    portions: mergeArrays(() => currentContext?.household?.portions, (q) => q.entities.userContext?.household?.portions),
+
+    // Cooking Context
+    equipment: mergeArrays(() => currentContext?.cooking?.equipment, (q) => q.entities.userContext?.cooking?.equipment),
+    skillLevel: mergeArrays(() => currentContext?.cooking?.skillLevel, (q) => q.entities.userContext?.cooking?.skillLevel),
+    kitchen: mergeArrays(() => currentContext?.cooking?.kitchen, (q) => q.entities.userContext?.cooking?.kitchen),
+
+    // Cultural & Regional
+    cuisine: mergeArrays(() => currentContext?.cultural?.cuisine, (q) => q.entities.userContext?.cultural?.cuisine),
+    religious: mergeArrays(() => currentContext?.cultural?.religious, (q) => q.entities.userContext?.cultural?.religious),
+    regional: mergeArrays(() => currentContext?.cultural?.regional, (q) => q.entities.userContext?.cultural?.regional),
+
+    // Time & Occasion
+    occasion: mergeArrays(() => currentContext?.occasion, (q) => q.entities.userContext?.occasion),
+    season: mergeArrays(() => currentContext?.season, (q) => q.entities.userContext?.season),
+
+    // Lifestyle & Fitness
+    lifestyle: mergeArrays(() => currentContext?.lifestyle, (q) => q.entities.userContext?.lifestyle),
+    fitnessContext: mergeArrays(() => currentContext?.fitnessContext, (q) => q.entities.userContext?.fitnessContext),
+
+    // Practical Constraints
+    constraints: mergeArrays(() => currentContext?.constraints, (q) => q.entities.userContext?.constraints),
+    budget: mergeArrays(() => currentContext?.budget, (q) => q.entities.userContext?.budget),
+    shopping: mergeArrays(() => currentContext?.shopping, (q) => q.entities.userContext?.shopping),
+    storage: mergeArrays(() => currentContext?.storage, (q) => q.entities.userContext?.storage),
+
+    // Ingredients
+    available: mergeArrays(() => currentContext?.available, (q) => q.entities.userContext?.available),
+    mustUse: mergeArrays(() => currentContext?.mustUse, (q) => q.entities.userContext?.mustUse),
+  };
+
+  // Build user context section for the prompt
+  const hasUserContext = Object.values(mergedUserContext).some((arr) => arr.length > 0);
+
+  let userContextSection = '';
+  if (hasUserContext) {
+    const sections: string[] = [];
+
+    // DIETARY & HEALTH (Critical - must follow)
+    if (mergedUserContext.dietaryAvoid.length > 0) {
+      sections.push(`**🚫 DIETARY RESTRICTIONS (MUST FOLLOW):**
+Avoid: ${mergedUserContext.dietaryAvoid.join(', ')}
+- NEVER recommend recipes containing these ingredients
+- NEVER list these ingredients in recipes
+- Acknowledge the restriction naturally in headlines (e.g., "Delicious Carrot-Free Soups...")`);
+    }
+    if (mergedUserContext.dietaryPrefs.length > 0) {
+      sections.push(`**Dietary preferences:** ${mergedUserContext.dietaryPrefs.join(', ')}
+- All recipes MUST comply with these preferences
+- For "vegan": no animal products. For "gluten-free": no wheat, barley, rye, etc.`);
+    }
+    if (mergedUserContext.religious.length > 0) {
+      sections.push(`**Religious dietary laws:** ${mergedUserContext.religious.join(', ')}
+- MUST comply with religious requirements (halal, kosher, etc.)
+- This is non-negotiable`);
+    }
+
+    // HEALTH
+    if (mergedUserContext.healthConditions.length > 0) {
+      sections.push(`**Health conditions:** ${mergedUserContext.healthConditions.join(', ')}
+- Tailor recipes to be appropriate for these conditions
+- For "diabetes": low-sugar, low-glycemic. For "heart-health": low-sodium, healthy fats`);
+    }
+    if (mergedUserContext.healthGoals.length > 0) {
+      sections.push(`**Health goals:** ${mergedUserContext.healthGoals.join(', ')}
+- Optimize recipes for these goals
+- For "weight-loss": low-calorie, filling. For "muscle-gain": high-protein`);
+    }
+    if (mergedUserContext.healthConsiderations.length > 0) {
+      sections.push(`**Nutritional requirements:** ${mergedUserContext.healthConsiderations.join(', ')}
+- Ensure recipes meet these requirements`);
+    }
+
+    // AUDIENCE & HOUSEHOLD
+    if (mergedUserContext.audience.length > 0) {
+      sections.push(`**Audience:** ${mergedUserContext.audience.join(', ')}
+- Tailor content for this audience (e.g., "kid-approved", "crowd-pleasing", "family-sized")
+- Adjust complexity, portions, and language accordingly`);
+    }
+    if (mergedUserContext.pickyEaters.length > 0) {
+      sections.push(`**Picky eater constraints:** ${mergedUserContext.pickyEaters.join(', ')}
+- Work around these preferences (e.g., hide vegetables if needed)`);
+    }
+    if (mergedUserContext.texture.length > 0) {
+      sections.push(`**Texture preference:** ${mergedUserContext.texture.join(', ')}
+- Ensure recipes match this texture preference`);
+    }
+    if (mergedUserContext.spiceLevel.length > 0) {
+      sections.push(`**Spice level:** ${mergedUserContext.spiceLevel.join(', ')}
+- Adjust spiciness accordingly`);
+    }
+    if (mergedUserContext.portions.length > 0) {
+      sections.push(`**Portions:** ${mergedUserContext.portions.join(', ')}
+- Size recipes appropriately`);
+    }
+
+    // COOKING CONTEXT
+    if (mergedUserContext.equipment.length > 0) {
+      sections.push(`**Equipment available:** ${mergedUserContext.equipment.join(', ')}
+- Only suggest recipes compatible with this equipment`);
+    }
+    if (mergedUserContext.skillLevel.length > 0) {
+      sections.push(`**Cooking skill level:** ${mergedUserContext.skillLevel.join(', ')}
+- Match recipe complexity to skill level`);
+    }
+    if (mergedUserContext.kitchen.length > 0) {
+      sections.push(`**Kitchen constraints:** ${mergedUserContext.kitchen.join(', ')}
+- Ensure recipes work in this environment`);
+    }
+
+    // CULTURAL
+    if (mergedUserContext.cuisine.length > 0) {
+      sections.push(`**Cuisine style:** ${mergedUserContext.cuisine.join(', ')}
+- Draw from this culinary tradition`);
+    }
+    if (mergedUserContext.regional.length > 0) {
+      sections.push(`**Regional style:** ${mergedUserContext.regional.join(', ')}
+- Incorporate regional flavors and ingredients`);
+    }
+
+    // TIME & OCCASION
+    if (mergedUserContext.occasion.length > 0) {
+      sections.push(`**Occasion:** ${mergedUserContext.occasion.join(', ')}
+- Content should fit this context
+- Reference the occasion in headlines and descriptions`);
+    }
+    if (mergedUserContext.season.length > 0) {
+      sections.push(`**Season:** ${mergedUserContext.season.join(', ')}
+- Use seasonal ingredients and themes
+- Match the mood (warming for cold weather, refreshing for summer)`);
+    }
+
+    // LIFESTYLE & FITNESS
+    if (mergedUserContext.lifestyle.length > 0) {
+      sections.push(`**Lifestyle:** ${mergedUserContext.lifestyle.join(', ')}
+- Address specific lifestyle needs`);
+    }
+    if (mergedUserContext.fitnessContext.length > 0) {
+      sections.push(`**Fitness context:** ${mergedUserContext.fitnessContext.join(', ')}
+- Optimize for this fitness context (pre-workout = quick energy, post-workout = protein + recovery)`);
+    }
+
+    // PRACTICAL CONSTRAINTS
+    if (mergedUserContext.constraints.length > 0) {
+      sections.push(`**Constraints:** ${mergedUserContext.constraints.join(', ')}
+- Honor these constraints (e.g., "quick" = under 10-15 min)`);
+    }
+    if (mergedUserContext.budget.length > 0) {
+      sections.push(`**Budget:** ${mergedUserContext.budget.join(', ')}
+- Use ingredients appropriate for this budget`);
+    }
+    if (mergedUserContext.shopping.length > 0) {
+      sections.push(`**Shopping context:** ${mergedUserContext.shopping.join(', ')}
+- Consider where user shops when suggesting ingredients`);
+    }
+    if (mergedUserContext.storage.length > 0) {
+      sections.push(`**Storage needs:** ${mergedUserContext.storage.join(', ')}
+- Ensure recipes meet these storage requirements`);
+    }
+
+    // INGREDIENTS ON HAND
+    if (mergedUserContext.available.length > 0) {
+      sections.push(`**Ingredients available:** ${mergedUserContext.available.join(', ')}
+- Prioritize recipes using these ingredients`);
+    }
+    if (mergedUserContext.mustUse.length > 0) {
+      sections.push(`**Must use up:** ${mergedUserContext.mustUse.join(', ')}
+- PRIORITIZE recipes that use these ingredients (they're about to expire or leftover)`);
+    }
+
+    userContextSection = `
+## User Context (PERSONALIZE ALL CONTENT)
+
+${sections.join('\n\n')}
+
+**PERSONALIZATION RULE:** Weave this user context throughout the ENTIRE page - headlines, descriptions, tips, and recommendations. Don't just acknowledge it once.
 `;
   }
 
   return `
 ## User Query
 "${query}"
-${sessionSection}
+${sessionSection}${userContextSection}
 ## Intent Classification
 - Type: ${intent.intentType}
 - Confidence: ${(intent.confidence * 100).toFixed(0)}%
@@ -955,6 +1187,16 @@ ${sessionSection}
 - Products mentioned: ${intent.entities.products.join(', ') || 'none'}
 - Ingredients mentioned: ${intent.entities.ingredients.join(', ') || 'none'}
 - User goals: ${intent.entities.goals.join(', ') || 'general exploration'}
+${hasUserContext ? `- Dietary: ${mergedUserContext.dietaryAvoid.length ? `AVOID ${mergedUserContext.dietaryAvoid.join(', ')}` : 'none'} | ${mergedUserContext.dietaryPrefs.join(', ') || 'no preferences'}${mergedUserContext.religious.length ? ` | Religious: ${mergedUserContext.religious.join(', ')}` : ''}
+- Health: ${mergedUserContext.healthConditions.join(', ') || 'none'} | Goals: ${mergedUserContext.healthGoals.join(', ') || 'none'} | Requirements: ${mergedUserContext.healthConsiderations.join(', ') || 'none'}
+- Audience: ${mergedUserContext.audience.join(', ') || 'general'}${mergedUserContext.portions.length ? ` | Portions: ${mergedUserContext.portions.join(', ')}` : ''}
+- Household: ${[...mergedUserContext.texture, ...mergedUserContext.spiceLevel, ...mergedUserContext.pickyEaters].join(', ') || 'no preferences'}
+- Cooking: Equipment: ${mergedUserContext.equipment.join(', ') || 'any'} | Skill: ${mergedUserContext.skillLevel.join(', ') || 'any'} | Kitchen: ${mergedUserContext.kitchen.join(', ') || 'standard'}
+- Cultural: ${[...mergedUserContext.cuisine, ...mergedUserContext.regional].join(', ') || 'no preference'}
+- Occasion: ${mergedUserContext.occasion.join(', ') || 'any'} | Season: ${mergedUserContext.season.join(', ') || 'any'}
+- Lifestyle: ${[...mergedUserContext.lifestyle, ...mergedUserContext.fitnessContext].join(', ') || 'general'}
+- Constraints: ${mergedUserContext.constraints.join(', ') || 'none'} | Budget: ${mergedUserContext.budget.join(', ') || 'any'} | Storage: ${mergedUserContext.storage.join(', ') || 'any'}
+- Ingredients: Available: ${mergedUserContext.available.join(', ') || 'not specified'} | Must use: ${mergedUserContext.mustUse.join(', ') || 'none'}` : ''}
 
 ## LAYOUT TEMPLATE (FOLLOW EXACTLY)
 ${layoutSection}

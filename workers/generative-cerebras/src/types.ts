@@ -39,6 +39,64 @@ export interface Env {
 export type ContentType = 'product' | 'recipe' | 'editorial' | 'support' | 'brand';
 
 /**
+ * User context extracted from queries for personalization
+ * Comprehensive context capturing dietary, health, cooking, cultural, household, and practical factors
+ */
+export interface UserContext {
+  // === DIETARY & HEALTH ===
+  dietary?: {
+    avoid: string[];        // Ingredients to exclude: ["carrots", "nuts", "shellfish"]
+    preferences: string[];  // Dietary lifestyles: ["vegan", "keto", "gluten-free", "paleo"]
+  };
+  health?: {
+    conditions: string[];   // Health conditions: ["diabetes", "heart-health", "digestive", "pregnancy"]
+    goals: string[];        // Health goals: ["weight-loss", "muscle-gain", "immune-boost", "energy"]
+    considerations: string[]; // Special considerations: ["low-sodium", "low-sugar", "high-fiber"]
+  };
+
+  // === AUDIENCE & HOUSEHOLD ===
+  audience?: string[];      // Target audience: ["children", "family", "guests", "toddlers", "seniors"]
+  household?: {
+    pickyEaters: string[];  // Picky eater constraints: ["no-green-vegetables", "no-mixed-textures"]
+    texture: string[];      // Texture preferences: ["smooth", "chunky", "creamy", "crispy"]
+    spiceLevel: string[];   // Spice tolerance: ["mild", "medium", "spicy", "no-spice"]
+    portions: string[];     // Portion needs: ["single-serving", "family-sized", "crowd", "meal-prep-batch"]
+  };
+
+  // === COOKING CONTEXT ===
+  cooking?: {
+    equipment: string[];    // Available equipment: ["vitamix", "instant-pot", "air-fryer", "no-stove"]
+    skillLevel: string[];   // Skill level: ["beginner", "intermediate", "advanced", "chef"]
+    kitchen: string[];      // Kitchen constraints: ["small-kitchen", "dorm-room", "outdoor", "rv"]
+  };
+
+  // === CULTURAL & REGIONAL ===
+  cultural?: {
+    cuisine: string[];      // Cuisine preferences: ["mexican", "asian", "mediterranean", "italian", "indian"]
+    religious: string[];    // Religious dietary laws: ["halal", "kosher", "fasting", "no-alcohol"]
+    regional: string[];     // Regional context: ["southern", "midwest", "coastal", "farm-fresh"]
+  };
+
+  // === TIME & OCCASION ===
+  occasion?: string[];      // Time/event context: ["breakfast", "weeknight", "holiday", "party", "game-day"]
+  season?: string[];        // Seasonal context: ["fall", "winter", "summer", "spring", "holiday-season"]
+
+  // === LIFESTYLE & ACTIVITY ===
+  lifestyle?: string[];     // Activity/lifestyle: ["athletic", "sedentary", "busy-professional", "stay-at-home"]
+  fitnessContext?: string[]; // Fitness context: ["pre-workout", "post-workout", "recovery", "competition-day"]
+
+  // === PRACTICAL CONSTRAINTS ===
+  constraints?: string[];   // Time/effort: ["quick", "5-minutes", "make-ahead", "one-pot"]
+  budget?: string[];        // Budget context: ["budget-friendly", "premium-ingredients", "pantry-staples"]
+  shopping?: string[];      // Shopping context: ["costco-bulk", "farmers-market", "grocery-delivery", "what-i-have"]
+  storage?: string[];       // Storage needs: ["freezer-friendly", "no-leftovers", "meal-prep", "lunchbox"]
+
+  // === INGREDIENTS ON HAND ===
+  available?: string[];     // Ingredients user has: ["chicken", "rice", "broccoli"]
+  mustUse?: string[];       // Ingredients that must be used: ["ripe-bananas", "leftover-turkey"]
+}
+
+/**
  * Layout IDs matching layouts.ts templates
  */
 export type LayoutId =
@@ -68,6 +126,7 @@ export interface IntentClassification {
     products: string[];
     ingredients: string[];
     goals: string[];
+    userContext?: UserContext;
   };
 }
 
@@ -328,6 +387,7 @@ export interface QueryHistoryEntry {
     products: string[];
     ingredients: string[];
     goals: string[];
+    userContext?: UserContext;
   };
 }
 

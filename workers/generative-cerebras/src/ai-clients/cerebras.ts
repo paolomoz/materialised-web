@@ -104,6 +104,13 @@ export async function classifyIntent(
       const context = [q.intent];
       if (q.entities.ingredients.length > 0) context.push(`ingredients: ${q.entities.ingredients.join(', ')}`);
       if (q.entities.products.length > 0) context.push(`products: ${q.entities.products.join(', ')}`);
+      // Include userContext from previous queries (especially dietary restrictions)
+      if (q.entities.userContext?.dietary?.avoid?.length) {
+        context.push(`userContext.dietary.avoid: ${q.entities.userContext.dietary.avoid.join(', ')}`);
+      }
+      if (q.entities.userContext?.dietary?.preferences?.length) {
+        context.push(`userContext.dietary.preferences: ${q.entities.userContext.dietary.preferences.join(', ')}`);
+      }
       return `"${q.query}" (${context.join(', ')})`;
     });
     sessionContextStr = `\n\nSession Context: Previous queries: [${prevQueries.join(', ')}]`;
@@ -148,6 +155,59 @@ export async function classifyIntent(
         products: parsed.entities?.products || [],
         ingredients: parsed.entities?.ingredients || [],
         goals: parsed.entities?.goals || [],
+        userContext: parsed.entities?.userContext ? {
+          // Dietary & Health
+          dietary: parsed.entities.userContext.dietary ? {
+            avoid: parsed.entities.userContext.dietary.avoid || [],
+            preferences: parsed.entities.userContext.dietary.preferences || [],
+          } : undefined,
+          health: parsed.entities.userContext.health ? {
+            conditions: parsed.entities.userContext.health.conditions || [],
+            goals: parsed.entities.userContext.health.goals || [],
+            considerations: parsed.entities.userContext.health.considerations || [],
+          } : undefined,
+
+          // Audience & Household
+          audience: parsed.entities.userContext.audience || undefined,
+          household: parsed.entities.userContext.household ? {
+            pickyEaters: parsed.entities.userContext.household.pickyEaters || [],
+            texture: parsed.entities.userContext.household.texture || [],
+            spiceLevel: parsed.entities.userContext.household.spiceLevel || [],
+            portions: parsed.entities.userContext.household.portions || [],
+          } : undefined,
+
+          // Cooking Context
+          cooking: parsed.entities.userContext.cooking ? {
+            equipment: parsed.entities.userContext.cooking.equipment || [],
+            skillLevel: parsed.entities.userContext.cooking.skillLevel || [],
+            kitchen: parsed.entities.userContext.cooking.kitchen || [],
+          } : undefined,
+
+          // Cultural & Regional
+          cultural: parsed.entities.userContext.cultural ? {
+            cuisine: parsed.entities.userContext.cultural.cuisine || [],
+            religious: parsed.entities.userContext.cultural.religious || [],
+            regional: parsed.entities.userContext.cultural.regional || [],
+          } : undefined,
+
+          // Time & Occasion
+          occasion: parsed.entities.userContext.occasion || undefined,
+          season: parsed.entities.userContext.season || undefined,
+
+          // Lifestyle & Fitness
+          lifestyle: parsed.entities.userContext.lifestyle || undefined,
+          fitnessContext: parsed.entities.userContext.fitnessContext || undefined,
+
+          // Practical Constraints
+          constraints: parsed.entities.userContext.constraints || undefined,
+          budget: parsed.entities.userContext.budget || undefined,
+          shopping: parsed.entities.userContext.shopping || undefined,
+          storage: parsed.entities.userContext.storage || undefined,
+
+          // Ingredients
+          available: parsed.entities.userContext.available || undefined,
+          mustUse: parsed.entities.userContext.mustUse || undefined,
+        } : undefined,
       },
     };
   } catch {
