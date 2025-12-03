@@ -78,9 +78,19 @@ async function renderBlockSection(blockData, container) {
   section.dataset.sectionStatus = 'initialized';
   section.innerHTML = blockData.html;
 
-  // Store original src for each generated image
+  // Store original src for each generated image and add load handler
   section.querySelectorAll('img[data-gen-image]').forEach((img) => {
     img.dataset.originalSrc = img.getAttribute('src');
+
+    // Add onload handler to show image when it loads (including via redirect fallback)
+    img.onload = () => {
+      img.classList.add('loaded');
+    };
+
+    // If image is already loaded (cached), add class immediately
+    if (img.complete && img.naturalWidth > 0) {
+      img.classList.add('loaded');
+    }
   });
 
   // Wrap block in a wrapper div (EDS pattern)
@@ -944,6 +954,14 @@ async function init() {
     setupCerebrasForm();
   }
 }
+
+// Global image load handler for generated images
+// Uses event delegation to catch images created by any block decoration
+document.addEventListener('load', (e) => {
+  if (e.target.tagName === 'IMG' && e.target.dataset.genImage) {
+    e.target.classList.add('loaded');
+  }
+}, true); // Use capture phase to catch before bubbling
 
 // Run when DOM is ready
 if (document.readyState === 'loading') {
