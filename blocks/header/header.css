@@ -172,7 +172,7 @@ header nav .nav-search {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  width: 100%;
+  width: 70%;
   max-width: 500px;
 }
 
@@ -393,7 +393,35 @@ header nav .nav-search {
 
 /* Mobile adjustments for header search */
 @media (width < 600px) {
+  header nav {
+    padding: 0 12px;
+    gap: 0 12px;
+  }
+
+  /* Hide logo on mobile */
+  header .nav-brand {
+    display: none;
+  }
+
+  /* Show search bar prominently on mobile */
   header nav .nav-search {
+    /* position: static; */
+    /* transform: none; */
+    /* max-width: none; */
+    /* flex: 1; */
+  }
+
+  .header-search-container input {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+
+  /* Show only the sparkle icon, hide button text */
+  .header-explore-btn {
+    padding: 8px 12px;
+  }
+
+  .header-explore-btn span {
     display: none;
   }
 
