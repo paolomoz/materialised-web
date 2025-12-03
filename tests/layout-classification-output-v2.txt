@@ -7,7 +7,7 @@ Endpoint: /api/classify-batch
 Test Cases: 100
 ================================================================================
 
-Running batch classification......
+Running batch classification.......
 
 INDIVIDUAL RESULTS:
 --------------------------------------------------------------------------------
