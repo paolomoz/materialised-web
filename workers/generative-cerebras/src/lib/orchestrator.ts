@@ -16,6 +16,7 @@ import { smartRetrieve, findProductImage } from './rag';
 import { getLayoutForIntent, adjustLayoutForRAGContent, templateToLayoutDecision, type LayoutTemplate } from '../prompts/layouts';
 import { validateContentSafety, type ContentSafetyResult } from './content-safety';
 import { getFallbackContent, getFallbackLayout } from './fallback-content';
+import { validateTopicRelevance, getTopicRejectionResponse } from './topic-relevance';
 
 // Worker base URL for image serving
 const WORKER_URL = 'https://vitamix-generative-cerebras.paolo-moz.workers.dev';
@@ -101,12 +102,43 @@ export async function orchestrate(
     // Pass session context so classifier can interpret short queries in context
     ctx.intent = await classifyIntent(query, env, sessionContext);
 
+    // Stage 1.5: Topic Relevance / Food Angle Finder
+    // Find a food/culinary angle for any query, only reject truly offensive content
+    const topicResult = await validateTopicRelevance(query, ctx.intent, env);
+    if (!topicResult.relevant) {
+      console.log('[Orchestrator] Query rejected:', {
+        query,
+        reason: topicResult.rejectionMessage,
+      });
+
+      onEvent({
+        event: 'error',
+        data: {
+          code: 'OFF_TOPIC_QUERY',
+          message: topicResult.rejectionMessage || 'This request contains content I cannot help with.',
+          recoverable: true,
+        },
+      });
+
+      return getTopicRejectionResponse(topicResult);
+    }
+
+    // Use the suggested query (food angle) for content generation
+    // This reframes queries like "Formula One" → "race day snacks and drinks"
+    const effectiveQuery = topicResult.suggestedQuery || query;
+    if (topicResult.suggestedQuery && topicResult.suggestedQuery !== query) {
+      console.log('[Orchestrator] Query reframed for food angle:', {
+        original: query,
+        reframed: topicResult.suggestedQuery,
+        foodAngle: topicResult.foodAngle,
+      });
+    }
+
     // Stage 2: Parallel - Smart RAG retrieval + Query analysis
-    // smartRetrieve uses the intent to plan the optimal retrieval strategy
-    // Now also filters results based on userContext (dietary restrictions, etc.)
+    // Use effectiveQuery (food-angle reframed query) for retrieval and analysis
     const [ragContext, entities] = await Promise.all([
-      smartRetrieve(query, ctx.intent, env, ctx.intent.entities.userContext),
-      analyzeQuery(query, env),
+      smartRetrieve(effectiveQuery, ctx.intent, env, ctx.intent.entities.userContext),
+      analyzeQuery(effectiveQuery, env),
     ]);
 
     ctx.ragContext = ragContext;
@@ -150,7 +182,8 @@ export async function orchestrate(
     });
 
     // Stage 3: Content Generation (main LLM call)
-    ctx.content = await generateContent(query, ragContext, ctx.intent, layoutTemplate, env, sessionContext);
+    // Use effectiveQuery to generate food-focused content
+    ctx.content = await generateContent(effectiveQuery, ragContext, ctx.intent, layoutTemplate, env, sessionContext);
 
     // Stage 4: Derive layout from template + Image decisions
     // No Gemini call - we use the predefined layout template directly

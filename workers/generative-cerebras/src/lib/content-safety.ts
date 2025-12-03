@@ -2,7 +2,66 @@
  * Content Safety Module
  *
  * Zero-tolerance content safety validation with blocking capability.
- * Combines fast regex checks with LLM-based toxicity detection.
+ * This module is part of a multi-layer safety system that ensures all generated
+ * content is on-brand, on-topic, and safe for the Vitamix website.
+ *
+ * ## CONTENT SAFETY ARCHITECTURE
+ *
+ * The Vitamix generative system employs a multi-layer safety approach:
+ *
+ * ### Layer 1: Topic Relevance / Food Angle Finder (PRE-GENERATION)
+ * Location: lib/topic-relevance.ts
+ * Timing: Stage 1.5 in orchestrator (after intent, before RAG)
+ *
+ * PHILOSOPHY: Find a food/Vitamix angle for almost ANY query.
+ *
+ * Instead of rejecting queries that aren't explicitly about food, this layer
+ * creatively interprets user intent to generate relevant culinary content.
+ *
+ * Examples:
+ * - "my kids hate going to school" → Fun breakfast ideas, lunchbox treats
+ * - "I'm stressed about work" → Calming smoothies, comfort food recipes
+ * - "planning a road trip" → Travel-friendly snacks, portable meal prep
+ * - "Formula One racing" → Race day snacks, high-energy drinks
+ *
+ * Only REJECTS queries that are:
+ * - Explicitly offensive (hate speech, violence)
+ * - Clearly trying to manipulate/jailbreak the system
+ * - Requesting harmful content (drugs, weapons, self-harm)
+ *
+ * Returns: foodAngle and suggestedQuery to guide content generation
+ *
+ * ### Layer 2: Content Safety (POST-GENERATION)
+ * Location: THIS FILE (lib/content-safety.ts)
+ * Timing: Stage 6 in orchestrator (after content generation)
+ * Purpose: Validate generated content for brand compliance and safety
+ *
+ * Checks performed:
+ * - Fast regex pattern matching (profanity, competitors, health claims)
+ * - Brand compliance validation via LLM
+ * - Toxicity detection via LLM
+ *
+ * ### Layer 3: Brand Voice (DURING GENERATION)
+ * Location: prompts/brand-voice.ts
+ * Purpose: Guide LLM to generate on-brand content
+ *
+ * ## BLOCKING BEHAVIOR
+ *
+ * Topic Rejection (Layer 1 - VERY RARE):
+ * - Only for truly offensive/manipulative content
+ * - Returns early with rejection message
+ * - SSE event: 'error' with code 'OFF_TOPIC_QUERY'
+ *
+ * Content Safety Block (Layer 2):
+ * - Replaces generated content with fallback
+ * - SSE event: 'error' with code 'CONTENT_SAFETY_BLOCK'
+ *
+ * ## RELATED FILES
+ *
+ * - lib/topic-relevance.ts - Food angle finder (Layer 1)
+ * - prompts/brand-voice.ts - Brand voice guidelines
+ * - lib/fallback-content.ts - Safe fallback content
+ * - lib/orchestrator.ts - Integration point for all safety layers
  */
 
 import type { Env } from '../types';
@@ -551,3 +610,24 @@ export function isSafeForUseCase(
       return !result.blocked;
   }
 }
+
+// ============================================================================
+// Re-exports: Topic Relevance (Layer 1)
+// ============================================================================
+
+/**
+ * Re-export topic relevance module for convenient access to all safety features
+ * from a single import point.
+ *
+ * Usage:
+ *   import { validateTopicRelevance, TopicRelevanceResult } from './content-safety';
+ *
+ * Or import directly:
+ *   import { validateTopicRelevance } from './topic-relevance';
+ */
+export {
+  validateTopicRelevance,
+  getTopicRejectionResponse,
+  type TopicRelevanceResult,
+  type TopicCategory,
+} from './topic-relevance';
