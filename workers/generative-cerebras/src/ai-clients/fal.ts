@@ -293,9 +293,9 @@ async function generateImagesWithFalInternal(
   env: Env,
   useLora: boolean
 ): Promise<GeneratedImage[]> {
-  // fal.ai concurrent request limit (10 for paid tier)
+  // fal.ai concurrent request limit (20 for paid tier)
   // Use lower concurrency for LoRA as it's more compute-intensive
-  const concurrencyLimit = useLora ? 5 : 10;
+  const concurrencyLimit = useLora ? 10 : 20;
   const results: GeneratedImage[] = [];
 
   for (let i = 0; i < requests.length; i += concurrencyLimit) {
