@@ -178,6 +178,7 @@ async function renderCachedPage() {
       newImg.alt = img.alt || '';
       newImg.className = img.className;
       if (img.loading) newImg.loading = img.loading;
+      newImg.dataset.genImage = imageId; // Preserve for subsequent lookups
       newImg.classList.add('loaded');
 
       if (imgParent) {

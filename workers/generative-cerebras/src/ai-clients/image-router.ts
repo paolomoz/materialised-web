@@ -32,26 +32,35 @@ export async function generateImages(
 ): Promise<GeneratedImage[]> {
   const provider = overrideProvider || env.IMAGE_PROVIDER || 'imagen';
 
-  console.log(`Image generation provider: ${provider}, requests: ${requests.length}`);
+  // Detailed logging to debug provider selection
+  console.log(`[ImageRouter] Provider selection:`, {
+    requested: overrideProvider || '(none)',
+    envDefault: env.IMAGE_PROVIDER || '(none)',
+    resolved: provider,
+    hasFalKey: !!env.FAL_API_KEY,
+    requestCount: requests.length,
+  });
 
   if (provider === 'lora') {
     if (!env.FAL_API_KEY) {
-      console.warn('FAL_API_KEY not configured, falling back to Imagen 3');
+      console.warn('[ImageRouter] FAL_API_KEY not configured, FALLING BACK to Imagen 3');
       return generateImagesWithImagen(requests, slug, env);
     }
-    console.log('Using FLUX Dev with Vitamix LoRA for brand-consistent images');
+    console.log('[ImageRouter] ACTUALLY USING: FLUX Dev with LoRA');
     return generateImagesWithFalLora(requests, slug, env);
   }
 
   if (provider === 'fal') {
     if (!env.FAL_API_KEY) {
-      console.warn('FAL_API_KEY not configured, falling back to Imagen 3');
+      console.warn('[ImageRouter] FAL_API_KEY not configured, FALLING BACK to Imagen 3');
       return generateImagesWithImagen(requests, slug, env);
     }
+    console.log('[ImageRouter] ACTUALLY USING: FLUX Schnell (fal.ai)');
     return generateImagesWithFal(requests, slug, env);
   }
 
   // Default to Imagen
+  console.log('[ImageRouter] ACTUALLY USING: Google Imagen 3');
   return generateImagesWithImagen(requests, slug, env);
 }
 

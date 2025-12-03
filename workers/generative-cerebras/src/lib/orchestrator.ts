@@ -29,6 +29,19 @@ function buildImageUrl(slug: string, imageId: string): string {
   return `${WORKER_URL}/images/${slug}/${imageId}.png`;
 }
 
+// Transparent 1x1 pixel PNG as placeholder (shows shimmer while loading)
+const TRANSPARENT_PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+/**
+ * Build an img tag with shimmer loading support
+ * Uses transparent placeholder initially, stores real URL in data-pending-src
+ * Frontend will set src when image-ready event is received
+ */
+function buildGenImageTag(slug: string, imageId: string, alt: string, extraAttrs = ''): string {
+  const realUrl = buildImageUrl(slug, imageId);
+  return `<img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${realUrl}" alt="${alt}" data-gen-image="${imageId}" loading="lazy"${extraAttrs ? ` ${extraAttrs}` : ''}>`;
+}
+
 /**
  * Check if a video URL is valid (must be an actual external video URL)
  * We only accept http/https URLs that look like actual video content
@@ -1144,7 +1157,7 @@ function buildHeroHTML(content: any, variant: string, slug: string): string {
       <div>
         <div>
           <picture>
-            <img src="${imageUrl}" alt="${escapeHTML(content.headline)}" data-gen-image="hero" loading="lazy">
+            <img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(content.headline)}" data-gen-image="hero" loading="lazy">
           </picture>
         </div>
         <div>
@@ -1196,7 +1209,7 @@ function buildCardsHTML(content: any, variant: string, slug: string): string {
       <div>
         <div>
           <picture>
-            <img src="${imageUrl}" alt="${escapeHTML(card.title)}" data-gen-image="card-${i}" loading="lazy">
+            <img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(card.title)}" data-gen-image="card-${i}" loading="lazy">
           </picture>
         </div>
         <div>
@@ -1249,7 +1262,7 @@ function buildColumnsHTML(content: any, variant: string, slug: string): string {
       const imageUrl = buildImageUrl(slug, `col-${i}`);
       colContent += `
         <picture>
-          <img src="${imageUrl}" alt="${escapeHTML(col.headline || '')}" data-gen-image="col-${i}" loading="lazy">
+          <img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(col.headline || '')}" data-gen-image="col-${i}" loading="lazy">
         </picture>
       `;
     }
@@ -1501,7 +1514,7 @@ function buildSplitContentHTML(content: any, variant: string, slug: string, bloc
       <div>
         <div>
           <picture>
-            <img src="${imageUrl}" alt="${escapeHTML(content.headline)}" data-gen-image="${imageId}" loading="lazy">
+            <img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(content.headline)}" data-gen-image="${imageId}" loading="lazy">
           </picture>
         </div>
         <div>
@@ -1598,7 +1611,7 @@ function buildRecipeCardsHTML(content: any, variant: string, slug: string): stri
   // Row 1: Images - each cell is one card's image
   const imagesRow = recipes.map((recipe: any, i: number) => {
     const imageUrl = buildImageUrl(slug, `recipe-${i}`);
-    return `<div><picture><img src="${imageUrl}" alt="${escapeHTML(recipe.title)}" data-gen-image="recipe-${i}" loading="lazy"></picture></div>`;
+    return `<div><picture><img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(recipe.title)}" data-gen-image="recipe-${i}" loading="lazy"></picture></div>`;
   }).join('');
   rowsHtml += `<div>${imagesRow}</div>`;
 
@@ -1662,7 +1675,7 @@ function buildProductCardsHTML(content: any, variant: string, slug: string, bloc
     const cells: string[] = [];
 
     // Cell 1: Image
-    cells.push(`<div><picture><img src="${imageUrl}" alt="${escapeHTML(product.name)}" data-gen-image="${imageId}" loading="lazy"></picture></div>`);
+    cells.push(`<div><picture><img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(product.name)}" data-gen-image="${imageId}" loading="lazy"></picture></div>`);
 
     // Cell 2: Product name (bold)
     cells.push(`<div><p><strong>${escapeHTML(product.name)}</strong></p></div>`);
@@ -1775,7 +1788,7 @@ function buildProductRecommendationHTML(content: any, variant: string, slug: str
       <div>
         <div>
           <picture>
-            <img src="${imageUrl}" alt="${escapeHTML(content.headline)}" data-gen-image="${imageId}" loading="lazy">
+            <img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(content.headline)}" data-gen-image="${imageId}" loading="lazy">
           </picture>
         </div>
         <div>
@@ -1939,7 +1952,7 @@ function buildRecipeGridHTML(content: any, variant: string, slug: string): strin
   // Row 1: Images
   const imagesRow = recipes.map((recipe: any, i: number) => {
     const imageUrl = buildImageUrl(slug, `grid-recipe-${i}`);
-    return `<div><picture><img src="${imageUrl}" alt="${escapeHTML(recipe.title)}" data-gen-image="grid-recipe-${i}" loading="lazy"></picture></div>`;
+    return `<div><picture><img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(recipe.title)}" data-gen-image="grid-recipe-${i}" loading="lazy"></picture></div>`;
   }).join('');
   rowsHtml += `<div>${imagesRow}</div>`;
 
@@ -2040,7 +2053,7 @@ function buildTechniqueSpotlightHTML(content: any, variant: string, slug: string
   if (isValidVideoUrl(content.videoUrl)) {
     rowsHtml += `<div><div><a href="${escapeHTML(content.videoUrl)}">${escapeHTML(content.videoUrl)}</a></div></div>`;
   } else {
-    rowsHtml += `<div><div><picture><img src="${imageUrl}" alt="${escapeHTML(content.title || 'Technique')}" data-gen-image="${imageId}" loading="lazy"></picture></div></div>`;
+    rowsHtml += `<div><div><picture><img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(content.title || 'Technique')}" data-gen-image="${imageId}" loading="lazy"></picture></div></div>`;
   }
 
   // Row 2: Title
@@ -2304,7 +2317,7 @@ function buildProductHeroHTML(content: any, variant: string, slug: string, block
   // If using RAG image, don't add data-gen-image attribute (no generation needed)
   const imgAttributes = ragImageUrl
     ? `loading="lazy" alt="${escapeHTML(productName)}" src="${imageUrl}"`
-    : `loading="lazy" alt="${escapeHTML(productName)}" src="${imageUrl}" data-gen-image="${imageId}"`;
+    : `loading="lazy" alt="${escapeHTML(productName)}" src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" data-gen-image="${imageId}"`;
 
   if (ragImageUrl) {
     console.log(`[buildProductHeroHTML] Using RAG image for "${productName}": ${ragImageUrl}`);
@@ -2388,7 +2401,7 @@ function buildFeatureHighlightsHTML(content: any, variant: string, slug: string,
         <div>
           <div>
             <picture>
-              <img loading="lazy" alt="${escapeHTML(title)}" src="${imageUrl}" data-gen-image="${imageId}">
+              <img loading="lazy" alt="${escapeHTML(title)}" src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" data-gen-image="${imageId}">
             </picture>
           </div>
           <div>
@@ -2431,7 +2444,7 @@ function buildIncludedAccessoriesHTML(content: any, variant: string, slug: strin
         <div>
           <div>
             <picture>
-              <img loading="lazy" alt="${escapeHTML(title)}" src="${imageUrl}" data-gen-image="${imageId}">
+              <img loading="lazy" alt="${escapeHTML(title)}" src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" data-gen-image="${imageId}">
             </picture>
           </div>
           <div>
@@ -2654,7 +2667,7 @@ function buildRecipeHeroHTML(content: any, variant: string, slug: string, blockI
       <div>
         <div>
           <picture>
-            <img src="${imageUrl}" alt="${escapeHTML(title)}" data-gen-image="${imageId}" loading="lazy">
+            <img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(title)}" data-gen-image="${imageId}" loading="lazy">
           </picture>
         </div>
         <div>
@@ -2723,7 +2736,7 @@ function buildRecipeStepsHTML(content: any, variant: string, slug: string, block
         <div>
           <div><p><strong>Step ${i + 1}</strong></p></div>
           <div><p>${escapeHTML(step.instruction || '')}</p></div>
-          ${imageUrl ? `<div><picture><img src="${imageUrl}" alt="Step ${i + 1}" data-gen-image="${imageId}" loading="lazy"></picture></div>` : ''}
+          ${imageUrl ? `<div><picture><img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="Step ${i + 1}" data-gen-image="${imageId}" loading="lazy"></picture></div>` : ''}
         </div>`;
   }).join('');
 
@@ -2825,7 +2838,7 @@ function buildRecipeHeroDetailHTML(content: any, variant: string, slug: string, 
       <div>
         <div>
           <picture>
-            <img src="${imageUrl}" alt="${escapeHTML(title)}" data-gen-image="${imageId}" loading="lazy">
+            <img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(title)}" data-gen-image="${imageId}" loading="lazy">
           </picture>
         </div>
         <div>
@@ -2974,7 +2987,7 @@ function buildTestimonialsHTML(content: any, variant: string, slug: string, bloc
 
     return `
         <div>
-          ${imageUrl ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(t.author)}" data-gen-image="${imageId}" loading="lazy"></picture></div>` : ''}
+          ${imageUrl ? `<div><picture><img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(t.author)}" data-gen-image="${imageId}" loading="lazy"></picture></div>` : ''}
           <div>
             ${stars ? `<p>${stars}</p>` : ''}
             <p>"${escapeHTML(t.quote)}"</p>
@@ -3039,7 +3052,7 @@ function buildTeamCardsHTML(content: any, variant: string, slug: string, blockId
 
     return `
         <div>
-          ${imageUrl ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(member.name || '')}" data-gen-image="${imageId}" loading="lazy"></picture></div>` : ''}
+          ${imageUrl ? `<div><picture><img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(member.name || '')}" data-gen-image="${imageId}" loading="lazy"></picture></div>` : ''}
           <div>
             <p><strong>${escapeHTML(member.name || '')}</strong></p>
             <p>${escapeHTML(member.role || '')}</p>
