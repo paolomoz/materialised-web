@@ -1,0 +1,95 @@
+{
+  "timestamp": "2025-12-03T17:45:00.000Z",
+  "testType": "Layout Selection Accuracy",
+  "method": "Browser-based manual testing via Playwright",
+  "sampleSize": 6,
+  "summary": {
+    "total": 6,
+    "passed": 4,
+    "failed": 2,
+    "accuracy": "66.7%"
+  },
+  "results": [
+    {
+      "index": 1,
+      "query": "What's special about the Vitamix A3500?",
+      "expected": "product-detail",
+      "actual": "product-comparison",
+      "passed": false,
+      "blocks": ["hero", "comparison-table", "verdict-card"],
+      "notes": "System interpreted 'what's special' as a comparison opportunity rather than single product detail. Contextually reasonable but not expected layout."
+    },
+    {
+      "index": 2,
+      "query": "My Vitamix is leaking from the bottom",
+      "expected": "support",
+      "actual": "support",
+      "passed": true,
+      "blocks": ["support-hero", "diagnosis-card", "troubleshooting-steps", "faq", "support-cta"],
+      "notes": "Correctly identified as support/troubleshooting query."
+    },
+    {
+      "index": 3,
+      "query": "How to make creamy tomato basil soup",
+      "expected": "single-recipe",
+      "actual": "single-recipe",
+      "passed": true,
+      "blocks": ["recipe-hero", "nutrition-facts", "ingredients-list", "recipe-steps", "cta"],
+      "notes": "Correctly identified as single recipe request with 'How to make' pattern."
+    },
+    {
+      "index": 4,
+      "query": "I'm looking for keto smoothie recipes",
+      "expected": "recipe-collection",
+      "actual": "use-case-landing",
+      "passed": false,
+      "blocks": ["hero", "recipe-cards", "tips-banner", "benefits-grid", "cta"],
+      "notes": "System chose use-case-landing over recipe-collection. The lifestyle/diet context ('keto') triggered a broader use-case approach."
+    },
+    {
+      "index": 5,
+      "query": "What's the best technique for making nut butter?",
+      "expected": "educational",
+      "actual": "educational",
+      "passed": true,
+      "blocks": ["hero", "text", "tip-cards", "faq", "cta"],
+      "notes": "Correctly identified as educational/how-to content with technique tips and FAQ."
+    },
+    {
+      "index": 6,
+      "query": "When was Vitamix founded and what's their story?",
+      "expected": "about-story",
+      "actual": "about-story",
+      "passed": true,
+      "blocks": ["hero", "story-text", "timeline", "values-grid", "team-cards", "cta"],
+      "notes": "Correctly identified as brand story with timeline and team."
+    }
+  ],
+  "byLayout": {
+    "product-detail": { "total": 1, "passed": 0, "accuracy": "0%" },
+    "support": { "total": 1, "passed": 1, "accuracy": "100%" },
+    "single-recipe": { "total": 1, "passed": 1, "accuracy": "100%" },
+    "recipe-collection": { "total": 1, "passed": 0, "accuracy": "0%" },
+    "educational": { "total": 1, "passed": 1, "accuracy": "100%" },
+    "about-story": { "total": 1, "passed": 1, "accuracy": "100%" }
+  },
+  "analysis": {
+    "strengths": [
+      "Support queries correctly trigger support layout with diagnosis cards",
+      "Single recipe queries ('How to make X') correctly identified",
+      "Educational/technique queries trigger educational layout",
+      "About/history queries correctly trigger about-story with timeline",
+      "Block composition within layouts is rich and contextually appropriate"
+    ],
+    "weaknesses": [
+      "Product detail vs comparison ambiguity: 'what's special about X' triggered comparison",
+      "Recipe collection vs use-case-landing ambiguity: lifestyle diets (keto) trigger broader use-case approach",
+      "The system tends toward richer, more comprehensive layouts even when simpler ones might suffice"
+    ],
+    "recommendations": [
+      "Add explicit product-detail signals in intent prompt for queries about single products without comparison keywords",
+      "Distinguish 'recipes' (plural, browsing) from lifestyle/diet queries that warrant use-case-landing",
+      "Consider user preference for quick answers vs comprehensive pages"
+    ]
+  }
+}

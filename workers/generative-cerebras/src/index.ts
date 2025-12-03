@@ -156,6 +156,16 @@ export default {
       return testFalAPI(env);
     }
 
+    // Test endpoint for intent classification
+    if (url.pathname === '/api/classify' && request.method === 'POST') {
+      return handleClassify(request, env);
+    }
+
+    // Batch classification test endpoint
+    if (url.pathname === '/api/classify-batch' && request.method === 'POST') {
+      return handleClassifyBatch(request, env);
+    }
+
     return new Response('Not Found', { status: 404 });
   },
 };
@@ -1945,4 +1955,172 @@ async function testFalAPI(env: Env): Promise<Response> {
   return new Response(JSON.stringify(results, null, 2), {
     headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
   });
+}
+
+/**
+ * Handle single query classification - POST /api/classify
+ * Returns just the intent classification without generating content
+ */
+async function handleClassify(request: Request, env: Env): Promise<Response> {
+  try {
+    const { query } = await request.json() as { query: string };
+
+    if (!query) {
+      return new Response(JSON.stringify({ error: 'Query is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
+
+    const startTime = Date.now();
+    const intent = await classifyIntent(query, env);
+    const elapsed = Date.now() - startTime;
+
+    return new Response(JSON.stringify({
+      query,
+      layoutId: intent.layoutId,
+      intentType: intent.intentType,
+      confidence: intent.confidence,
+      contentTypes: intent.contentTypes,
+      entities: intent.entities,
+      elapsed,
+    }, null, 2), {
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    });
+  } catch (error) {
+    const err = error as Error;
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    });
+  }
+}
+
+/**
+ * Handle batch classification - POST /api/classify-batch
+ * Classifies multiple queries and returns results with expected vs actual comparison
+ */
+async function handleClassifyBatch(request: Request, env: Env): Promise<Response> {
+  try {
+    const { queries } = await request.json() as {
+      queries: Array<{ query: string; expected: string }>;
+    };
+
+    if (!queries || !Array.isArray(queries)) {
+      return new Response(JSON.stringify({ error: 'Queries array is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
+
+    const results: Array<{
+      index: number;
+      query: string;
+      expected: string;
+      actual: string;
+      passed: boolean;
+      intentType: string;
+      confidence: number;
+      elapsed: number;
+      error?: string;
+    }> = [];
+
+    // Process in batches of 5 for concurrency
+    const batchSize = 5;
+    for (let i = 0; i < queries.length; i += batchSize) {
+      const batch = queries.slice(i, i + batchSize);
+      const batchPromises = batch.map(async (tc, j) => {
+        const index = i + j;
+        const startTime = Date.now();
+        try {
+          const intent = await classifyIntent(tc.query, env);
+          return {
+            index: index + 1,
+            query: tc.query,
+            expected: tc.expected,
+            actual: intent.layoutId,
+            passed: intent.layoutId === tc.expected,
+            intentType: intent.intentType,
+            confidence: intent.confidence,
+            elapsed: Date.now() - startTime,
+          };
+        } catch (error) {
+          const err = error as Error;
+          return {
+            index: index + 1,
+            query: tc.query,
+            expected: tc.expected,
+            actual: 'ERROR',
+            passed: false,
+            intentType: 'error',
+            confidence: 0,
+            elapsed: Date.now() - startTime,
+            error: err.message,
+          };
+        }
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+
+      // Small delay between batches to avoid rate limiting
+      if (i + batchSize < queries.length) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+    }
+
+    // Calculate summary statistics
+    const passed = results.filter(r => r.passed).length;
+    const failed = results.filter(r => !r.passed).length;
+    const errors = results.filter(r => r.actual === 'ERROR').length;
+    const accuracy = ((passed / results.length) * 100).toFixed(1);
+
+    // Group by expected layout
+    const byLayout: Record<string, { total: number; passed: number; failures: Array<{ query: string; actual: string }> }> = {};
+    for (const r of results) {
+      if (!byLayout[r.expected]) {
+        byLayout[r.expected] = { total: 0, passed: 0, failures: [] };
+      }
+      byLayout[r.expected].total++;
+      if (r.passed) {
+        byLayout[r.expected].passed++;
+      } else {
+        byLayout[r.expected].failures.push({ query: r.query, actual: r.actual });
+      }
+    }
+
+    // Confusion matrix
+    const confusionMatrix: Record<string, number> = {};
+    for (const r of results) {
+      if (!r.passed && r.actual !== 'ERROR') {
+        const key = `${r.expected} → ${r.actual}`;
+        confusionMatrix[key] = (confusionMatrix[key] || 0) + 1;
+      }
+    }
+
+    return new Response(JSON.stringify({
+      metadata: {
+        timestamp: new Date().toISOString(),
+        totalQueries: queries.length,
+      },
+      summary: {
+        total: results.length,
+        passed,
+        failed,
+        errors,
+        accuracy: `${accuracy}%`,
+      },
+      byLayout,
+      confusionMatrix,
+      results,
+    }, null, 2), {
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    });
+  } catch (error) {
+    const err = error as Error;
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    });
+  }
 }
