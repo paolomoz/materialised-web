@@ -1,0 +1,1291 @@
+================================================================================
+LAYOUT CLASSIFICATION DIRECT TEST (100 queries)
+================================================================================
+Date: 2025-12-03T18:22:45.405Z
+Worker: https://vitamix-generative-cerebras.paolo-moz.workers.dev
+Endpoint: /api/classify-batch
+Test Cases: 100
+================================================================================
+
+Running batch classification...
+
+INDIVIDUAL RESULTS:
+--------------------------------------------------------------------------------
+[  1] ✓ Tell me about the A3500                    | Exp: product-detail     | Act: product-detail
+[  2] ✓ A3500 features                             | Exp: product-detail     | Act: product-detail
+[  3] ✓ What's special about the Vitamix A3500?    | Exp: product-detail     | Act: product-detail
+[  4] ✓ Vitamix Pro 750 specs                      | Exp: product-detail     | Act: product-detail
+[  5] ✓ E310 blender details                       | Exp: product-detail     | Act: product-detail
+[  6] ✓ How powerful is the A2500?                 | Exp: product-detail     | Act: product-detail
+[  7] ✓ Does the 5200 have variable speed?         | Exp: product-detail     | Act: product-detail
+[  8] ✓ A3500 price and features                   | Exp: product-detail     | Act: product-detail
+[  9] ✓ A3500 vs A2500                             | Exp: product-comparison | Act: product-comparison
+[ 10] ✓ Compare Explorian E310 and Ascent A2500    | Exp: product-comparison | Act: product-comparison
+[ 11] ✓ Which Vitamix is best for smoothies?       | Exp: product-comparison | Act: product-comparison
+[ 12] ✓ Help me choose between Pro 750 and A3500   | Exp: product-comparison | Act: product-comparison
+[ 13] ✓ What's the difference between Ascent an... | Exp: product-comparison | Act: product-comparison
+[ 14] ✓ Best Vitamix for a family of 4             | Exp: product-comparison | Act: product-comparison
+[ 15] ✓ Compare all Vitamix models                 | Exp: product-comparison | Act: product-comparison
+[ 16] ✓ Which blender should I buy?                | Exp: product-comparison | Act: product-comparison
+[ 17] ✓ Green smoothie recipes                     | Exp: recipe-collection  | Act: recipe-collection
+[ 18] ✓ Soup recipes for winter                    | Exp: recipe-collection  | Act: recipe-collection
+[ 19] ✓ Healthy breakfast smoothie ideas           | Exp: recipe-collection  | Act: recipe-collection
+[ 20] ✓ Vegan recipes I can make in a Vitamix      | Exp: recipe-collection  | Act: recipe-collection
+[ 21] ✓ What desserts can I make?                  | Exp: recipe-collection  | Act: recipe-collection
+[ 22] ✓ Show me some nut butter recipes            | Exp: recipe-collection  | Act: recipe-collection
+[ 23] ✓ Protein shake recipes for muscle building  | Exp: recipe-collection  | Act: recipe-collection
+[ 24] ✓ Kid-friendly smoothie recipes              | Exp: recipe-collection  | Act: recipe-collection
+[ 25] ✗ How to make creamy tomato basil soup       | Exp: single-recipe      | Act: recipe-collection
+[ 26] ✗ Recipe for banana ice cream                | Exp: single-recipe      | Act: recipe-collection
+[ 27] ✓ How do I make hummus in a Vitamix?         | Exp: single-recipe      | Act: single-recipe
+[ 28] ✓ Vitamix green smoothie recipe              | Exp: single-recipe      | Act: single-recipe
+[ 29] ✗ Almond butter recipe                       | Exp: single-recipe      | Act: recipe-collection
+[ 30] ✓ How to make cauliflower soup               | Exp: single-recipe      | Act: single-recipe
+[ 31] ✗ Acai bowl recipe                           | Exp: single-recipe      | Act: recipe-collection
+[ 32] ✗ Make me a chocolate smoothie               | Exp: single-recipe      | Act: recipe-collection
+[ 33] ✓ I want to start making smoothies every ... | Exp: use-case-landing   | Act: use-case-landing
+[ 34] ✓ I want to meal prep for the week           | Exp: use-case-landing   | Act: use-case-landing
+[ 35] ✓ Getting started with whole food plant-b... | Exp: use-case-landing   | Act: use-case-landing
+[ 36] ✓ I want to make baby food at home           | Exp: use-case-landing   | Act: use-case-landing
+[ 37] ✓ Starting a juice cleanse routine           | Exp: use-case-landing   | Act: use-case-landing
+[ 38] ✓ I drink protein shakes daily for fitness   | Exp: use-case-landing   | Act: use-case-landing
+[ 39] ✓ Making fresh soups for my family every ... | Exp: use-case-landing   | Act: use-case-landing
+[ 40] ✓ I have 4 kids and need quick healthy meals | Exp: use-case-landing   | Act: use-case-landing
+[ 41] ✓ My Vitamix is leaking from the bottom      | Exp: support            | Act: support
+[ 42] ✓ The motor smells like it's burning         | Exp: support            | Act: support
+[ 43] ✓ Blender won't turn on                      | Exp: support            | Act: support
+[ 44] ✓ Strange grinding noise when blending       | Exp: support            | Act: support
+[ 45] ✓ Container is cracked, what do I do?        | Exp: support            | Act: support
+[ 46] ✓ Help! My Vitamix stopped working           | Exp: support            | Act: support
+[ 47] ✓ Blade assembly is stuck                    | Exp: support            | Act: support
+[ 48] ✓ Error code on my A3500 display             | Exp: support            | Act: support
+[ 49] ✓ Show me all Vitamix blenders               | Exp: category-browse    | Act: category-browse
+[ 50] ✓ What containers are available?             | Exp: category-browse    | Act: category-browse
+[ 51] ✓ All Vitamix accessories                    | Exp: category-browse    | Act: category-browse
+[ 52] ✓ Browse the Ascent series                   | Exp: category-browse    | Act: category-browse
+[ 53] ✓ What products do you have?                 | Exp: category-browse    | Act: category-browse
+[ 54] ✓ Show me your blender lineup                | Exp: category-browse    | Act: category-browse
+[ 55] ✓ List all available containers              | Exp: category-browse    | Act: category-browse
+[ 56] ✓ Vitamix product catalog                    | Exp: category-browse    | Act: category-browse
+[ 57] ✓ How do I properly clean my Vitamix?        | Exp: educational        | Act: educational
+[ 58] ✓ What's the best technique for making nu... | Exp: educational        | Act: educational
+[ 59] ✓ Tips for blending hot soup safely          | Exp: educational        | Act: educational
+[ 60] ✓ Best speed settings for smoothies          | Exp: educational        | Act: educational
+[ 61] ✓ How to use the tamper correctly            | Exp: educational        | Act: educational
+[ 62] ✓ Blending techniques for frozen fruit       | Exp: educational        | Act: educational
+[ 63] ✓ Guide to Vitamix programs and settings     | Exp: educational        | Act: educational
+[ 64] ✓ How to get the smoothest texture           | Exp: educational        | Act: educational
+[ 65] ✓ Are there any Vitamix sales right now?     | Exp: promotional        | Act: promotional
+[ 66] ✓ Black Friday Vitamix deals                 | Exp: promotional        | Act: promotional
+[ 67] ✓ Current discounts on blenders              | Exp: promotional        | Act: promotional
+[ 68] ✓ Vitamix promo codes                        | Exp: promotional        | Act: promotional
+[ 69] ✓ Holiday sale on Vitamix                    | Exp: promotional        | Act: promotional
+[ 70] ✓ Any special offers available?              | Exp: promotional        | Act: promotional
+[ 71] ✓ Refurbished Vitamix deals                  | Exp: promotional        | Act: promotional
+[ 72] ✓ When is the next Vitamix sale?             | Exp: promotional        | Act: promotional
+[ 73] ✓ What's the Vitamix warranty?               | Exp: quick-answer       | Act: quick-answer
+[ 74] ✗ Can I put hot liquids in my Vitamix?       | Exp: quick-answer       | Act: educational
+[ 75] ✗ How long is the power cord?                | Exp: quick-answer       | Act: product-detail
+[ 76] ✗ Is the container dishwasher safe?          | Exp: quick-answer       | Act: product-detail
+[ 77] ✓ What's the return policy?                  | Exp: quick-answer       | Act: quick-answer
+[ 78] ✗ How many watts is the A3500?               | Exp: quick-answer       | Act: product-detail
+[ 79] ✗ Where is Vitamix made?                     | Exp: quick-answer       | Act: about-story
+[ 80] ✗ Can I blend ice in a Vitamix?              | Exp: quick-answer       | Act: educational
+[ 81] ✓ Tips for plant-based whole food eating     | Exp: lifestyle          | Act: lifestyle
+[ 82] ✓ Healthy living with Vitamix                | Exp: lifestyle          | Act: lifestyle
+[ 83] ✓ Benefits of whole food nutrition           | Exp: lifestyle          | Act: lifestyle
+[ 84] ✓ How blending fits into a healthy lifestyle | Exp: lifestyle          | Act: lifestyle
+[ 85] ✓ Wellness journey with Vitamix              | Exp: lifestyle          | Act: lifestyle
+[ 86] ✓ Eating clean and healthy                   | Exp: lifestyle          | Act: lifestyle
+[ 87] ✓ Nutrition tips for busy families           | Exp: lifestyle          | Act: lifestyle
+[ 88] ✓ Living a healthier life through food       | Exp: lifestyle          | Act: lifestyle
+[ 89] ✓ Christmas gift ideas for someone who lo... | Exp: campaign-landing   | Act: campaign-landing
+[ 90] ✓ Mother's Day gift guide                    | Exp: campaign-landing   | Act: campaign-landing
+[ 91] ✓ Valentine's Day recipes and gifts          | Exp: campaign-landing   | Act: campaign-landing
+[ 92] ✗ New Year healthy eating kickstart          | Exp: campaign-landing   | Act: lifestyle
+[ 93] ✓ Father's Day blender gifts                 | Exp: campaign-landing   | Act: campaign-landing
+[ 94] ✓ Wedding registry gift ideas                | Exp: campaign-landing   | Act: campaign-landing
+[ 95] ✓ When was Vitamix founded?                  | Exp: about-story        | Act: about-story
+[ 96] ✓ What's the Vitamix story?                  | Exp: about-story        | Act: about-story
+[ 97] ✓ History of Vitamix                         | Exp: about-story        | Act: about-story
+[ 98] ✓ Who founded Vitamix?                       | Exp: about-story        | Act: about-story
+[ 99] ✓ Tell me about the Vitamix company          | Exp: about-story        | Act: about-story
+[100] ✓ Vitamix brand values and mission           | Exp: about-story        | Act: about-story
+
+================================================================================
+SUMMARY
+================================================================================
+Total: 100
+Passed: 88
+Failed: 12 (0 errors)
+Accuracy: 88.0%
+Total Time: 129812ms (1298ms/query avg)
+
+BY LAYOUT:
+  ✓ about-story          6/6 (100%)
+  ✗ campaign-landing     5/6 (83%)
+  ✓ category-browse      8/8 (100%)
+  ✓ educational          8/8 (100%)
+  ✓ lifestyle            8/8 (100%)
+  ✓ product-comparison   8/8 (100%)
+  ✓ product-detail       8/8 (100%)
+  ✓ promotional          8/8 (100%)
+  ✗ quick-answer         2/8 (25%)
+  ✓ recipe-collection    8/8 (100%)
+  ✗ single-recipe        3/8 (38%)
+  ✓ support              8/8 (100%)
+  ✓ use-case-landing     8/8 (100%)
+
+CONFUSION MATRIX (misclassifications):
+  single-recipe → recipe-collection: 5
+  quick-answer → product-detail: 3
+  quick-answer → educational: 2
+  quick-answer → about-story: 1
+  campaign-landing → lifestyle: 1
+
+================================================================================
+Test complete. JSON output follows:
+JSON_START
+{
+  "metadata": {
+    "timestamp": "2025-12-03T18:24:55.207Z",
+    "totalQueries": 100,
+    "totalElapsed": 129812,
+    "workerUrl": "https://vitamix-generative-cerebras.paolo-moz.workers.dev"
+  },
+  "summary": {
+    "total": 100,
+    "passed": 88,
+    "failed": 12,
+    "errors": 0,
+    "accuracy": "88.0%"
+  },
+  "byLayout": {
+    "product-detail": {
+      "total": 8,
+      "passed": 8,
+      "failures": []
+    },
+    "product-comparison": {
+      "total": 8,
+      "passed": 8,
+      "failures": []
+    },
+    "recipe-collection": {
+      "total": 8,
+      "passed": 8,
+      "failures": []
+    },
+    "single-recipe": {
+      "total": 8,
+      "passed": 3,
+      "failures": [
+        {
+          "query": "How to make creamy tomato basil soup",
+          "actual": "recipe-collection"
+        },
+        {
+          "query": "Recipe for banana ice cream",
+          "actual": "recipe-collection"
+        },
+        {
+          "query": "Almond butter recipe",
+          "actual": "recipe-collection"
+        },
+        {
+          "query": "Acai bowl recipe",
+          "actual": "recipe-collection"
+        },
+        {
+          "query": "Make me a chocolate smoothie",
+          "actual": "recipe-collection"
+        }
+      ]
+    },
+    "use-case-landing": {
+      "total": 8,
+      "passed": 8,
+      "failures": []
+    },
+    "support": {
+      "total": 8,
+      "passed": 8,
+      "failures": []
+    },
+    "category-browse": {
+      "total": 8,
+      "passed": 8,
+      "failures": []
+    },
+    "educational": {
+      "total": 8,
+      "passed": 8,
+      "failures": []
+    },
+    "promotional": {
+      "total": 8,
+      "passed": 8,
+      "failures": []
+    },
+    "quick-answer": {
+      "total": 8,
+      "passed": 2,
+      "failures": [
+        {
+          "query": "Can I put hot liquids in my Vitamix?",
+          "actual": "educational"
+        },
+        {
+          "query": "How long is the power cord?",
+          "actual": "product-detail"
+        },
+        {
+          "query": "Is the container dishwasher safe?",
+          "actual": "product-detail"
+        },
+        {
+          "query": "How many watts is the A3500?",
+          "actual": "product-detail"
+        },
+        {
+          "query": "Where is Vitamix made?",
+          "actual": "about-story"
+        },
+        {
+          "query": "Can I blend ice in a Vitamix?",
+          "actual": "educational"
+        }
+      ]
+    },
+    "lifestyle": {
+      "total": 8,
+      "passed": 8,
+      "failures": []
+    },
+    "campaign-landing": {
+      "total": 6,
+      "passed": 5,
+      "failures": [
+        {
+          "query": "New Year healthy eating kickstart",
+          "actual": "lifestyle"
+        }
+      ]
+    },
+    "about-story": {
+      "total": 6,
+      "passed": 6,
+      "failures": []
+    }
+  },
+  "confusionMatrix": {
+    "single-recipe → recipe-collection": 5,
+    "quick-answer → educational": 2,
+    "quick-answer → product-detail": 3,
+    "quick-answer → about-story": 1,
+    "campaign-landing → lifestyle": 1
+  },
+  "results": [
+    {
+      "index": 1,
+      "query": "Tell me about the A3500",
+      "expected": "product-detail",
+      "actual": "product-detail",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 5473
+    },
+    {
+      "index": 2,
+      "query": "A3500 features",
+      "expected": "product-detail",
+      "actual": "product-detail",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 4112
+    },
+    {
+      "index": 3,
+      "query": "What's special about the Vitamix A3500?",
+      "expected": "product-detail",
+      "actual": "product-detail",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 1780
+    },
+    {
+      "index": 4,
+      "query": "Vitamix Pro 750 specs",
+      "expected": "product-detail",
+      "actual": "product-detail",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 6136
+    },
+    {
+      "index": 5,
+      "query": "E310 blender details",
+      "expected": "product-detail",
+      "actual": "product-detail",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 3376
+    },
+    {
+      "index": 6,
+      "query": "How powerful is the A2500?",
+      "expected": "product-detail",
+      "actual": "product-detail",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 2155
+    },
+    {
+      "index": 7,
+      "query": "Does the 5200 have variable speed?",
+      "expected": "product-detail",
+      "actual": "product-detail",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 5657
+    },
+    {
+      "index": 8,
+      "query": "A3500 price and features",
+      "expected": "product-detail",
+      "actual": "product-detail",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 4956
+    },
+    {
+      "index": 9,
+      "query": "A3500 vs A2500",
+      "expected": "product-comparison",
+      "actual": "product-comparison",
+      "passed": true,
+      "intentType": "comparison",
+      "confidence": 0.95,
+      "elapsed": 1439
+    },
+    {
+      "index": 10,
+      "query": "Compare Explorian E310 and Ascent A2500",
+      "expected": "product-comparison",
+      "actual": "product-comparison",
+      "passed": true,
+      "intentType": "comparison",
+      "confidence": 0.95,
+      "elapsed": 6661
+    },
+    {
+      "index": 11,
+      "query": "Which Vitamix is best for smoothies?",
+      "expected": "product-comparison",
+      "actual": "product-comparison",
+      "passed": true,
+      "intentType": "comparison",
+      "confidence": 0.95,
+      "elapsed": 5392
+    },
+    {
+      "index": 12,
+      "query": "Help me choose between Pro 750 and A3500",
+      "expected": "product-comparison",
+      "actual": "product-comparison",
+      "passed": true,
+      "intentType": "comparison",
+      "confidence": 0.95,
+      "elapsed": 2595
+    },
+    {
+      "index": 13,
+      "query": "What's the difference between Ascent and Legacy series?",
+      "expected": "product-comparison",
+      "actual": "product-comparison",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 4014
+    },
+    {
+      "index": 14,
+      "query": "Best Vitamix for a family of 4",
+      "expected": "product-comparison",
+      "actual": "product-comparison",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 3267
+    },
+    {
+      "index": 15,
+      "query": "Compare all Vitamix models",
+      "expected": "product-comparison",
+      "actual": "product-comparison",
+      "passed": true,
+      "intentType": "comparison",
+      "confidence": 0.95,
+      "elapsed": 1329
+    },
+    {
+      "index": 16,
+      "query": "Which blender should I buy?",
+      "expected": "product-comparison",
+      "actual": "product-comparison",
+      "passed": true,
+      "intentType": "comparison",
+      "confidence": 0.95,
+      "elapsed": 6435
+    },
+    {
+      "index": 17,
+      "query": "Green smoothie recipes",
+      "expected": "recipe-collection",
+      "actual": "recipe-collection",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 7100
+    },
+    {
+      "index": 18,
+      "query": "Soup recipes for winter",
+      "expected": "recipe-collection",
+      "actual": "recipe-collection",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 5673
+    },
+    {
+      "index": 19,
+      "query": "Healthy breakfast smoothie ideas",
+      "expected": "recipe-collection",
+      "actual": "recipe-collection",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 4259
+    },
+    {
+      "index": 20,
+      "query": "Vegan recipes I can make in a Vitamix",
+      "expected": "recipe-collection",
+      "actual": "recipe-collection",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 4924
+    },
+    {
+      "index": 21,
+      "query": "What desserts can I make?",
+      "expected": "recipe-collection",
+      "actual": "recipe-collection",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 6008
+    },
+    {
+      "index": 22,
+      "query": "Show me some nut butter recipes",
+      "expected": "recipe-collection",
+      "actual": "recipe-collection",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 2818
+    },
+    {
+      "index": 23,
+      "query": "Protein shake recipes for muscle building",
+      "expected": "recipe-collection",
+      "actual": "recipe-collection",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 1424
+    },
+    {
+      "index": 24,
+      "query": "Kid-friendly smoothie recipes",
+      "expected": "recipe-collection",
+      "actual": "recipe-collection",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 2086
+    },
+    {
+      "index": 25,
+      "query": "How to make creamy tomato basil soup",
+      "expected": "single-recipe",
+      "actual": "recipe-collection",
+      "passed": false,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 5375
+    },
+    {
+      "index": 26,
+      "query": "Recipe for banana ice cream",
+      "expected": "single-recipe",
+      "actual": "recipe-collection",
+      "passed": false,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 5638
+    },
+    {
+      "index": 27,
+      "query": "How do I make hummus in a Vitamix?",
+      "expected": "single-recipe",
+      "actual": "single-recipe",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 3501
+    },
+    {
+      "index": 28,
+      "query": "Vitamix green smoothie recipe",
+      "expected": "single-recipe",
+      "actual": "single-recipe",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 4966
+    },
+    {
+      "index": 29,
+      "query": "Almond butter recipe",
+      "expected": "single-recipe",
+      "actual": "recipe-collection",
+      "passed": false,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 4213
+    },
+    {
+      "index": 30,
+      "query": "How to make cauliflower soup",
+      "expected": "single-recipe",
+      "actual": "single-recipe",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 6327
+    },
+    {
+      "index": 31,
+      "query": "Acai bowl recipe",
+      "expected": "single-recipe",
+      "actual": "recipe-collection",
+      "passed": false,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 2995
+    },
+    {
+      "index": 32,
+      "query": "Make me a chocolate smoothie",
+      "expected": "single-recipe",
+      "actual": "recipe-collection",
+      "passed": false,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 5633
+    },
+    {
+      "index": 33,
+      "query": "I want to start making smoothies every morning",
+      "expected": "use-case-landing",
+      "actual": "use-case-landing",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 2219
+    },
+    {
+      "index": 34,
+      "query": "I want to meal prep for the week",
+      "expected": "use-case-landing",
+      "actual": "use-case-landing",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 4851
+    },
+    {
+      "index": 35,
+      "query": "Getting started with whole food plant-based diet",
+      "expected": "use-case-landing",
+      "actual": "use-case-landing",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 3713
+    },
+    {
+      "index": 36,
+      "query": "I want to make baby food at home",
+      "expected": "use-case-landing",
+      "actual": "use-case-landing",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 5015
+    },
+    {
+      "index": 37,
+      "query": "Starting a juice cleanse routine",
+      "expected": "use-case-landing",
+      "actual": "use-case-landing",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.95,
+      "elapsed": 3628
+    },
+    {
+      "index": 38,
+      "query": "I drink protein shakes daily for fitness",
+      "expected": "use-case-landing",
+      "actual": "use-case-landing",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.9,
+      "elapsed": 6524
+    },
+    {
+      "index": 39,
+      "query": "Making fresh soups for my family every week",
+      "expected": "use-case-landing",
+      "actual": "use-case-landing",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 4288
+    },
+    {
+      "index": 40,
+      "query": "I have 4 kids and need quick healthy meals",
+      "expected": "use-case-landing",
+      "actual": "use-case-landing",
+      "passed": true,
+      "intentType": "recipe",
+      "confidence": 0.95,
+      "elapsed": 5724
+    },
+    {
+      "index": 41,
+      "query": "My Vitamix is leaking from the bottom",
+      "expected": "support",
+      "actual": "support",
+      "passed": true,
+      "intentType": "support",
+      "confidence": 0.95,
+      "elapsed": 2783
+    },
+    {
+      "index": 42,
+      "query": "The motor smells like it's burning",
+      "expected": "support",
+      "actual": "support",
+      "passed": true,
+      "intentType": "support",
+      "confidence": 0.95,
+      "elapsed": 2105
+    },
+    {
+      "index": 43,
+      "query": "Blender won't turn on",
+      "expected": "support",
+      "actual": "support",
+      "passed": true,
+      "intentType": "support",
+      "confidence": 0.95,
+      "elapsed": 5387
+    },
+    {
+      "index": 44,
+      "query": "Strange grinding noise when blending",
+      "expected": "support",
+      "actual": "support",
+      "passed": true,
+      "intentType": "support",
+      "confidence": 0.95,
+      "elapsed": 4716
+    },
+    {
+      "index": 45,
+      "query": "Container is cracked, what do I do?",
+      "expected": "support",
+      "actual": "support",
+      "passed": true,
+      "intentType": "support",
+      "confidence": 0.95,
+      "elapsed": 3976
+    },
+    {
+      "index": 46,
+      "query": "Help! My Vitamix stopped working",
+      "expected": "support",
+      "actual": "support",
+      "passed": true,
+      "intentType": "support",
+      "confidence": 0.95,
+      "elapsed": 2832
+    },
+    {
+      "index": 47,
+      "query": "Blade assembly is stuck",
+      "expected": "support",
+      "actual": "support",
+      "passed": true,
+      "intentType": "support",
+      "confidence": 0.95,
+      "elapsed": 2039
+    },
+    {
+      "index": 48,
+      "query": "Error code on my A3500 display",
+      "expected": "support",
+      "actual": "support",
+      "passed": true,
+      "intentType": "support",
+      "confidence": 0.95,
+      "elapsed": 1202
+    },
+    {
+      "index": 49,
+      "query": "Show me all Vitamix blenders",
+      "expected": "category-browse",
+      "actual": "category-browse",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 5915
+    },
+    {
+      "index": 50,
+      "query": "What containers are available?",
+      "expected": "category-browse",
+      "actual": "category-browse",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 5111
+    },
+    {
+      "index": 51,
+      "query": "All Vitamix accessories",
+      "expected": "category-browse",
+      "actual": "category-browse",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 3854
+    },
+    {
+      "index": 52,
+      "query": "Browse the Ascent series",
+      "expected": "category-browse",
+      "actual": "category-browse",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 5981
+    },
+    {
+      "index": 53,
+      "query": "What products do you have?",
+      "expected": "category-browse",
+      "actual": "category-browse",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 5355
+    },
+    {
+      "index": 54,
+      "query": "Show me your blender lineup",
+      "expected": "category-browse",
+      "actual": "category-browse",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 4550
+    },
+    {
+      "index": 55,
+      "query": "List all available containers",
+      "expected": "category-browse",
+      "actual": "category-browse",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 3135
+    },
+    {
+      "index": 56,
+      "query": "Vitamix product catalog",
+      "expected": "category-browse",
+      "actual": "category-browse",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 3247
+    },
+    {
+      "index": 57,
+      "query": "How do I properly clean my Vitamix?",
+      "expected": "educational",
+      "actual": "educational",
+      "passed": true,
+      "intentType": "support",
+      "confidence": 0.95,
+      "elapsed": 2620
+    },
+    {
+      "index": 58,
+      "query": "What's the best technique for making nut butter?",
+      "expected": "educational",
+      "actual": "educational",
+      "passed": true,
+      "intentType": "educational",
+      "confidence": 0.9,
+      "elapsed": 1946
+    },
+    {
+      "index": 59,
+      "query": "Tips for blending hot soup safely",
+      "expected": "educational",
+      "actual": "educational",
+      "passed": true,
+      "intentType": "educational",
+      "confidence": 0.95,
+      "elapsed": 4473
+    },
+    {
+      "index": 60,
+      "query": "Best speed settings for smoothies",
+      "expected": "educational",
+      "actual": "educational",
+      "passed": true,
+      "intentType": "educational",
+      "confidence": 0.95,
+      "elapsed": 1355
+    },
+    {
+      "index": 61,
+      "query": "How to use the tamper correctly",
+      "expected": "educational",
+      "actual": "educational",
+      "passed": true,
+      "intentType": "educational",
+      "confidence": 0.95,
+      "elapsed": 1986
+    },
+    {
+      "index": 62,
+      "query": "Blending techniques for frozen fruit",
+      "expected": "educational",
+      "actual": "educational",
+      "passed": true,
+      "intentType": "educational",
+      "confidence": 0.95,
+      "elapsed": 2818
+    },
+    {
+      "index": 63,
+      "query": "Guide to Vitamix programs and settings",
+      "expected": "educational",
+      "actual": "educational",
+      "passed": true,
+      "intentType": "educational",
+      "confidence": 0.95,
+      "elapsed": 1982
+    },
+    {
+      "index": 64,
+      "query": "How to get the smoothest texture",
+      "expected": "educational",
+      "actual": "educational",
+      "passed": true,
+      "intentType": "educational",
+      "confidence": 0.95,
+      "elapsed": 1263
+    },
+    {
+      "index": 65,
+      "query": "Are there any Vitamix sales right now?",
+      "expected": "promotional",
+      "actual": "promotional",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 2629
+    },
+    {
+      "index": 66,
+      "query": "Black Friday Vitamix deals",
+      "expected": "promotional",
+      "actual": "promotional",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 3926
+    },
+    {
+      "index": 67,
+      "query": "Current discounts on blenders",
+      "expected": "promotional",
+      "actual": "promotional",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.95,
+      "elapsed": 4092
+    },
+    {
+      "index": 68,
+      "query": "Vitamix promo codes",
+      "expected": "promotional",
+      "actual": "promotional",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.95,
+      "elapsed": 2477
+    },
+    {
+      "index": 69,
+      "query": "Holiday sale on Vitamix",
+      "expected": "promotional",
+      "actual": "promotional",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 1427
+    },
+    {
+      "index": 70,
+      "query": "Any special offers available?",
+      "expected": "promotional",
+      "actual": "promotional",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.95,
+      "elapsed": 3320
+    },
+    {
+      "index": 71,
+      "query": "Refurbished Vitamix deals",
+      "expected": "promotional",
+      "actual": "promotional",
+      "passed": true,
+      "intentType": "product_info",
+      "confidence": 0.9,
+      "elapsed": 2427
+    },
+    {
+      "index": 72,
+      "query": "When is the next Vitamix sale?",
+      "expected": "promotional",
+      "actual": "promotional",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 5456
+    },
+    {
+      "index": 73,
+      "query": "What's the Vitamix warranty?",
+      "expected": "quick-answer",
+      "actual": "quick-answer",
+      "passed": true,
+      "intentType": "support",
+      "confidence": 0.95,
+      "elapsed": 13252
+    },
+    {
+      "index": 74,
+      "query": "Can I put hot liquids in my Vitamix?",
+      "expected": "quick-answer",
+      "actual": "educational",
+      "passed": false,
+      "intentType": "general",
+      "confidence": 0.95,
+      "elapsed": 3950
+    },
+    {
+      "index": 75,
+      "query": "How long is the power cord?",
+      "expected": "quick-answer",
+      "actual": "product-detail",
+      "passed": false,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 14204
+    },
+    {
+      "index": 76,
+      "query": "Is the container dishwasher safe?",
+      "expected": "quick-answer",
+      "actual": "product-detail",
+      "passed": false,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 6396
+    },
+    {
+      "index": 77,
+      "query": "What's the return policy?",
+      "expected": "quick-answer",
+      "actual": "quick-answer",
+      "passed": true,
+      "intentType": "quick-answer",
+      "confidence": 1,
+      "elapsed": 5011
+    },
+    {
+      "index": 78,
+      "query": "How many watts is the A3500?",
+      "expected": "quick-answer",
+      "actual": "product-detail",
+      "passed": false,
+      "intentType": "product_info",
+      "confidence": 0.95,
+      "elapsed": 7263
+    },
+    {
+      "index": 79,
+      "query": "Where is Vitamix made?",
+      "expected": "quick-answer",
+      "actual": "about-story",
+      "passed": false,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 5720
+    },
+    {
+      "index": 80,
+      "query": "Can I blend ice in a Vitamix?",
+      "expected": "quick-answer",
+      "actual": "educational",
+      "passed": false,
+      "intentType": "general",
+      "confidence": 0.95,
+      "elapsed": 4329
+    },
+    {
+      "index": 81,
+      "query": "Tips for plant-based whole food eating",
+      "expected": "lifestyle",
+      "actual": "lifestyle",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 4526
+    },
+    {
+      "index": 82,
+      "query": "Healthy living with Vitamix",
+      "expected": "lifestyle",
+      "actual": "lifestyle",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 6541
+    },
+    {
+      "index": 83,
+      "query": "Benefits of whole food nutrition",
+      "expected": "lifestyle",
+      "actual": "lifestyle",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 5155
+    },
+    {
+      "index": 84,
+      "query": "How blending fits into a healthy lifestyle",
+      "expected": "lifestyle",
+      "actual": "lifestyle",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.95,
+      "elapsed": 5818
+    },
+    {
+      "index": 85,
+      "query": "Wellness journey with Vitamix",
+      "expected": "lifestyle",
+      "actual": "lifestyle",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 3758
+    },
+    {
+      "index": 86,
+      "query": "Eating clean and healthy",
+      "expected": "lifestyle",
+      "actual": "lifestyle",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 3816
+    },
+    {
+      "index": 87,
+      "query": "Nutrition tips for busy families",
+      "expected": "lifestyle",
+      "actual": "lifestyle",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 5190
+    },
+    {
+      "index": 88,
+      "query": "Living a healthier life through food",
+      "expected": "lifestyle",
+      "actual": "lifestyle",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 6870
+    },
+    {
+      "index": 89,
+      "query": "Christmas gift ideas for someone who loves cooking",
+      "expected": "campaign-landing",
+      "actual": "campaign-landing",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.95,
+      "elapsed": 5900
+    },
+    {
+      "index": 90,
+      "query": "Mother's Day gift guide",
+      "expected": "campaign-landing",
+      "actual": "campaign-landing",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 4461
+    },
+    {
+      "index": 91,
+      "query": "Valentine's Day recipes and gifts",
+      "expected": "campaign-landing",
+      "actual": "campaign-landing",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.95,
+      "elapsed": 1727
+    },
+    {
+      "index": 92,
+      "query": "New Year healthy eating kickstart",
+      "expected": "campaign-landing",
+      "actual": "lifestyle",
+      "passed": false,
+      "intentType": "general",
+      "confidence": 0.95,
+      "elapsed": 7219
+    },
+    {
+      "index": 93,
+      "query": "Father's Day blender gifts",
+      "expected": "campaign-landing",
+      "actual": "campaign-landing",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 7850
+    },
+    {
+      "index": 94,
+      "query": "Wedding registry gift ideas",
+      "expected": "campaign-landing",
+      "actual": "campaign-landing",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.95,
+      "elapsed": 3063
+    },
+    {
+      "index": 95,
+      "query": "When was Vitamix founded?",
+      "expected": "about-story",
+      "actual": "about-story",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.95,
+      "elapsed": 2321
+    },
+    {
+      "index": 96,
+      "query": "What's the Vitamix story?",
+      "expected": "about-story",
+      "actual": "about-story",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 2047
+    },
+    {
+      "index": 97,
+      "query": "History of Vitamix",
+      "expected": "about-story",
+      "actual": "about-story",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 5665
+    },
+    {
+      "index": 98,
+      "query": "Who founded Vitamix?",
+      "expected": "about-story",
+      "actual": "about-story",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 2770
+    },
+    {
+      "index": 99,
+      "query": "Tell me about the Vitamix company",
+      "expected": "about-story",
+      "actual": "about-story",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.95,
+      "elapsed": 1356
+    },
+    {
+      "index": 100,
+      "query": "Vitamix brand values and mission",
+      "expected": "about-story",
+      "actual": "about-story",
+      "passed": true,
+      "intentType": "general",
+      "confidence": 0.9,
+      "elapsed": 6451
+    }
+  ]
+}
+JSON_END

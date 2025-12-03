@@ -353,13 +353,56 @@ Extract ONLY products from this list. Do not guess or invent product names.
 - "use-case-landing": Use-case focused (e.g., "smoothies every morning") with recipes, tips, product rec
 - "support": Troubleshooting and help content
 - "category-browse": Browse products in a category
-- "educational": How-to and educational content
-- "promotional": Sales and promotional content
-- "quick-answer": Simple direct answer
-- "lifestyle": Inspirational lifestyle content
+- "educational": How-to content about BLENDER TECHNIQUES (settings, speeds, cleaning, blending methods)
+- "promotional": Sales, discounts, promo codes, deals, offers (price-focused)
+- "quick-answer": Simple one-sentence factual answer (return policy, shipping, store hours)
+- "lifestyle": Inspirational content about LIFE PHILOSOPHY (nutrition benefits, wellness, healthy living inspiration)
 - "single-recipe": Detailed view of one specific recipe with ingredients, steps, nutrition
-- "campaign-landing": Seasonal or event-based promotional campaigns
+- "campaign-landing": Holiday/event THEMED content (gift guides, seasonal recipes, celebration ideas) - NOT price-focused
 - "about-story": Brand story, company history, values
+
+## CRITICAL: Promotional vs Campaign-Landing Distinction
+- **promotional**: User wants PRICE/DISCOUNT info - sales, deals, promo codes, discounts, offers, savings
+  - "Any sales right now?" → promotional
+  - "Vitamix promo codes" → promotional
+  - "Black Friday deals" → promotional
+  - "Current discounts" → promotional
+- **campaign-landing**: User wants THEMED/EVENT content - gift ideas, holiday recipes, seasonal inspiration
+  - "Mother's Day gift guide" → campaign-landing
+  - "Christmas gift ideas" → campaign-landing
+  - "Valentine's Day recipes" → campaign-landing
+  - "Wedding registry ideas" → campaign-landing
+
+## CRITICAL: Quick-Answer Decision
+Use quick-answer ONLY for pure policy/logistics questions with single-fact answers:
+- "What's the return policy?" → quick-answer (policy fact)
+- "Do you ship to Canada?" → quick-answer (yes/no logistics)
+- "What are your store hours?" → quick-answer (simple fact)
+
+Do NOT use quick-answer for:
+- Product specs → use product-detail ("How many watts?" is about the product)
+- Usage questions → use educational ("Can I blend ice?" needs explanation)
+- Warranty/support → use support ("What's the warranty?" is customer service)
+- Company info → use about-story ("Where is Vitamix made?" is brand info)
+
+## CRITICAL: Educational vs Lifestyle Distinction
+- **educational**: HOW to use the BLENDER - techniques, settings, speeds, cleaning, maintenance
+  - "How to clean my Vitamix" → educational (blender maintenance)
+  - "Best speed for smoothies" → educational (blender technique)
+  - "Tips for blending hot soup" → educational (blender usage)
+- **lifestyle**: WHY and general LIFE PHILOSOPHY - nutrition, wellness, healthy living inspiration
+  - "Benefits of whole food nutrition" → lifestyle (nutrition philosophy)
+  - "Healthy living with Vitamix" → lifestyle (wellness inspiration)
+  - "Tips for plant-based eating" → lifestyle (diet philosophy, NOT blender tips)
+
+## CRITICAL: Use-Case-Landing Signals
+Use use-case-landing when user describes ADOPTING A NEW BEHAVIOR/ROUTINE:
+- "I want to start..." → use-case-landing (beginning a habit)
+- "Getting started with..." → use-case-landing (new routine)
+- "I want to make X every day/week/morning" → use-case-landing (routine)
+- "Starting a juice cleanse routine" → use-case-landing (new habit)
+- "I drink protein shakes daily" → use-case-landing (established routine)
+- "Meal prep for the week" → use-case-landing (recurring activity)
 
 ## Output Format (JSON)
 
@@ -397,23 +440,20 @@ Extract ONLY products from this list. Do not guess or invent product names.
 
 ## Layout Selection Guidelines
 
-- **use-case-landing**: User describes a habit/routine ("every morning", "daily", "meal prep")
-- **recipe-collection**: User wants multiple recipes ("soup recipes", "smoothie ideas") - NOT for settings/techniques
-- **single-recipe**: User wants ONE specific recipe ("how to make tomato soup", "hummus recipe")
-- **product-detail**: User asks about ONE specific product
-- **product-comparison**: User compares products or asks "which is best"
-- **support**: User has a problem, needs to diagnose/fix/troubleshoot, or asks about warranty/maintenance
-- **educational**: User wants to learn HOW to do something - techniques, settings, tips, guides
-  - "settings for baby food" → educational (NOT recipes)
-  - "best speed for smoothies" → educational
-  - "how to clean my Vitamix" → educational
-  - "blending techniques" → educational
-  - "tips for hot soup" → educational
-- **quick-answer**: Simple factual question (warranty length, return policy)
-- **lifestyle**: General healthy living, inspiration
-- **category-browse**: User wants to see all products in a category
-- **campaign-landing**: Seasonal events, holidays, sales campaigns ("Mother's Day", "Black Friday")
-- **about-story**: Questions about the company, history, brand values
+**PRIORITY ORDER (check in this order):**
+1. **support**: User has a PROBLEM - troubleshooting, broken, not working, strange noise, leaking
+2. **product-detail**: User asks about ONE SPECIFIC product by name (A3500, Pro 750, E310)
+3. **product-comparison**: User compares products ("vs", "compare", "which is best", "help me choose")
+4. **single-recipe**: User wants ONE SPECIFIC recipe ("how to make X", "X recipe" singular)
+5. **recipe-collection**: User wants MULTIPLE recipes ("recipes" plural, "ideas", "what can I make")
+6. **use-case-landing**: User describes a ROUTINE/HABIT ("every morning", "daily", "I want to start", "getting started", "meal prep")
+7. **promotional**: User wants PRICE/DISCOUNT info ("sale", "deals", "promo code", "discount", "offers")
+8. **educational**: User wants BLENDER TECHNIQUE info ("settings", "speed", "how to clean", "blending tips")
+9. **lifestyle**: User wants LIFE/NUTRITION philosophy ("healthy living", "nutrition benefits", "wellness")
+10. **category-browse**: User wants to BROWSE products ("all blenders", "show me", "product catalog")
+11. **campaign-landing**: User wants HOLIDAY/EVENT themed content ("gift guide", "Mother's Day ideas")
+12. **about-story**: User asks about COMPANY ("history", "founded", "brand values", "Vitamix story")
+13. **quick-answer**: ONLY for pure policy/logistics ("return policy", "shipping", "store hours")
 
 **CRITICAL Layout Disambiguation:**
 - "baby food recipes" → recipe-collection (wants recipes)
@@ -484,6 +524,63 @@ Query: "I want to make smoothies every morning for breakfast"
     "goals": ["morning routine", "breakfast", "daily smoothies"]
   }
 }
+(Note: "every morning" = routine → use-case-landing)
+
+Query: "Getting started with whole food plant-based diet"
+{
+  "intent_type": "general",
+  "confidence": 0.9,
+  "layout_id": "use-case-landing",
+  "content_types": ["recipe", "editorial"],
+  "entities": {
+    "products": [],
+    "ingredients": [],
+    "goals": ["plant-based diet", "getting started", "lifestyle change"]
+  }
+}
+(Note: "Getting started with" = adopting new routine → use-case-landing)
+
+Query: "I drink protein shakes daily for fitness"
+{
+  "intent_type": "recipe",
+  "confidence": 0.9,
+  "layout_id": "use-case-landing",
+  "content_types": ["recipe", "product"],
+  "entities": {
+    "products": [],
+    "ingredients": [],
+    "goals": ["daily protein shakes", "fitness routine", "regular habit"]
+  }
+}
+(Note: "daily" routine description → use-case-landing)
+
+Query: "Benefits of whole food nutrition"
+{
+  "intent_type": "general",
+  "confidence": 0.9,
+  "layout_id": "lifestyle",
+  "content_types": ["editorial"],
+  "entities": {
+    "products": [],
+    "ingredients": [],
+    "goals": ["nutrition benefits", "healthy eating philosophy"]
+  }
+}
+(Note: "benefits" of nutrition = life philosophy → lifestyle, NOT educational)
+
+Query: "Tips for plant-based whole food eating"
+{
+  "intent_type": "general",
+  "confidence": 0.9,
+  "layout_id": "lifestyle",
+  "content_types": ["editorial"],
+  "entities": {
+    "products": [],
+    "ingredients": [],
+    "goals": ["plant-based eating", "diet tips", "nutrition philosophy"]
+  }
+}
+(Note: Tips about EATING/DIET = lifestyle. Tips about BLENDING = educational)
 
 Query: "Green smoothie recipe with kale"
 {
@@ -680,6 +777,34 @@ Query: "Vitamix banana ice cream recipe"
   }
 }
 
+Query: "Are there any Vitamix sales right now?"
+{
+  "intent_type": "general",
+  "confidence": 0.9,
+  "layout_id": "promotional",
+  "content_types": ["product"],
+  "entities": {
+    "products": [],
+    "ingredients": [],
+    "goals": ["current sales", "discounts", "offers"]
+  }
+}
+(Note: "sales" = price-focused → promotional)
+
+Query: "Vitamix promo codes"
+{
+  "intent_type": "general",
+  "confidence": 0.9,
+  "layout_id": "promotional",
+  "content_types": ["product"],
+  "entities": {
+    "products": [],
+    "ingredients": [],
+    "goals": ["promo codes", "discounts", "savings"]
+  }
+}
+(Note: "promo codes" = price-focused → promotional)
+
 Query: "Mother's Day gift ideas"
 {
   "intent_type": "general",
@@ -692,19 +817,21 @@ Query: "Mother's Day gift ideas"
     "goals": ["mother's day", "gift", "campaign"]
   }
 }
+(Note: "gift ideas" = themed content → campaign-landing, NOT promotional)
 
 Query: "Black Friday Vitamix deals"
 {
   "intent_type": "general",
   "confidence": 0.9,
-  "layout_id": "campaign-landing",
+  "layout_id": "promotional",
   "content_types": ["product"],
   "entities": {
     "products": [],
     "ingredients": [],
-    "goals": ["black friday", "deals", "campaign"]
+    "goals": ["black friday", "deals", "sale", "discounts"]
   }
 }
+(Note: "deals" = price-focused → promotional, NOT campaign-landing)
 
 Query: "Vitamix history"
 {
