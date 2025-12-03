@@ -150,79 +150,67 @@ async function renderCachedPage() {
     document.title = `${h1.textContent} | Vitamix (Cerebras)`;
   }
 
-  // Reconnect to SSE to receive image-ready events
-  const imagesParam = imageProvider ? `&images=${imageProvider}` : '';
-  const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}${imagesParam}`;
-  const eventSource = new EventSource(streamUrl);
+  // Load images directly from data-pending-src attributes in cached HTML
+  // This avoids SSE reconnection which could return mismatched image IDs
+  // (the worker regenerates content on each SSE connection, and LLM may
+  // produce different block types, causing image ID mismatches)
+  const genImages = content.querySelectorAll('img[data-pending-src]');
+  console.log(`[Cerebras] Loading ${genImages.length} images from cached HTML`);
 
-  eventSource.addEventListener('image-ready', (e) => {
-    const data = JSON.parse(e.data);
-    const { imageId, url } = data;
+  genImages.forEach((img) => {
+    let pendingSrc = img.dataset.pendingSrc;
+    if (!pendingSrc) return;
 
-    let resolvedUrl = url;
-    if (url && url.startsWith('/')) {
-      resolvedUrl = `${CEREBRAS_WORKER_URL}${url}`;
+    // Resolve relative URLs to absolute worker URLs
+    if (pendingSrc.startsWith('/')) {
+      pendingSrc = `${CEREBRAS_WORKER_URL}${pendingSrc}`;
     }
 
-    const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
-    if (img && resolvedUrl) {
-      // Force browser to reload image by replacing the element
-      // (browser's in-memory image cache ignores query string cache-busting)
-      const cacheBustUrl = resolvedUrl.includes('?')
-        ? `${resolvedUrl}&_t=${Date.now()}`
-        : `${resolvedUrl}?_t=${Date.now()}`;
+    // Cache-bust to ensure fresh load
+    const cacheBustUrl = pendingSrc.includes('?')
+      ? `${pendingSrc}&_t=${Date.now()}`
+      : `${pendingSrc}?_t=${Date.now()}`;
 
-      const imgParent = img.parentNode;
-      const newImg = document.createElement('img');
-      newImg.src = cacheBustUrl;
-      newImg.alt = img.alt || '';
-      newImg.className = img.className;
-      if (img.loading) newImg.loading = img.loading;
-      newImg.dataset.genImage = imageId; // Preserve for subsequent lookups
-      newImg.classList.add('loaded');
+    const imageId = img.dataset.genImage || 'unknown';
 
-      if (imgParent) {
-        imgParent.replaceChild(newImg, img);
-      }
+    // Create new image to bypass cache
+    const imgParent = img.parentNode;
+    const newImg = document.createElement('img');
+    newImg.src = cacheBustUrl;
+    newImg.alt = img.alt || '';
+    newImg.className = img.className;
+    if (img.loading) newImg.loading = img.loading;
+    if (img.dataset.genImage) newImg.dataset.genImage = img.dataset.genImage;
+    newImg.classList.add('loaded');
+
+    // Handle load success
+    newImg.onload = () => {
       console.log(`[Cerebras] Image loaded: ${imageId}`);
+    };
+
+    // Handle load error - log but don't break
+    newImg.onerror = () => {
+      console.warn(`[Cerebras] Image failed to load: ${imageId}`, pendingSrc.substring(0, 60));
+    };
+
+    if (imgParent) {
+      imgParent.replaceChild(newImg, img);
     }
   });
 
-  eventSource.addEventListener('generation-complete', (e) => {
-    eventSource.close();
-    console.log('[Cerebras] All images loaded');
-
-    // Parse intent data if available
-    let intent = null;
-    if (e.data) {
-      try {
-        const data = JSON.parse(e.data);
-        intent = data.intent;
-      } catch {
-        // No intent data
-      }
-    }
-
-    // Record this query in session context
-    SessionContextManager.addQuery({
-      query,
-      timestamp: Date.now(),
-      intent: intent?.intentType || 'general',
-      entities: intent?.entities || { products: [], ingredients: [], goals: [] },
-      generatedPath: `/discover/${slug}`,
-    });
-
-    console.log(`[Cerebras] Session context updated, total queries: ${SessionContextManager.getContext().queries.length}`);
-
-    // Show publish button now that all images are ready
-    addPublishButton();
+  // Record query in session context
+  SessionContextManager.addQuery({
+    query,
+    timestamp: Date.now(),
+    intent: 'general',
+    entities: { products: [], ingredients: [], goals: [] },
+    generatedPath: `/discover/${slug}`,
   });
 
-  eventSource.onerror = () => {
-    if (eventSource.readyState === EventSource.CLOSED) {
-      console.log('[Cerebras] Image stream closed');
-    }
-  };
+  console.log(`[Cerebras] Session context updated, total queries: ${SessionContextManager.getContext().queries.length}`);
+
+  // Show publish button
+  addPublishButton();
 
   return true;
 }
@@ -285,12 +273,19 @@ async function renderWithSSE(query, imageProvider) {
     const data = JSON.parse(e.data);
     const { imageId, url } = data;
 
+    console.log(`[Cerebras] image-ready event:`, imageId, url?.substring(0, 50));
+
     let resolvedUrl = url;
     if (url && url.startsWith('/')) {
       resolvedUrl = `${CEREBRAS_WORKER_URL}${url}`;
     }
 
     const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
+    if (!img) {
+      console.warn(`[Cerebras] Image NOT FOUND in DOM: ${imageId}`);
+      const allGenImages = content.querySelectorAll('img[data-gen-image]');
+      console.log(`[Cerebras] Available gen-images:`, [...allGenImages].map((i) => i.dataset.genImage));
+    }
     if (img && resolvedUrl) {
       // Force browser to reload image by replacing the element
       const cacheBustUrl = resolvedUrl.includes('?')
@@ -308,6 +303,7 @@ async function renderWithSSE(query, imageProvider) {
       if (imgParent) {
         imgParent.replaceChild(newImg, img);
       }
+      console.log(`[Cerebras] Image loaded: ${imageId}`);
     }
   });
 
