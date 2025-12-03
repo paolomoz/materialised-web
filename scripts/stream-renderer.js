@@ -358,14 +358,26 @@ function handleImageReady(data, state) {
   // Find and update image in DOM
   const img = document.querySelector(`[data-gen-image="${imageId}"]`);
   if (img) {
-    // Create a new image to preload
-    const newImg = new Image();
-    newImg.onload = () => {
-      img.src = url;
-      img.removeAttribute('data-gen-image');
-      img.classList.add('loaded');
-    };
-    newImg.src = url;
+    // Force browser to reload image by replacing the element
+    // (browser's in-memory image cache ignores query string cache-busting)
+    const cacheBustUrl = url.includes('?')
+      ? `${url}&_t=${Date.now()}`
+      : `${url}?_t=${Date.now()}`;
+
+    const imgParent = img.parentNode;
+
+    // Create new image element to bypass browser's image cache
+    const newImg = document.createElement('img');
+    newImg.src = cacheBustUrl;
+    newImg.alt = img.alt || '';
+    newImg.className = img.className;
+    if (img.loading) newImg.loading = img.loading;
+    newImg.classList.add('loaded');
+
+    // Replace old image with new one
+    if (imgParent) {
+      imgParent.replaceChild(newImg, img);
+    }
   }
 }
 

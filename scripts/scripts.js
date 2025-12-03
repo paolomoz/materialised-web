@@ -212,15 +212,32 @@ async function renderGenerativePage() {
     // Find the image with matching data-gen-image attribute
     const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
     if (img && resolvedUrl) {
-      // Get the original placeholder URL before updating
+      // Get references before modifying DOM
       const originalUrl = img.dataset.originalSrc;
+      const section = img.closest('.section');
+      const imgParent = img.parentNode;
 
-      // Update the src to the actual image URL (either R2 or fallback)
-      img.src = resolvedUrl;
+      // Force browser to reload image by replacing the element
+      // (browser's in-memory image cache ignores query string cache-busting)
+      const cacheBustUrl = resolvedUrl.includes('?')
+        ? `${resolvedUrl}&_t=${Date.now()}`
+        : `${resolvedUrl}?_t=${Date.now()}`;
+
+      // Create new image element to bypass browser's image cache
+      const newImg = document.createElement('img');
+      newImg.src = cacheBustUrl;
+      newImg.alt = img.alt || '';
+      newImg.className = img.className;
+      if (img.loading) newImg.loading = img.loading;
+      // Mark as loaded immediately - triggers CSS transition
+      newImg.classList.add('loaded');
+
+      // Replace old image with new one
+      if (imgParent) {
+        imgParent.replaceChild(newImg, img);
+      }
 
       // Also update the generatedBlocks array for persistence
-      // Find which block contains this image and update its HTML
-      const section = img.closest('.section');
       if (section && originalUrl) {
         const sectionIndex = Array.from(content.children).indexOf(section);
         if (sectionIndex >= 0 && generatedBlocks[sectionIndex]) {
@@ -231,9 +248,6 @@ async function renderGenerativePage() {
           );
         }
       }
-
-      // Mark as loaded - triggers CSS transition
-      img.classList.add('loaded');
     }
   });
 

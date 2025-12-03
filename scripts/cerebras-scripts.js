@@ -156,8 +156,23 @@ async function renderCachedPage() {
 
     const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
     if (img && resolvedUrl) {
-      img.src = resolvedUrl;
-      img.classList.add('loaded');
+      // Force browser to reload image by replacing the element
+      // (browser's in-memory image cache ignores query string cache-busting)
+      const cacheBustUrl = resolvedUrl.includes('?')
+        ? `${resolvedUrl}&_t=${Date.now()}`
+        : `${resolvedUrl}?_t=${Date.now()}`;
+
+      const imgParent = img.parentNode;
+      const newImg = document.createElement('img');
+      newImg.src = cacheBustUrl;
+      newImg.alt = img.alt || '';
+      newImg.className = img.className;
+      if (img.loading) newImg.loading = img.loading;
+      newImg.classList.add('loaded');
+
+      if (imgParent) {
+        imgParent.replaceChild(newImg, img);
+      }
       console.log(`[Cerebras] Image loaded: ${imageId}`);
     }
   });
@@ -266,8 +281,22 @@ async function renderWithSSE(query, imageProvider) {
 
     const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
     if (img && resolvedUrl) {
-      img.src = resolvedUrl;
-      img.classList.add('loaded');
+      // Force browser to reload image by replacing the element
+      const cacheBustUrl = resolvedUrl.includes('?')
+        ? `${resolvedUrl}&_t=${Date.now()}`
+        : `${resolvedUrl}?_t=${Date.now()}`;
+
+      const imgParent = img.parentNode;
+      const newImg = document.createElement('img');
+      newImg.src = cacheBustUrl;
+      newImg.alt = img.alt || '';
+      newImg.className = img.className;
+      if (img.loading) newImg.loading = img.loading;
+      newImg.classList.add('loaded');
+
+      if (imgParent) {
+        imgParent.replaceChild(newImg, img);
+      }
     }
   });
 

@@ -187,14 +187,32 @@ export default async function decorate(block) {
     // Find the image with matching data-gen-image attribute
     const img = main.querySelector(`img[data-gen-image="${imageId}"]`);
     if (img && resolvedUrl) {
-      // Get the original placeholder URL before updating
+      // Get references before modifying DOM
       const originalUrl = img.dataset.originalSrc;
+      const imgSection = img.closest('.section');
+      const imgParent = img.parentNode;
 
-      // Update the src to the actual image URL
-      img.src = resolvedUrl;
+      // Force browser to reload image by replacing the element
+      // (browser's in-memory image cache ignores query string cache-busting)
+      const cacheBustUrl = resolvedUrl.includes('?')
+        ? `${resolvedUrl}&_t=${Date.now()}`
+        : `${resolvedUrl}?_t=${Date.now()}`;
+
+      // Create new image element to bypass browser's image cache
+      const newImg = document.createElement('img');
+      newImg.src = cacheBustUrl;
+      newImg.alt = img.alt || '';
+      newImg.className = img.className;
+      if (img.loading) newImg.loading = img.loading;
+      // Mark as loaded immediately - triggers CSS transition
+      newImg.classList.add('loaded');
+
+      // Replace old image with new one
+      if (imgParent) {
+        imgParent.replaceChild(newImg, img);
+      }
 
       // Update the generatedBlocks array for persistence
-      const imgSection = img.closest('.section');
       if (imgSection && originalUrl) {
         // Find which generated block this section corresponds to
         const sections = [...main.querySelectorAll('.section:not(:has(.cerebras-generated))')];
@@ -207,9 +225,6 @@ export default async function decorate(block) {
           );
         }
       }
-
-      // Mark as loaded - triggers CSS transition
-      img.classList.add('loaded');
     }
   });
 
