@@ -34,6 +34,9 @@ export interface Env {
 
   // Image provider: 'fal' for FLUX Schnell, 'imagen' for Google Imagen 3
   IMAGE_PROVIDER?: 'fal' | 'imagen';
+
+  // D1 database binding for adaptive-web (for image migration)
+  ADAPTIVE_WEB_DB?: D1Database;
 }
 
 /**
@@ -356,8 +359,9 @@ export type SSEEvent =
   | { event: 'block-start'; data: { blockId: string; blockType: BlockType; position: number } }
   | { event: 'block-content'; data: { blockId: string; html: string; partial: boolean; sectionStyle?: 'default' | 'highlight' | 'dark' } }
   | { event: 'block-complete'; data: { blockId: string } }
-  | { event: 'image-placeholder'; data: { imageId: string; blockId: string } }
-  | { event: 'image-ready'; data: { imageId: string; url: string } }
+  // RAG-only mode: Images are resolved server-side, no SSE events needed
+  // | { event: 'image-placeholder'; data: { imageId: string; blockId: string } }
+  // | { event: 'image-ready'; data: { imageId: string; url: string } }
   | { event: 'generation-complete'; data: { pageUrl: string } }
   | { event: 'error'; data: { code: string; message: string; recoverable: boolean } };
 

@@ -37,6 +37,12 @@ binding = "CACHE"
 id = "a840e9485e304b40920f01eaebd46de9"
 preview_id = "4d776a13335d4c6a837b6a22c8e30cfd"
 
+# D1 binding to adaptive-web database (for image migration)
+[[d1_databases]]
+binding = "ADAPTIVE_WEB_DB"
+database_name = "adaptive-web-db"
+database_id = "407328db-b252-428f-b412-0f902bfd8fdb"
+
 # Secrets (set via wrangler secret put):
 # - CEREBRAS_API_KEY
 # - GOOGLE_API_KEY

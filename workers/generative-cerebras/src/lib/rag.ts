@@ -1020,6 +1020,10 @@ export interface ImageLookupResult {
   source: 'map' | 'rag' | 'index';
   score?: number;
   alt?: string;
+  /** For hero tiered fallback: indicates image needs CSS cropping */
+  cropNeeded?: boolean;
+  /** For hero tiered fallback: which tier the image came from */
+  tier?: 'ideal' | 'relaxed' | 'any';
 }
 
 /**
@@ -1038,14 +1042,63 @@ const GENERIC_FALLBACK_PATTERNS = [
  *
  * This is the main entry point for image lookup, implementing the decision flow
  * from IMAGE_STRATEGY.md
+ *
+ * @param context - Image context type (product, recipe, lifestyle)
+ * @param query - Search query for the image
+ * @param ragContext - RAG context with retrieved chunks
+ * @param env - Environment bindings
+ * @param blockType - Optional block type for aspect ratio filtering (e.g., 'hero', 'cards')
  */
+/**
+ * Check if a block type is a hero block that should use tiered fallback
+ */
+function isHeroBlock(blockType?: string): boolean {
+  return blockType === 'hero' || blockType === 'recipe-hero' || blockType === 'recipe-hero-detail';
+}
+
+/**
+ * Tiered hero image lookup
+ * Tier 1: Strict aspect ratio (landscape-wide preferred)
+ * Tier 2: Relaxed aspect ratio (landscape or square, will need crop)
+ * Tier 3: Any image (will definitely need crop)
+ * Tier 4: Return null (text-only hero)
+ */
+async function findHeroImageWithTiers(
+  query: string,
+  context: ImageContext,
+  env: Env,
+  blockType: string
+): Promise<ImageLookupResult | null> {
+  console.log(`[Hero Image] Tiered lookup for "${query}" (${blockType})`);
+
+  // Query with hero aspect ratio preferences - returns isFallback if no ideal match
+  const result = await queryImageIndex(query, context, env, blockType);
+
+  if (result) {
+    if (result.isFallback) {
+      // Got a fallback (wrong aspect ratio) - will need CSS crop
+      console.log(`[Hero Image] ✓ Using fallback (needs crop): ${result.url}`);
+      return { url: result.url, source: 'index', score: result.score, tier: 'any', cropNeeded: true };
+    } else {
+      // Perfect match with correct aspect ratio
+      console.log(`[Hero Image] ✓ Ideal match: ${result.url}`);
+      return { url: result.url, source: 'index', score: result.score, tier: 'ideal', cropNeeded: false };
+    }
+  }
+
+  // No image found at all - text-only hero
+  console.log(`[Hero Image] ✗ No image found for "${query}" - will use text-only`);
+  return null;
+}
+
 export async function findBestImage(
   context: ImageContext,
   query: string,
   ragContext: RAGContext,
-  env: Env
+  env: Env,
+  blockType?: string
 ): Promise<ImageLookupResult | null> {
-  console.log(`[Image] Finding best image for context="${context}", query="${query}"`);
+  console.log(`[Image] Finding best image for context="${context}", query="${query}"${blockType ? `, block="${blockType}"` : ''}`);
 
   // 1. For products, check static map first (most reliable)
   if (context === 'product') {
@@ -1065,15 +1118,21 @@ export async function findBestImage(
 
   // 3. Query dedicated image index (if available)
   if (env.IMAGE_INDEX) {
-    const indexMatch = await queryImageIndex(query, context, env);
+    // Hero blocks get special tiered fallback treatment
+    if (isHeroBlock(blockType)) {
+      return findHeroImageWithTiers(query, context, env, blockType!);
+    }
+
+    // Non-hero blocks use standard lookup
+    const indexMatch = await queryImageIndex(query, context, env, blockType);
     if (indexMatch) {
       console.log(`[Image] ✓ Using index image for "${query}"`);
       return { url: indexMatch.url, source: 'index', score: indexMatch.score };
     }
   }
 
-  // 4. No existing image found - will need to generate
-  console.log(`[Image] ✗ No existing image for "${query}" - will generate`);
+  // 4. No existing image found
+  console.log(`[Image] ✗ No existing image for "${query}"`);
   return null;
 }
 
@@ -1127,46 +1186,130 @@ function isGenericFallback(url: string): boolean {
 }
 
 /**
+ * Block-type specific thresholds for image matching
+ * Lower thresholds = more permissive matching
+ * Hero blocks have relaxed thresholds due to limited landscape-wide images
+ */
+const BLOCK_IMAGE_THRESHOLDS: Record<string, number> = {
+  'hero': 0.45,           // Very relaxed - limited landscape images
+  'recipe-hero': 0.45,
+  'recipe-hero-detail': 0.45,
+  'product-hero': 0.60,   // Stricter - product accuracy matters
+  'cards': 0.50,          // Balanced
+  'columns': 0.50,
+  'split-content': 0.50,
+  'recipe-cards': 0.50,
+  'product-cards': 0.60,
+  'product-recommendation': 0.60,
+  'default': 0.50,        // Default threshold (lowered from 0.75)
+};
+
+/**
  * Query the dedicated IMAGE_INDEX for semantically matching images
- * Returns the best match if above confidence threshold
+ * Returns the best match if above confidence threshold and matching aspect ratio
+ * Uses block-type specific thresholds for best-effort matching
  */
 async function queryImageIndex(
   description: string,
   context: ImageContext,
-  env: Env
-): Promise<{ url: string; score: number } | null> {
+  env: Env,
+  blockType?: string
+): Promise<{ url: string; score: number; isFallback: boolean } | null> {
   if (!env.IMAGE_INDEX) {
     return null;
   }
+
+  // Dynamically import to avoid circular dependencies
+  const { getDimensions, isDimensionsSuitableForBlock, BLOCK_ASPECT_PREFERENCES } = await import('./image-dimensions');
+
+  // Get threshold for this block type
+  const threshold = blockType && BLOCK_IMAGE_THRESHOLDS[blockType]
+    ? BLOCK_IMAGE_THRESHOLDS[blockType]
+    : BLOCK_IMAGE_THRESHOLDS['default'];
 
   try {
     // Generate embedding for the description
     const embedding = await generateImageQueryEmbedding(description, env);
 
     // Build filter for image type if specified
-    const filter = context
+    // Note: Index has image_type values: 'recipe', 'product', 'blog', 'page'
+    // 'lifestyle' doesn't exist in index - skip filter and let semantic search work
+    const validIndexTypes = ['recipe', 'product', 'blog', 'page'];
+    const filter = context && validIndexTypes.includes(context)
       ? { image_type: { $eq: context } }
       : undefined;
 
+    if (context && !validIndexTypes.includes(context)) {
+      console.log(`[Image Index] No filter for context '${context}' - relying on semantic search`);
+    }
+
+    // Fetch more results to allow for aspect ratio filtering
+    const needsAspectFilter = blockType && BLOCK_ASPECT_PREFERENCES[blockType];
+    const topK = needsAspectFilter ? 25 : 10; // Increased for better fallback options
+
     // Query the image index
     const results = await env.IMAGE_INDEX.query(embedding, {
-      topK: 5,
+      topK,
       filter,
       returnMetadata: 'all',
     });
 
-    // Return best match if above threshold (0.75)
-    const bestMatch = results.matches[0];
-    if (bestMatch && bestMatch.score > 0.75) {
-      const imageUrl = (bestMatch.metadata as any)?.url ||
-                       (bestMatch.metadata as any)?.image_url;
-      if (imageUrl) {
-        console.log(`[Image Index] Match score ${bestMatch.score.toFixed(3)} for "${description}"`);
-        return { url: imageUrl, score: bestMatch.score };
+    if (!results.matches || results.matches.length === 0) {
+      console.log(`[Image Index] No matches for "${description}"`);
+      return null;
+    }
+
+    // Track best fallback in case no match passes aspect ratio check
+    let bestFallback: { url: string; score: number; isFallback: boolean } | null = null;
+
+    // Find best match above threshold that also matches aspect ratio
+    for (const match of results.matches) {
+      const imageUrl = (match.metadata as any)?.url ||
+                       (match.metadata as any)?.image_url;
+      if (!imageUrl) continue;
+
+      // Store as fallback if above threshold (even if aspect doesn't match)
+      if (match.score >= threshold && !bestFallback) {
+        bestFallback = { url: imageUrl, score: match.score, isFallback: true };
+      }
+
+      // Check aspect ratio if block type specified
+      if (needsAspectFilter) {
+        const dimensions = await getDimensions(imageUrl, env);
+        if (dimensions && !isDimensionsSuitableForBlock(dimensions, blockType)) {
+          console.log(`[Image Index] Skipping ${imageUrl} - aspect ${dimensions.aspectCategory} not suitable for ${blockType}`);
+          continue;
+        }
+        if (dimensions) {
+          console.log(`[Image Index] ✓ Match ${match.score.toFixed(3)} for "${description}" (${dimensions.width}x${dimensions.height}, ${dimensions.aspectCategory})`);
+        }
+      } else {
+        console.log(`[Image Index] Match score ${match.score.toFixed(3)} for "${description}"`);
+      }
+
+      // Return if above threshold (aspect check passed or not needed)
+      if (match.score >= threshold) {
+        return { url: imageUrl, score: match.score, isFallback: false };
       }
     }
 
-    console.log(`[Image Index] No confident match for "${description}" (best: ${bestMatch?.score?.toFixed(3) || 'none'})`);
+    // If no ideal match found, return best fallback (best-effort)
+    if (bestFallback) {
+      console.log(`[Image Index] Using aspect-mismatch fallback for "${description}" - score ${bestFallback.score.toFixed(3)} (needs CSS crop)`);
+      return bestFallback;
+    }
+
+    // Log what we had (best-effort even below threshold)
+    const bestMatch = results.matches[0];
+    if (bestMatch) {
+      const url = (bestMatch.metadata as any)?.url || (bestMatch.metadata as any)?.image_url;
+      if (url && bestMatch.score >= 0.35) { // Absolute minimum for any relevance
+        console.log(`[Image Index] Best-effort match for "${description}" - score ${bestMatch.score.toFixed(3)} (below threshold ${threshold})`);
+        return { url, score: bestMatch.score, isFallback: true };
+      }
+    }
+
+    console.log(`[Image Index] No suitable match for "${description}" (best: ${bestMatch?.score?.toFixed(3) || 'none'}, threshold: ${threshold})`);
     return null;
   } catch (error) {
     console.error('[Image Index] Query failed:', error);

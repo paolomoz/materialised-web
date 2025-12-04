@@ -11,36 +11,15 @@ import type {
 } from '../types';
 import { classifyIntent, generateContent, validateBrandCompliance } from '../ai-clients/cerebras';
 import { analyzeQuery } from '../ai-clients/gemini';
-import { generateImages, decideImageStrategy, type ImageProvider } from '../ai-clients/image-router';
-import { smartRetrieve, findProductImage } from './rag';
+// RAG_ONLY_IMAGES mode: Image generation is disabled, all images resolved from RAG
+// Keeping ImageProvider type for compatibility with OrchestratorContext
+// generateImages and decideImageStrategy are no longer used
+import { type ImageProvider } from '../ai-clients/image-router';
+import { smartRetrieve, findProductImage, findBestImage, type ImageContext, type ImageLookupResult } from './rag';
 import { getLayoutForIntent, adjustLayoutForRAGContent, templateToLayoutDecision, type LayoutTemplate } from '../prompts/layouts';
 import { validateContentSafety, type ContentSafetyResult } from './content-safety';
 import { getFallbackContent, getFallbackLayout } from './fallback-content';
 import { validateTopicRelevance, getTopicRejectionResponse } from './topic-relevance';
-
-// Worker base URL for image serving
-const WORKER_URL = 'https://vitamix-generative-cerebras.paolo-moz.workers.dev';
-
-/**
- * Build predictable image URL for a given slug and image ID
- * Images are stored at: /images/{slug}/{imageId}.png
- */
-function buildImageUrl(slug: string, imageId: string): string {
-  return `${WORKER_URL}/images/${slug}/${imageId}.png`;
-}
-
-// Transparent 1x1 pixel PNG as placeholder (shows shimmer while loading)
-const TRANSPARENT_PLACEHOLDER = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-
-/**
- * Build an img tag with shimmer loading support
- * Uses transparent placeholder initially, stores real URL in data-pending-src
- * Frontend will set src when image-ready event is received
- */
-function buildGenImageTag(slug: string, imageId: string, alt: string, extraAttrs = ''): string {
-  const realUrl = buildImageUrl(slug, imageId);
-  return `<img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${realUrl}" alt="${alt}" data-gen-image="${imageId}" loading="lazy"${extraAttrs ? ` ${extraAttrs}` : ''}>`;
-}
 
 /**
  * Check if a video URL is valid (must be an actual external video URL)
@@ -198,10 +177,9 @@ export async function orchestrate(
     // Use effectiveQuery to generate food-focused content
     ctx.content = await generateContent(effectiveQuery, ragContext, ctx.intent, layoutTemplate, env, sessionContext);
 
-    // Stage 4: Derive layout from template + Image decisions
+    // Stage 4: Derive layout from template + Resolve images from RAG
     // No Gemini call - we use the predefined layout template directly
     const layout = templateToLayoutDecision(layoutTemplate);
-    const imageDecisions = await decideImagesForContent(ctx.content, ragContext, env);
 
     console.log('Layout decision from template:', {
       layoutId: layoutTemplate.id,
@@ -214,31 +192,25 @@ export async function orchestrate(
 
     ctx.layout = layout;
 
-    // Stream block content as we have it (with predictable image URLs)
-    await streamBlockContent(ctx.content, layout, ctx.slug, onEvent, ctx.ragContext);
+    // Stage 5: RAG-Only Image Resolution
+    // Resolve all images from RAG before streaming (no generation)
+    const resolvedImages = await resolveBlockImages(ctx.content, ragContext, env);
 
-    // Stage 5: Image Generation (conditional)
-    // Pass RAG context so product-hero can skip generation if RAG image exists
-    const imageRequests = buildImageRequests(ctx.content, imageDecisions, ctx.ragContext);
+    // Log resolution stats
+    const resolvedCount = Array.from(resolvedImages.values()).filter(v => v !== null).length;
+    console.log(`[Orchestrator] Resolved ${resolvedCount}/${resolvedImages.size} images from RAG`);
 
-    // Send image placeholders
-    for (const request of imageRequests) {
-      onEvent({
-        event: 'image-placeholder',
-        data: { imageId: request.id, blockId: request.blockId },
-      });
-    }
+    // Stream block content with resolved image URLs (no placeholders)
+    await streamBlockContent(ctx.content, layout, ctx.slug, onEvent, ctx.ragContext, resolvedImages);
 
-    // Generate images (this is slow, but we've already streamed content)
-    ctx.images = await generateImages(imageRequests, ctx.slug, env, imageProvider);
-
-    // Send image ready events
-    for (const image of ctx.images) {
-      onEvent({
-        event: 'image-ready',
-        data: { imageId: image.id, url: image.url },
-      });
-    }
+    // Convert resolved images to GeneratedImage format for compatibility
+    ctx.images = Array.from(resolvedImages.entries())
+      .filter(([_, img]) => img !== null)
+      .map(([id, img]) => ({
+        id,
+        url: img!.url,
+        prompt: '', // No prompt - from RAG
+      }));
 
     // Stage 6: Quality Validation (BLOCKING)
     const fullText = extractFullText(ctx.content);
@@ -321,42 +293,203 @@ export async function orchestrate(
 }
 
 /**
- * Decide image strategy for all content blocks
+ * Resolved image info for a block
  */
-async function decideImagesForContent(
-  content: GeneratedContent,
-  ragContext: RAGContext,
-  env: Env
-): Promise<Map<string, { useExisting: boolean; url?: string; prompt?: string }>> {
-  const decisions = new Map();
-
-  // TEMPORARY: Force AI generation while IMAGE_INDEX is being rebuilt
-  // TODO: Remove this bypass once reindexing is complete
-  const FORCE_AI_GENERATION = true;
-
-  for (const block of content.blocks) {
-    if (FORCE_AI_GENERATION) {
-      // Skip image lookup, always generate
-      decisions.set(block.id, {
-        useExisting: false,
-        url: undefined,
-        prompt: (block.content as any).imagePrompt,
-      });
-      continue;
-    }
-
-    const decision = await decideImageStrategy(block.content, ragContext, env);
-    decisions.set(block.id, {
-      useExisting: decision.useExisting,
-      url: decision.existingUrl,
-      prompt: decision.generationPrompt,
-    });
-  }
-
-  return decisions;
+interface ResolvedImage {
+  url: string;
+  source: 'map' | 'rag' | 'index';
+  score?: number;
+  alt?: string;
+  cropNeeded?: boolean;
 }
 
 /**
+ * Resolve all images for content blocks using RAG-only lookup.
+ * No image generation - always returns best available RAG image.
+ *
+ * Returns a map of imageId -> resolved image URL
+ * e.g., 'hero' -> 'https://...', 'card-0' -> 'https://...', etc.
+ */
+async function resolveBlockImages(
+  content: GeneratedContent,
+  ragContext: RAGContext,
+  env: Env
+): Promise<Map<string, ResolvedImage | null>> {
+  const resolved = new Map<string, ResolvedImage | null>();
+
+  for (const block of content.blocks) {
+    const blockContent = block.content as any;
+
+    switch (block.type) {
+      case 'hero': {
+        const query = blockContent.imagePrompt || blockContent.headline || 'Vitamix blending lifestyle';
+        const result = await findBestImage('lifestyle', query, ragContext, env, 'hero');
+        resolved.set('hero', result ? { ...result } : null);
+        break;
+      }
+
+      case 'cards': {
+        if (blockContent.cards) {
+          for (let i = 0; i < blockContent.cards.length; i++) {
+            const card = blockContent.cards[i];
+            const query = card.imagePrompt || card.title || 'Vitamix feature';
+            const result = await findBestImage('lifestyle', query, ragContext, env, 'cards');
+            resolved.set(`card-${i}`, result ? { ...result } : null);
+          }
+        }
+        break;
+      }
+
+      case 'product-cards': {
+        if (blockContent.products) {
+          for (let i = 0; i < blockContent.products.length; i++) {
+            const product = blockContent.products[i];
+            const query = product.name || 'Vitamix blender';
+            const result = await findBestImage('product', query, ragContext, env, 'product-cards');
+            resolved.set(`product-card-${block.id}-${i}`, result ? { ...result } : null);
+          }
+        }
+        break;
+      }
+
+      case 'columns': {
+        if (blockContent.columns) {
+          for (let i = 0; i < blockContent.columns.length; i++) {
+            const col = blockContent.columns[i];
+            const query = col.imagePrompt || col.headline || 'Vitamix feature';
+            const result = await findBestImage('lifestyle', query, ragContext, env, 'columns');
+            resolved.set(`col-${i}`, result ? { ...result } : null);
+          }
+        }
+        break;
+      }
+
+      case 'split-content': {
+        const imageId = `split-content-${block.id}`;
+        const query = blockContent.imagePrompt || blockContent.headline || 'Vitamix lifestyle';
+        const result = await findBestImage('lifestyle', query, ragContext, env, 'split-content');
+        resolved.set(imageId, result ? { ...result } : null);
+        break;
+      }
+
+      case 'recipe-cards': {
+        if (blockContent.recipes) {
+          for (let i = 0; i < blockContent.recipes.length; i++) {
+            const recipe = blockContent.recipes[i];
+            const query = recipe.title || 'Vitamix recipe';
+            const result = await findBestImage('recipe', query, ragContext, env, 'recipe-cards');
+            resolved.set(`recipe-${i}`, result ? { ...result } : null);
+          }
+        }
+        break;
+      }
+
+      case 'product-hero': {
+        const imageId = `product-hero-${block.id}`;
+        const productName = blockContent.productName || 'Vitamix blender';
+        const result = await findBestImage('product', productName, ragContext, env, 'product-hero');
+        resolved.set(imageId, result ? { ...result } : null);
+        break;
+      }
+
+      case 'recipe-hero': {
+        const imageId = `recipe-hero-${block.id}`;
+        const query = blockContent.title || blockContent.headline || 'Vitamix recipe';
+        const result = await findBestImage('recipe', query, ragContext, env, 'recipe-hero');
+        resolved.set(imageId, result ? { ...result } : null);
+        break;
+      }
+
+      case 'recipe-grid': {
+        if (blockContent.recipes) {
+          for (let i = 0; i < blockContent.recipes.length; i++) {
+            const recipe = blockContent.recipes[i];
+            const query = recipe.title || 'Vitamix recipe';
+            const result = await findBestImage('recipe', query, ragContext, env, 'recipe-cards');
+            resolved.set(`grid-recipe-${i}`, result ? { ...result } : null);
+          }
+        }
+        break;
+      }
+
+      case 'technique-spotlight': {
+        const imageId = `technique-${block.id}`;
+        const query = blockContent.title || 'Vitamix technique';
+        const result = await findBestImage('lifestyle', query, ragContext, env, 'cards');
+        resolved.set(imageId, result ? { ...result } : null);
+        break;
+      }
+
+      case 'feature-highlights': {
+        if (blockContent.features) {
+          for (let i = 0; i < blockContent.features.length; i++) {
+            const feature = blockContent.features[i];
+            const query = feature.title || 'Vitamix feature';
+            const result = await findBestImage('lifestyle', query, ragContext, env, 'cards');
+            resolved.set(`feature-highlights-${block.id}-${i}`, result ? { ...result } : null);
+          }
+        }
+        break;
+      }
+
+      case 'included-accessories': {
+        if (blockContent.accessories) {
+          for (let i = 0; i < blockContent.accessories.length; i++) {
+            const accessory = blockContent.accessories[i];
+            const query = accessory.name || 'Vitamix accessory';
+            const result = await findBestImage('product', query, ragContext, env, 'product-cards');
+            resolved.set(`included-accessories-${block.id}-${i}`, result ? { ...result } : null);
+          }
+        }
+        break;
+      }
+
+      case 'troubleshooting-steps': {
+        if (blockContent.steps) {
+          for (let i = 0; i < blockContent.steps.length; i++) {
+            const step = blockContent.steps[i];
+            const query = step.title || 'Vitamix troubleshooting';
+            const result = await findBestImage('lifestyle', query, ragContext, env, 'cards');
+            resolved.set(`step-${block.id}-${i}`, result ? { ...result } : null);
+          }
+        }
+        break;
+      }
+
+      case 'product-recommendation': {
+        const imageId = `product-rec-${block.id}`;
+        const query = blockContent.productName || 'Vitamix blender';
+        const result = await findBestImage('product', query, ragContext, env, 'product-cards');
+        resolved.set(imageId, result ? { ...result } : null);
+        break;
+      }
+
+      // Blocks without images - no action needed
+      case 'text':
+      case 'cta':
+      case 'faq':
+      case 'benefits-grid':
+      case 'comparison-table':
+      case 'nutrition-table':
+      case 'specifications':
+      case 'reviews':
+      case 'warranty-info':
+        break;
+
+      default:
+        console.log(`[resolveBlockImages] Unknown block type: ${block.type}`);
+    }
+  }
+
+  console.log(`[resolveBlockImages] Resolved ${resolved.size} images for ${content.blocks.length} blocks`);
+  return resolved;
+}
+
+/**
+ * @deprecated RAG_ONLY_IMAGES mode - Image generation is disabled.
+ * This function is kept for potential rollback but is no longer called.
+ * Images are now resolved server-side via resolveBlockImages() using RAG lookup.
+ *
  * Build image generation requests
  * Image IDs match the data-gen-image attributes in the HTML
  */
@@ -729,7 +862,8 @@ async function streamBlockContent(
   layout: LayoutDecision,
   slug: string,
   onEvent: SSECallback,
-  ragContext?: RAGContext
+  ragContext?: RAGContext,
+  resolvedImages?: Map<string, ResolvedImage | null>
 ): Promise<void> {
   for (let i = 0; i < layout.blocks.length; i++) {
     const layoutBlock = layout.blocks[i];
@@ -747,8 +881,8 @@ async function streamBlockContent(
       },
     });
 
-    // Build HTML for this block (with predictable image URLs)
-    const blockHtml = buildBlockHTML(contentBlock, layoutBlock, slug, ragContext);
+    // Build HTML for this block with resolved image URLs
+    const blockHtml = buildBlockHTML(contentBlock, layoutBlock, slug, ragContext, resolvedImages);
 
     // Send block content with section style
     onEvent({
@@ -770,26 +904,52 @@ async function streamBlockContent(
 }
 
 /**
+ * Get image URL from resolved images map, with fallback placeholder
+ */
+function getResolvedImageUrl(
+  imageId: string,
+  resolvedImages?: Map<string, ResolvedImage | null>
+): string | null {
+  if (!resolvedImages) return null;
+  const resolved = resolvedImages.get(imageId);
+  return resolved?.url || null;
+}
+
+/**
+ * Get full resolved image info including cropNeeded flag
+ */
+function getResolvedImage(
+  imageId: string,
+  resolvedImages?: Map<string, ResolvedImage | null>
+): ResolvedImage | null {
+  if (!resolvedImages) return null;
+  return resolvedImages.get(imageId) || null;
+}
+
+/**
  * Build HTML for a single block
  */
 function buildBlockHTML(
   block: GeneratedContent['blocks'][0],
   layoutBlock: LayoutDecision['blocks'][0],
   slug: string,
-  ragContext?: RAGContext
+  ragContext?: RAGContext,
+  resolvedImages?: Map<string, ResolvedImage | null>
 ): string {
   const content = block.content;
   const variant = layoutBlock.variant;
 
   switch (block.type) {
-    case 'hero':
-      return buildHeroHTML(content as any, variant, slug);
+    case 'hero': {
+      const heroImage = getResolvedImage('hero', resolvedImages);
+      return buildHeroHTML(content as any, variant, heroImage?.url || null, heroImage?.cropNeeded);
+    }
     case 'cards':
-      return buildCardsHTML(content as any, variant, slug);
+      return buildCardsHTML(content as any, variant, resolvedImages);
     case 'product-cards':
-      return buildProductCardsHTML(content as any, variant, slug, block.id);
+      return buildProductCardsHTML(content as any, variant, block.id, resolvedImages);
     case 'columns':
-      return buildColumnsHTML(content as any, variant, slug);
+      return buildColumnsHTML(content as any, variant, resolvedImages);
     case 'text':
       return buildTextHTML(content as any, variant);
     case 'cta':
@@ -797,13 +957,13 @@ function buildBlockHTML(
     case 'faq':
       return buildFAQHTML(content as any, variant);
     case 'split-content':
-      return buildSplitContentHTML(content as any, variant, slug, block.id);
+      return buildSplitContentHTML(content as any, variant, block.id, resolvedImages);
     case 'benefits-grid':
       return buildBenefitsGridHTML(content as any, variant);
     case 'recipe-cards':
-      return buildRecipeCardsHTML(content as any, variant, slug);
+      return buildRecipeCardsHTML(content as any, variant, resolvedImages);
     case 'product-recommendation':
-      return buildProductRecommendationHTML(content as any, variant, slug, block.id);
+      return buildProductRecommendationHTML(content as any, variant, block.id, resolvedImages);
     case 'tips-banner':
       return buildTipsBannerHTML(content as any, variant);
     case 'ingredient-search':
@@ -811,11 +971,11 @@ function buildBlockHTML(
     case 'recipe-filter-bar':
       return buildRecipeFilterBarHTML(content as any, variant);
     case 'recipe-grid':
-      return buildRecipeGridHTML(content as any, variant, slug);
+      return buildRecipeGridHTML(content as any, variant, resolvedImages);
     case 'quick-view-modal':
       return buildQuickViewModalHTML(content as any, variant);
     case 'technique-spotlight':
-      return buildTechniqueSpotlightHTML(content as any, variant, slug, block.id);
+      return buildTechniqueSpotlightHTML(content as any, variant, block.id, resolvedImages);
     case 'support-hero':
       return buildSupportHeroHTML(content as any, variant);
     case 'diagnosis-card':
@@ -833,35 +993,31 @@ function buildBlockHTML(
     case 'comparison-cta':
       return buildComparisonCTAHTML(content as any, variant);
     case 'product-hero': {
-      // Try to find a product image from RAG context
-      const productContent = content as any;
-      const ragImageUrl = ragContext && productContent.productName
-        ? findProductImage(productContent.productName, ragContext)
-        : undefined;
-      return buildProductHeroHTML(productContent, variant, slug, block.id, ragImageUrl);
+      const imageId = `product-hero-${block.id}`;
+      return buildProductHeroHTML(content as any, variant, block.id, getResolvedImageUrl(imageId, resolvedImages));
     }
     case 'specs-table':
       return buildSpecsTableHTML(content as any, variant);
     case 'feature-highlights':
-      return buildFeatureHighlightsHTML(content as any, variant, slug, block.id);
+      return buildFeatureHighlightsHTML(content as any, variant, block.id, resolvedImages);
     case 'included-accessories':
-      return buildIncludedAccessoriesHTML(content as any, variant, slug, block.id);
+      return buildIncludedAccessoriesHTML(content as any, variant, block.id, resolvedImages);
     case 'product-cta':
       return buildProductCTAHTML(content as any, variant);
     // Single Recipe blocks
     case 'recipe-hero':
-      return buildRecipeHeroHTML(content as any, variant, slug, block.id);
+      return buildRecipeHeroHTML(content as any, variant, block.id, resolvedImages);
     case 'ingredients-list':
       return buildIngredientsListHTML(content as any, variant);
     case 'recipe-steps':
-      return buildRecipeStepsHTML(content as any, variant, slug, block.id);
+      return buildRecipeStepsHTML(content as any, variant, slug, block.id, resolvedImages);
     case 'nutrition-facts':
       return buildNutritionFactsHTML(content as any, variant);
     case 'recipe-tips':
       return buildRecipeTipsHTML(content as any, variant);
     // Single Recipe Detail blocks (vitamix.com style)
     case 'recipe-hero-detail':
-      return buildRecipeHeroDetailHTML(content as any, variant, slug, block.id);
+      return buildRecipeHeroDetailHTML(content as any, variant, block.id, resolvedImages);
     case 'recipe-tabs':
       return buildRecipeTabsHTML(content as any, variant);
     case 'recipe-sidebar':
@@ -872,12 +1028,12 @@ function buildBlockHTML(
     case 'countdown-timer':
       return buildCountdownTimerHTML(content as any, variant);
     case 'testimonials':
-      return buildTestimonialsHTML(content as any, variant, slug, block.id);
+      return buildTestimonialsHTML(content as any, variant, block.id, resolvedImages);
     // About/Story blocks
     case 'timeline':
       return buildTimelineHTML(content as any, variant);
     case 'team-cards':
-      return buildTeamCardsHTML(content as any, variant, slug, block.id);
+      return buildTeamCardsHTML(content as any, variant, block.id, resolvedImages);
     default:
       return '';
   }
@@ -1113,10 +1269,7 @@ function buildComparisonCTAHTML(content: any, variant: string): string {
  *   </div>
  * </div>
  */
-function buildHeroHTML(content: any, variant: string, slug: string): string {
-  // Use predictable URL - image will be served once generated
-  const imageUrl = buildImageUrl(slug, 'hero');
-
+function buildHeroHTML(content: any, variant: string, imageUrl: string | null, cropNeeded?: boolean): string {
   // Determine CTA type for hero button
   let ctaHtml = '';
   if (content.ctaText) {
@@ -1152,14 +1305,17 @@ function buildHeroHTML(content: any, variant: string, slug: string): string {
     ctaHtml = `<p><a href="${escapeHTML(buttonUrl)}" class="button"${exploreAttrs}>${escapeHTML(content.ctaText)}</a></p>`;
   }
 
+  // Build image HTML - either with resolved URL or skip if no image
+  // Add data-crop="true" if image needs CSS cropping (non-ideal aspect ratio)
+  const cropAttr = cropNeeded ? ' data-crop="true"' : '';
+  const imageHtml = imageUrl
+    ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(content.headline)}" loading="lazy"${cropAttr}></picture></div>`
+    : ''; // No image - text-only hero variant
+
   return `
-    <div class="hero${variant !== 'default' ? ` ${variant}` : ''}">
+    <div class="hero${variant !== 'default' ? ` ${variant}` : ''}${!imageUrl ? ' text-only' : ''}">
       <div>
-        <div>
-          <picture>
-            <img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(content.headline)}" data-gen-image="hero" loading="lazy">
-          </picture>
-        </div>
+        ${imageHtml}
         <div>
           <h1>${escapeHTML(content.headline)}</h1>
           ${content.subheadline ? `<p>${escapeHTML(content.subheadline)}</p>` : ''}
@@ -1200,18 +1356,16 @@ function buildHeroHTML(content: any, variant: string, slug: string): string {
  *
  * The cards.js decorator transforms this to ul/li structure.
  */
-function buildCardsHTML(content: any, variant: string, slug: string): string {
+function buildCardsHTML(content: any, variant: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
   const cardsHtml = content.cards.map((card: any, i: number) => {
-    // Use predictable URL - image will be served once generated
-    const imageUrl = buildImageUrl(slug, `card-${i}`);
+    const imageUrl = getResolvedImageUrl(`card-${i}`, resolvedImages);
+    const imageHtml = imageUrl
+      ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(card.title)}" loading="lazy"></picture></div>`
+      : '<div></div>'; // Empty cell if no image
 
     return `
       <div>
-        <div>
-          <picture>
-            <img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(card.title)}" data-gen-image="card-${i}" loading="lazy">
-          </picture>
-        </div>
+        ${imageHtml}
         <div>
           <p><strong>${escapeHTML(card.title)}</strong></p>
           <p>${escapeHTML(card.description)}</p>
@@ -1252,17 +1406,17 @@ function buildCardsHTML(content: any, variant: string, slug: string): string {
  *
  * The columns.js decorator adds columns-N-cols class.
  */
-function buildColumnsHTML(content: any, variant: string, slug: string): string {
+function buildColumnsHTML(content: any, variant: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
   // Build all columns as cells within a single row
   const columnsHtml = content.columns.map((col: any, i: number) => {
     let colContent = '';
 
-    if (col.imagePrompt) {
-      // Use predictable URL - image will be served once generated
-      const imageUrl = buildImageUrl(slug, `col-${i}`);
+    // Try to get resolved image for this column
+    const imageUrl = getResolvedImageUrl(`col-${i}`, resolvedImages);
+    if (imageUrl) {
       colContent += `
         <picture>
-          <img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(col.headline || '')}" data-gen-image="col-${i}" loading="lazy">
+          <img src="${imageUrl}" alt="${escapeHTML(col.headline || '')}" loading="lazy">
         </picture>
       `;
     }
@@ -1439,11 +1593,10 @@ function buildFAQHTML(content: any, variant: string): string {
  *   </div>
  * </div>
  */
-function buildSplitContentHTML(content: any, variant: string, slug: string, blockId: string): string {
-  // Use predictable URL - image will be served once generated
-  // blockId comes from the content block (e.g., "block-3") to match image request IDs
+function buildSplitContentHTML(content: any, variant: string, blockId: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
+  // Get resolved image URL
   const imageId = `split-content-${blockId}`;
-  const imageUrl = buildImageUrl(slug, imageId);
+  const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
 
   // Build content cell
   let contentHtml = '';
@@ -1509,14 +1662,15 @@ function buildSplitContentHTML(content: any, variant: string, slug: string, bloc
     contentHtml += `<p>${ctaHtml}</p>`;
   }
 
+  // Build image HTML
+  const imageHtml = imageUrl
+    ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(content.headline)}" loading="lazy"></picture></div>`
+    : '<div></div>';
+
   return `
     <div class="split-content${variant !== 'default' ? ` ${variant}` : ''}">
       <div>
-        <div>
-          <picture>
-            <img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(content.headline)}" data-gen-image="${imageId}" loading="lazy">
-          </picture>
-        </div>
+        ${imageHtml}
         <div>
           ${contentHtml}
         </div>
@@ -1588,7 +1742,7 @@ function buildBenefitsGridHTML(content: any, variant: string): string {
  *   ...
  * </div>
  */
-function buildRecipeCardsHTML(content: any, variant: string, slug: string): string {
+function buildRecipeCardsHTML(content: any, variant: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
   // Build DA table structure: each row contains one attribute, columns are cards
   // Row 1: Header (section title) - single cell spanning all
   // Row 2: Images (one per card)
@@ -1610,8 +1764,10 @@ function buildRecipeCardsHTML(content: any, variant: string, slug: string): stri
 
   // Row 1: Images - each cell is one card's image
   const imagesRow = recipes.map((recipe: any, i: number) => {
-    const imageUrl = buildImageUrl(slug, `recipe-${i}`);
-    return `<div><picture><img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(recipe.title)}" data-gen-image="recipe-${i}" loading="lazy"></picture></div>`;
+    const imageUrl = getResolvedImageUrl(`recipe-${i}`, resolvedImages);
+    return imageUrl
+      ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(recipe.title)}" loading="lazy"></picture></div>`
+      : '<div></div>';
   }).join('');
   rowsHtml += `<div>${imagesRow}</div>`;
 
@@ -1661,7 +1817,7 @@ function buildRecipeCardsHTML(content: any, variant: string, slug: string): stri
  * | $649.95                   |
  * | [[Shop Now]]              |
  */
-function buildProductCardsHTML(content: any, variant: string, slug: string, blockId: string): string {
+function buildProductCardsHTML(content: any, variant: string, blockId: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
   const products = content.products || [];
   if (products.length === 0) {
     return `<div class="product-cards${variant !== 'default' ? ` ${variant}` : ''}"></div>`;
@@ -1670,12 +1826,14 @@ function buildProductCardsHTML(content: any, variant: string, slug: string, bloc
   // Each product becomes a row of cells
   const rowsHtml = products.map((product: any, i: number) => {
     const imageId = `product-card-${blockId}-${i}`;
-    const imageUrl = buildImageUrl(slug, imageId);
+    const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
 
     const cells: string[] = [];
 
     // Cell 1: Image
-    cells.push(`<div><picture><img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(product.name)}" data-gen-image="${imageId}" loading="lazy"></picture></div>`);
+    cells.push(imageUrl
+      ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(product.name)}" loading="lazy"></picture></div>`
+      : '<div></div>');
 
     // Cell 2: Product name (bold)
     cells.push(`<div><p><strong>${escapeHTML(product.name)}</strong></p></div>`);
@@ -1716,9 +1874,9 @@ function buildProductCardsHTML(content: any, variant: string, slug: string, bloc
  * |                                  | **$649.95** • 10-Year Warranty|
  * |                                  | [[Shop Now]] [[Learn More]]  |
  */
-function buildProductRecommendationHTML(content: any, variant: string, slug: string, blockId: string): string {
+function buildProductRecommendationHTML(content: any, variant: string, blockId: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
   const imageId = `product-rec-${blockId}`;
-  const imageUrl = buildImageUrl(slug, imageId);
+  const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
 
   let contentHtml = '';
 
@@ -1783,14 +1941,15 @@ function buildProductRecommendationHTML(content: any, variant: string, slug: str
     contentHtml += `<p>${ctaHtml}</p>`;
   }
 
+  // Build image HTML
+  const imageHtml = imageUrl
+    ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(content.headline)}" loading="lazy"></picture></div>`
+    : '<div></div>';
+
   return `
     <div class="product-recommendation${variant !== 'default' ? ` ${variant}` : ''}">
       <div>
-        <div>
-          <picture>
-            <img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(content.headline)}" data-gen-image="${imageId}" loading="lazy">
-          </picture>
-        </div>
+        ${imageHtml}
         <div>
           ${contentHtml}
         </div>
@@ -1941,7 +2100,7 @@ function buildRecipeFilterBarHTML(content: any, variant: string): string {
  *   ...
  * </div>
  */
-function buildRecipeGridHTML(content: any, variant: string, slug: string): string {
+function buildRecipeGridHTML(content: any, variant: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
   const recipes = content.recipes || [];
   if (recipes.length === 0) {
     return `<div class="recipe-grid${variant !== 'default' ? ` ${variant}` : ''}"></div>`;
@@ -1951,8 +2110,10 @@ function buildRecipeGridHTML(content: any, variant: string, slug: string): strin
 
   // Row 1: Images
   const imagesRow = recipes.map((recipe: any, i: number) => {
-    const imageUrl = buildImageUrl(slug, `grid-recipe-${i}`);
-    return `<div><picture><img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(recipe.title)}" data-gen-image="grid-recipe-${i}" loading="lazy"></picture></div>`;
+    const imageUrl = getResolvedImageUrl(`grid-recipe-${i}`, resolvedImages);
+    return imageUrl
+      ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(recipe.title)}" loading="lazy"></picture></div>`
+      : '<div></div>';
   }).join('');
   rowsHtml += `<div>${imagesRow}</div>`;
 
@@ -2043,17 +2204,17 @@ function buildQuickViewModalHTML(content: any, variant: string): string {
  *   <div><div><a href="...">link</a></div></div>
  * </div>
  */
-function buildTechniqueSpotlightHTML(content: any, variant: string, slug: string, blockId: string): string {
+function buildTechniqueSpotlightHTML(content: any, variant: string, blockId: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
   const imageId = `technique-${blockId}`;
-  const imageUrl = buildImageUrl(slug, imageId);
+  const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
 
   let rowsHtml = '';
 
   // Row 1: Image/Video (use image if video URL is invalid/placeholder)
   if (isValidVideoUrl(content.videoUrl)) {
     rowsHtml += `<div><div><a href="${escapeHTML(content.videoUrl)}">${escapeHTML(content.videoUrl)}</a></div></div>`;
-  } else {
-    rowsHtml += `<div><div><picture><img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(content.title || 'Technique')}" data-gen-image="${imageId}" loading="lazy"></picture></div></div>`;
+  } else if (imageUrl) {
+    rowsHtml += `<div><div><picture><img src="${imageUrl}" alt="${escapeHTML(content.title || 'Technique')}" loading="lazy"></picture></div></div>`;
   }
 
   // Row 2: Title
@@ -2297,10 +2458,7 @@ function buildSupportCTAHTML(content: any, variant: string): string {
  *   </div>
  * </div>
  */
-function buildProductHeroHTML(content: any, variant: string, slug: string, blockId: string, ragImageUrl?: string): string {
-  const imageId = `product-hero-${blockId}`;
-  // Use RAG image if available, otherwise use generated image URL
-  const imageUrl = ragImageUrl || buildImageUrl(slug, imageId);
+function buildProductHeroHTML(content: any, variant: string, blockId: string, imageUrl: string | null): string {
   const productName = content.productName || '';
   const description = content.description || '';
   const price = content.price || '';
@@ -2314,14 +2472,10 @@ function buildProductHeroHTML(content: any, variant: string, slug: string, block
   // Default generation hint if not provided
   const compareHint = content.compareGenerationHint || `compare ${productName} with similar Vitamix models`;
 
-  // If using RAG image, don't add data-gen-image attribute (no generation needed)
-  const imgAttributes = ragImageUrl
-    ? `loading="lazy" alt="${escapeHTML(productName)}" src="${imageUrl}"`
-    : `loading="lazy" alt="${escapeHTML(productName)}" src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" data-gen-image="${imageId}"`;
-
-  if (ragImageUrl) {
-    console.log(`[buildProductHeroHTML] Using RAG image for "${productName}": ${ragImageUrl}`);
-  }
+  // Build image HTML
+  const imageHtml = imageUrl
+    ? `<div><picture><img loading="lazy" alt="${escapeHTML(productName)}" src="${imageUrl}"></picture></div>`
+    : '<div></div>';
 
   return `
     <div class="product-hero${variant !== 'default' ? ` ${variant}` : ''}">
@@ -2333,11 +2487,7 @@ function buildProductHeroHTML(content: any, variant: string, slug: string, block
           ${specs ? `<p>${escapeHTML(specs)}</p>` : ''}
           <p><a href="${escapeHTML(compareUrl)}" data-cta-type="explore" data-generation-hint="${escapeHTML(compareHint)}">Compare Models</a></p>
         </div>
-        <div>
-          <picture>
-            <img ${imgAttributes}>
-          </picture>
-        </div>
+        ${imageHtml}
       </div>
     </div>
   `.trim();
@@ -2388,22 +2538,22 @@ function buildSpecsTableHTML(content: any, variant: string): string {
  *   ...more features...
  * </div>
  */
-function buildFeatureHighlightsHTML(content: any, variant: string, slug: string, blockId: string): string {
+function buildFeatureHighlightsHTML(content: any, variant: string, blockId: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
   const features = content.features || [];
 
   const featuresHtml = features.filter((f: any) => f && f.title).map((feature: any, idx: number) => {
     const imageId = `feature-highlights-${blockId}-${idx}`;
-    const imageUrl = `/images/${slug}/${imageId}.png`;
+    const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
     const title = feature.title || 'Feature';
     const description = feature.description || '';
 
+    const imageHtml = imageUrl
+      ? `<div><picture><img loading="lazy" alt="${escapeHTML(title)}" src="${imageUrl}"></picture></div>`
+      : '<div></div>';
+
     return `
         <div>
-          <div>
-            <picture>
-              <img loading="lazy" alt="${escapeHTML(title)}" src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" data-gen-image="${imageId}">
-            </picture>
-          </div>
+          ${imageHtml}
           <div>
             <h3>${escapeHTML(title)}</h3>
             <p>${escapeHTML(description)}</p>
@@ -2431,22 +2581,25 @@ function buildFeatureHighlightsHTML(content: any, variant: string, slug: string,
  *   ...more accessories...
  * </div>
  */
-function buildIncludedAccessoriesHTML(content: any, variant: string, slug: string, blockId: string): string {
+function buildIncludedAccessoriesHTML(content: any, variant: string, blockId: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
   const accessories = content.accessories || [];
 
   const accessoriesHtml = accessories.filter((acc: any) => acc && acc.title).map((accessory: any, idx: number) => {
     const imageId = `included-accessories-${blockId}-${idx}`;
-    const imageUrl = `/images/${slug}/${imageId}.png`;
+    const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
     const title = accessory.title || 'Accessory';
     const description = accessory.description || '';
 
-    return `
-        <div>
+    // Skip image div if no image resolved
+    const imageHtml = imageUrl ? `
           <div>
             <picture>
-              <img loading="lazy" alt="${escapeHTML(title)}" src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" data-gen-image="${imageId}">
+              <img loading="lazy" alt="${escapeHTML(title)}" src="${imageUrl}">
             </picture>
-          </div>
+          </div>` : '';
+
+    return `
+        <div>${imageHtml}
           <div>
             <p><strong>${escapeHTML(title)}</strong></p>
             <p>${escapeHTML(description)}</p>
@@ -2651,9 +2804,11 @@ async function logBlockedContent(
  *
  * Large hero image with recipe title, description, and meta info
  */
-function buildRecipeHeroHTML(content: any, variant: string, slug: string, blockId: string): string {
+function buildRecipeHeroHTML(content: any, variant: string, blockId: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
   const imageId = `recipe-hero-${blockId}`;
-  const imageUrl = buildImageUrl(slug, imageId);
+  const resolved = getResolvedImage(imageId, resolvedImages);
+  const imageUrl = resolved?.url;
+  const cropNeeded = resolved?.cropNeeded;
 
   const title = content.title || 'Delicious Recipe';
   const description = content.description || '';
@@ -2662,14 +2817,18 @@ function buildRecipeHeroHTML(content: any, variant: string, slug: string, blockI
   const servings = content.servings || '4 servings';
   const difficulty = content.difficulty || 'Easy';
 
-  return `
-    <div class="recipe-hero${variant !== 'default' ? ` ${variant}` : ''}">
-      <div>
+  // Image div only if resolved, with crop attr if needed
+  const cropAttr = cropNeeded ? ' data-crop="true"' : '';
+  const imageHtml = imageUrl ? `
         <div>
           <picture>
-            <img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(title)}" data-gen-image="${imageId}" loading="lazy">
+            <img src="${imageUrl}" alt="${escapeHTML(title)}" loading="lazy"${cropAttr}>
           </picture>
-        </div>
+        </div>` : '';
+
+  return `
+    <div class="recipe-hero${variant !== 'default' ? ` ${variant}` : ''}${!imageUrl ? ' text-only' : ''}">
+      <div>${imageHtml}
         <div>
           <h1>${escapeHTML(title)}</h1>
           ${description ? `<p>${escapeHTML(description)}</p>` : ''}
@@ -2724,19 +2883,19 @@ function buildIngredientsListHTML(content: any, variant: string): string {
  *
  * Numbered steps with optional images
  */
-function buildRecipeStepsHTML(content: any, variant: string, slug: string, blockId: string): string {
+function buildRecipeStepsHTML(content: any, variant: string, slug: string, blockId: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
   const title = content.title || 'Instructions';
   const steps = content.steps || [];
 
   const stepsHtml = steps.map((step: any, i: number) => {
     const imageId = `recipe-step-${blockId}-${i}`;
-    const imageUrl = step.imagePrompt ? buildImageUrl(slug, imageId) : '';
+    const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
 
     return `
         <div>
           <div><p><strong>Step ${i + 1}</strong></p></div>
           <div><p>${escapeHTML(step.instruction || '')}</p></div>
-          ${imageUrl ? `<div><picture><img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="Step ${i + 1}" data-gen-image="${imageId}" loading="lazy"></picture></div>` : ''}
+          ${imageUrl ? `<div><picture><img src="${imageUrl}" alt="Step ${i + 1}" loading="lazy"></picture></div>` : ''}
         </div>`;
   }).join('');
 
@@ -2819,28 +2978,30 @@ function buildRecipeTipsHTML(content: any, variant: string): string {
  * Split hero with image left, title/rating/metadata/dietary right
  * Matches vitamix.com single recipe page design.
  */
-function buildRecipeHeroDetailHTML(content: any, variant: string, slug: string, blockId: string): string {
+function buildRecipeHeroDetailHTML(content: any, variant: string, blockId: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
   const imageId = `recipe-hero-${blockId}`;
-  const imageUrl = buildImageUrl(slug, imageId);
+  const resolved = getResolvedImage(imageId, resolvedImages);
+  const imageUrl = resolved?.url;
+  const cropNeeded = resolved?.cropNeeded;
 
   const title = content.title || 'Delicious Recipe';
   const description = content.description || '';
-  const rating = content.rating || 5;
-  const reviewCount = content.reviewCount || 0;
   const totalTime = content.totalTime || '30 Minutes';
   const yieldText = content.yield || '2 servings';
   const difficulty = content.difficulty || 'Easy';
-  const dietaryInterests = content.dietaryInterests || '';
-  const submittedBy = content.submittedBy || 'VITAMIX';
 
-  return `
-    <div class="recipe-hero-detail${variant !== 'default' ? ` ${variant}` : ''}">
-      <div>
+  // Image div only if resolved, with crop attr if needed
+  const cropAttr = cropNeeded ? ' data-crop="true"' : '';
+  const imageHtml = imageUrl ? `
         <div>
           <picture>
-            <img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(title)}" data-gen-image="${imageId}" loading="lazy">
+            <img src="${imageUrl}" alt="${escapeHTML(title)}" loading="lazy"${cropAttr}>
           </picture>
-        </div>
+        </div>` : '';
+
+  return `
+    <div class="recipe-hero-detail${variant !== 'default' ? ` ${variant}` : ''}${!imageUrl ? ' text-only' : ''}">
+      <div>${imageHtml}
         <div>
           <h1>${escapeHTML(title)}</h1>
           ${description ? `<p>${escapeHTML(description)}</p>` : ''}
@@ -2976,18 +3137,18 @@ function buildCountdownTimerHTML(content: any, variant: string): string {
  *
  * Customer testimonials with photos
  */
-function buildTestimonialsHTML(content: any, variant: string, slug: string, blockId: string): string {
+function buildTestimonialsHTML(content: any, variant: string, blockId: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
   const title = content.title || 'What Our Customers Say';
   const testimonials = content.testimonials || [];
 
   const testimonialsHtml = testimonials.map((t: any, i: number) => {
     const imageId = `testimonial-${blockId}-${i}`;
-    const imageUrl = t.imagePrompt ? buildImageUrl(slug, imageId) : '';
+    const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
     const stars = t.rating ? '★'.repeat(t.rating) + '☆'.repeat(5 - t.rating) : '';
 
     return `
         <div>
-          ${imageUrl ? `<div><picture><img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(t.author)}" data-gen-image="${imageId}" loading="lazy"></picture></div>` : ''}
+          ${imageUrl ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(t.author)}" loading="lazy"></picture></div>` : ''}
           <div>
             ${stars ? `<p>${stars}</p>` : ''}
             <p>"${escapeHTML(t.quote)}"</p>
@@ -3042,17 +3203,17 @@ function buildTimelineHTML(content: any, variant: string): string {
  *
  * Team member cards with photos
  */
-function buildTeamCardsHTML(content: any, variant: string, slug: string, blockId: string): string {
+function buildTeamCardsHTML(content: any, variant: string, blockId: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
   const title = content.title || 'Our Team';
   const members = content.members || [];
 
   const membersHtml = members.map((member: any, i: number) => {
     const imageId = `team-${blockId}-${i}`;
-    const imageUrl = member.imagePrompt ? buildImageUrl(slug, imageId) : '';
+    const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
 
     return `
         <div>
-          ${imageUrl ? `<div><picture><img src="${TRANSPARENT_PLACEHOLDER}" data-pending-src="${imageUrl}" alt="${escapeHTML(member.name || '')}" data-gen-image="${imageId}" loading="lazy"></picture></div>` : ''}
+          ${imageUrl ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(member.name || '')}" loading="lazy"></picture></div>` : ''}
           <div>
             <p><strong>${escapeHTML(member.name || '')}</strong></p>
             <p>${escapeHTML(member.role || '')}</p>

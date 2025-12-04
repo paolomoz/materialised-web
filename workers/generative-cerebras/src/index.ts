@@ -29,6 +29,10 @@ import {
   getBlockedContentLog,
   checkAlerts,
 } from './lib/metrics';
+import {
+  migrateImages,
+  getIndexStats,
+} from './migrate-images';
 
 /**
  * Log errors to KV for later investigation
@@ -164,6 +168,16 @@ export default {
     // Batch classification test endpoint
     if (url.pathname === '/api/classify-batch' && request.method === 'POST') {
       return handleClassifyBatch(request, env);
+    }
+
+    // Image migration endpoint (migrate from adaptive-web)
+    if (url.pathname === '/api/migrate-images') {
+      return handleMigrateImages(request, env);
+    }
+
+    // Test image search endpoint
+    if (url.pathname === '/api/test-image-search') {
+      return handleTestImageSearch(request, env);
     }
 
     return new Response('Not Found', { status: 404 });
@@ -825,6 +839,49 @@ function renderGeneratingPage(query: string, path: string, edsOrigin: string): s
       grid-template-columns: 1fr 1fr;
       gap: 40px;
       align-items: center;
+    }
+    /* Hero with cropped image (non-ideal aspect ratio from RAG) */
+    #generation-content .hero img[data-crop="true"] {
+      object-fit: cover;
+      width: 100%;
+      height: 400px;
+      border-radius: 8px;
+    }
+    /* Text-only hero variant (no image found) */
+    #generation-content .hero.text-only {
+      background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+      min-height: 300px;
+      padding: 60px 40px;
+      border-radius: 12px;
+      color: #fff;
+      grid-template-columns: 1fr;
+      text-align: center;
+    }
+    #generation-content .hero.text-only h1 {
+      color: #fff;
+      font-size: 2.5rem;
+    }
+    #generation-content .hero.text-only p {
+      color: rgba(255,255,255,0.85);
+    }
+    #generation-content .hero.text-only .button {
+      background: #c00;
+    }
+    /* Recipe hero cropped images */
+    #generation-content .recipe-hero img[data-crop="true"],
+    #generation-content .recipe-hero-detail img[data-crop="true"] {
+      object-fit: cover;
+      width: 100%;
+      height: 350px;
+      border-radius: 8px;
+    }
+    #generation-content .recipe-hero.text-only,
+    #generation-content .recipe-hero-detail.text-only {
+      background: linear-gradient(135deg, #2d5a27 0%, #1e3d1a 100%);
+      min-height: 250px;
+      padding: 40px;
+      border-radius: 12px;
+      color: #fff;
     }
     #generation-content .cards {
       display: grid;
@@ -2121,6 +2178,202 @@ async function handleClassifyBatch(request: Request, env: Env): Promise<Response
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    });
+  }
+}
+
+/**
+ * Handle image migration from adaptive-web
+ *
+ * GET /api/migrate-images - Get stats about what would be migrated
+ * POST /api/migrate-images - Run the migration
+ *
+ * Query params:
+ * - dryRun: "true" to simulate without actually indexing (default for GET)
+ * - limit: Max images to migrate (default 10000)
+ * - batchSize: Images per batch (default 50)
+ * - types: Comma-separated image types (default: recipe,product,blog,page)
+ */
+/**
+ * Test image search endpoint with aspect ratio filtering
+ * GET /api/test-image-search?q=green+smoothie&type=recipe&limit=5&block=hero
+ */
+async function handleTestImageSearch(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const query = url.searchParams.get('q') || 'smoothie';
+  const imageType = url.searchParams.get('type') as 'product' | 'recipe' | 'lifestyle' | null;
+  const blockType = url.searchParams.get('block') || undefined;
+  const limit = parseInt(url.searchParams.get('limit') || '5', 10);
+  const extractDims = url.searchParams.get('dims') === 'true';
+
+  if (!env.IMAGE_INDEX) {
+    return new Response(JSON.stringify({ error: 'IMAGE_INDEX not configured' }), {
+      status: 500,
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  }
+
+  // Import dimension utilities
+  const { getDimensions, isDimensionsSuitableForBlock, BLOCK_ASPECT_PREFERENCES } = await import('./lib/image-dimensions');
+
+  try {
+    // Generate embedding for query
+    const result = await env.AI.run('@cf/baai/bge-base-en-v1.5', {
+      text: [query],
+    }) as { data: number[][] };
+    const embedding = result.data[0];
+
+    // Build filter if type specified
+    const filter = imageType ? { image_type: { $eq: imageType } } : undefined;
+
+    // Fetch more results if filtering by block type
+    const fetchLimit = blockType ? limit * 4 : limit;
+
+    // Query image index
+    const results = await env.IMAGE_INDEX.query(embedding, {
+      topK: fetchLimit,
+      filter,
+      returnMetadata: 'all',
+    });
+
+    // Process results with optional dimension extraction and filtering
+    const images = [];
+    for (const match of results.matches) {
+      if (images.length >= limit) break;
+
+      const imageUrl = (match.metadata as any)?.url || (match.metadata as any)?.image_url;
+      if (!imageUrl) continue;
+
+      let dimensions = null;
+      let suitable = true;
+
+      // Extract dimensions if requested or filtering by block type
+      if (extractDims || blockType) {
+        dimensions = await getDimensions(imageUrl, env);
+        if (blockType && dimensions) {
+          suitable = isDimensionsSuitableForBlock(dimensions, blockType);
+        }
+      }
+
+      // Skip if not suitable for block type
+      if (blockType && !suitable) continue;
+
+      images.push({
+        id: match.id,
+        score: Math.round(match.score * 1000) / 1000,
+        url: imageUrl,
+        alt_text: (match.metadata as any)?.alt_text,
+        image_type: (match.metadata as any)?.image_type,
+        context: (match.metadata as any)?.context?.slice(0, 100),
+        source_url: (match.metadata as any)?.source_url,
+        ...(dimensions && {
+          dimensions: {
+            width: dimensions.width,
+            height: dimensions.height,
+            aspectRatio: Math.round(dimensions.aspectRatio * 100) / 100,
+            aspectCategory: dimensions.aspectCategory,
+          },
+        }),
+        ...(blockType && { suitableForBlock: suitable }),
+      });
+    }
+
+    return new Response(JSON.stringify({
+      query,
+      imageType: imageType || 'any',
+      blockType: blockType || null,
+      blockPreferences: blockType ? BLOCK_ASPECT_PREFERENCES[blockType] : null,
+      results: images,
+      total: images.length,
+      scanned: results.matches.length,
+    }, null, 2), {
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+
+  } catch (error) {
+    const err = error as Error;
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+  }
+}
+
+async function handleMigrateImages(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const dryRun = request.method === 'GET' || url.searchParams.get('dryRun') === 'true';
+  const limit = parseInt(url.searchParams.get('limit') || '10000', 10);
+  const batchSize = parseInt(url.searchParams.get('batchSize') || '50', 10);
+  const types = url.searchParams.get('types')?.split(',') || ['recipe', 'product', 'blog', 'page'];
+
+  try {
+    // Check required bindings
+    if (!env.ADAPTIVE_WEB_DB) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'ADAPTIVE_WEB_DB binding not configured. Add it to wrangler.toml.',
+      }, null, 2), {
+        status: 500,
+        headers: corsHeaders({ 'Content-Type': 'application/json' }),
+      });
+    }
+
+    if (!env.IMAGE_INDEX) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'IMAGE_INDEX binding not configured. Add it to wrangler.toml.',
+      }, null, 2), {
+        status: 500,
+        headers: corsHeaders({ 'Content-Type': 'application/json' }),
+      });
+    }
+
+    // Create env with required bindings for type safety
+    const migrationEnv = env as typeof env & { IMAGE_INDEX: VectorizeIndex; ADAPTIVE_WEB_DB: D1Database };
+
+    // GET request - just return stats
+    if (request.method === 'GET' && !url.searchParams.has('dryRun')) {
+      const stats = await getIndexStats(migrationEnv);
+      return new Response(JSON.stringify({
+        message: 'Image migration stats',
+        stats,
+        usage: {
+          'GET /api/migrate-images': 'Get stats',
+          'GET /api/migrate-images?dryRun=true': 'Preview migration without changes',
+          'POST /api/migrate-images': 'Run migration',
+          'POST /api/migrate-images?limit=1000': 'Migrate up to 1000 images',
+          'POST /api/migrate-images?types=recipe,product': 'Migrate only recipe and product images',
+        },
+      }, null, 2), {
+        headers: corsHeaders({ 'Content-Type': 'application/json' }),
+      });
+    }
+
+    // Run migration
+    console.log(`[Migration] Starting migration: dryRun=${dryRun}, limit=${limit}, batchSize=${batchSize}, types=${types.join(',')}`);
+
+    const result = await migrateImages(migrationEnv, {
+      dryRun,
+      limit,
+      batchSize,
+      imageTypes: types,
+    });
+
+    return new Response(JSON.stringify(result, null, 2), {
+      status: result.success ? 200 : 500,
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
+    });
+
+  } catch (error) {
+    console.error('[Migration] Error:', error);
+    const err = error as Error;
+    return new Response(JSON.stringify({
+      success: false,
+      error: err.message,
+      stack: err.stack?.split('\n').slice(0, 5),
+    }, null, 2), {
+      status: 500,
+      headers: corsHeaders({ 'Content-Type': 'application/json' }),
     });
   }
 }
