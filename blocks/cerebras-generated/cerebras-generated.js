@@ -49,7 +49,6 @@ export default async function decorate(block) {
   const metaSlug = document.querySelector('meta[name="cerebras-slug"]')?.content;
   const sourceOrigin = document.querySelector('meta[name="cerebras-source"]')?.content
     || window.location.origin;
-  const imageProvider = document.querySelector('meta[name="cerebras-images"]')?.content || 'fal';
 
   const finalQuery = query || metaQuery;
   const finalSlug = slug || metaSlug;
@@ -85,7 +84,7 @@ export default async function decorate(block) {
   let blockCount = 0;
 
   // Connect to worker SSE stream
-  const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(finalSlug)}&query=${encodeURIComponent(finalQuery)}&images=${imageProvider}`;
+  const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(finalSlug)}&query=${encodeURIComponent(finalQuery)}`;
 
   // eslint-disable-next-line no-console
   console.log('[cerebras-generated] Connecting to stream:', streamUrl);

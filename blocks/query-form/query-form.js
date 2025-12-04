@@ -59,7 +59,6 @@ async function handleSubmit(event, form, mode = 'standard') {
 
   const input = form.querySelector('input[type="text"]');
   const submitButton = form.querySelector('button[type="submit"]');
-  const imageToggle = form.querySelector('.query-form-image-toggle input');
   const query = input.value.trim();
 
   if (!query) {
@@ -82,9 +81,7 @@ async function handleSubmit(event, form, mode = 'standard') {
       param = 'fast';
     }
 
-    // Add image provider param if fast mode is selected (fal instead of lora)
-    const imageParam = imageToggle && !imageToggle.checked ? '&images=fal' : '';
-    const url = `/?${param}=${encodeURIComponent(query)}${imageParam}`;
+    const url = `/?${param}=${encodeURIComponent(query)}`;
 
     // Navigate to generate
     window.location.href = url;

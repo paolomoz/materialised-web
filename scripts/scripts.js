@@ -90,7 +90,6 @@ async function renderGenerativePage() {
 
   const params = new URLSearchParams(window.location.search);
   const query = params.get('generate');
-  const images = params.get('images'); // 'fal' for fast, null/undefined for LoRA (default)
   const slug = generateSlug(query);
 
   // Clear main and show loading state
@@ -112,9 +111,8 @@ async function renderGenerativePage() {
   const statusEl = main.querySelector('.generation-status');
   const content = main.querySelector('#generation-content');
 
-  // Connect to SSE stream (include images param if specified)
-  const imageParam = images ? `&images=${encodeURIComponent(images)}` : '';
-  const streamUrl = `${GENERATIVE_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}${imageParam}`;
+  // Connect to SSE stream
+  const streamUrl = `${GENERATIVE_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}`;
   const eventSource = new EventSource(streamUrl);
   let blockCount = 0;
   let generatedBlocks = []; // Array of { html, sectionStyle }
@@ -372,7 +370,6 @@ async function renderFastGenerativePage() {
 
   const params = new URLSearchParams(window.location.search);
   const query = params.get('fast');
-  const images = params.get('images'); // 'fal' for fast, null/undefined for LoRA (default)
   const slug = generateSlug(query);
 
   // Clear main and show loading state with fast branding
@@ -395,9 +392,8 @@ async function renderFastGenerativePage() {
   const statusEl = main.querySelector('.generation-status');
   const content = main.querySelector('#generation-content');
 
-  // Connect to FAST worker SSE stream (include images param if specified)
-  const imageParam = images ? `&images=${encodeURIComponent(images)}` : '';
-  const streamUrl = `${FAST_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}${imageParam}`;
+  // Connect to FAST worker SSE stream
+  const streamUrl = `${FAST_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}`;
   const eventSource = new EventSource(streamUrl);
   let blockCount = 0;
   const generatedBlocks = []; // Array of { html, sectionStyle }

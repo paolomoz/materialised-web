@@ -445,13 +445,14 @@ export async function decideImageStrategy(
   // Determine image context from block content
   const imageContext = determineImageContext(blockContent);
   const imageQuery = extractImageQuery(blockContent);
+  const blockType = blockContent.type || undefined;
 
-  // Use the comprehensive image lookup
+  // Use the comprehensive image lookup with aspect ratio filtering
   if (ragContext && imageQuery) {
-    const result = await findBestImage(imageContext, imageQuery, ragContext, env);
+    const result = await findBestImage(imageContext, imageQuery, ragContext, env, blockType);
 
     // Log the decision for debugging/analytics
-    logImageDecision(blockContent.type || 'unknown', imageQuery, result);
+    logImageDecision(blockType || 'unknown', imageQuery, result);
 
     if (result) {
       return {

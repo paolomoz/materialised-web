@@ -208,17 +208,13 @@ export default async function decorate(block) {
     const query = searchInput.value.trim();
     if (!query) return;
 
-    // Get image quality
-    const activeOption = qualityToggle.querySelector('.quality-option.active');
-    const imageProvider = activeOption?.dataset.value === 'best' ? 'imagen' : 'fal';
-
     // Show spinner
     searchButton.disabled = true;
     searchInput.disabled = true;
     searchButton.innerHTML = '<div class="header-search-spinner"></div>';
 
     // Navigate
-    window.location.href = `/?cerebras=${encodeURIComponent(query)}&imageProvider=${imageProvider}`;
+    window.location.href = `/?cerebras=${encodeURIComponent(query)}`;
   };
 
   searchButton.addEventListener('click', doSearch);

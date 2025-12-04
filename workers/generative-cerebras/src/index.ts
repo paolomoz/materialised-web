@@ -347,7 +347,7 @@ function handleStream(request: Request, env: Env): Response {
   const url = new URL(request.url);
   const query = url.searchParams.get('query');
   const slug = url.searchParams.get('slug');
-  const imageProvider = url.searchParams.get('images') as 'fal' | 'lora' | 'imagen' | null;
+  // Note: 'images' param is deprecated - RAG-only images now
   const contextParam = url.searchParams.get('ctx');
 
   if (!query || !slug) {
@@ -385,8 +385,8 @@ function handleStream(request: Request, env: Env): Response {
     } as GenerationState), { expirationTtl: 300 });
 
     try {
-      // Run orchestration with optional image provider and session context
-      const result = await orchestrate(query, slug, env, emit, imageProvider || undefined, sessionContext);
+      // Run orchestration with session context
+      const result = await orchestrate(query, slug, env, emit, undefined, sessionContext);
 
       // Note: We don't auto-persist to DA here because images are generated
       // asynchronously and the HTML would have placeholder URLs.

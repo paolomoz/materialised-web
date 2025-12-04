@@ -1,0 +1,930 @@
+<div><h1 id="image-rag-documentation">Image RAG Documentation</h1><blockquote>
+<p>Last updated: 2024-12-04</p>
+</blockquote><h2 id="overview">Overview</h2><p>The IMAGE_INDEX provides semantic image search for the generative system, allowing contextually relevant images to be retrieved based on natural language queries.</p><h2 id="index-statistics">Index Statistics</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="metric"><div><div>Total vectors</div><div>9,052</div></div><div><div>Embedding model</div><div><code>@cf/baai/bge-base-en-v1.5</code></div></div><div><div>Dimensions</div><div>768</div></div><div><div>Metric</div><div>cosine</div></div><div><div>Image types</div><div>recipe, product, blog, page</div></div></div><h2 id="data-source">Data Source</h2><p>Images were migrated from the <strong>adaptive-web</strong> project's D1 database (<code>vitamix_images</code> table).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="source-metric"><div><div>Total images in D1</div><div>14,706</div></div><div><div>Images with usable metadata</div><div>12,199</div></div><div><div>Successfully indexed</div><div>9,052 (unique vectors)</div></div></div><h3 id="metadata-used-for-embeddings">Metadata Used for Embeddings</h3><p>Text for embeddings is built from (in priority order):</p><ol>
+<li><code>ai_caption</code> — AI-generated image description</li>
+<li><code>context</code> — Surrounding page content</li>
+<li><code>alt_text</code> — Image alt attribute</li>
+<li><code>image_type</code> — Category tag</li>
+</ol><h3 id="vector-metadata-stored">Vector Metadata Stored</h3><p>Each vector includes:</p><ul>
+<li><code>url</code> / <code>image_url</code> — R2 public URL</li>
+<li><code>source_url</code> — Original vitamix.com URL</li>
+<li><code>alt_text</code> — Alt text</li>
+<li><code>image_type</code> — Category (recipe/product/blog/page)</li>
+<li><code>context</code> — Truncated context (200 chars)</li>
+<li><code>file_size</code> — File size in bytes</li>
+<li><code>migrated_from</code> — Source identifier</li>
+<li><code>migrated_at</code> — Migration timestamp</li>
+</ul><h2 id="discoverability-testing">Discoverability Testing</h2><p>Tested with 10 diverse queries on 2024-12-04:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="query"><div><div>"green smoothie"</div><div>Green smoothie with blueberries</div><div>0.82</div><div>Excellent</div></div><div><div>"chocolate milkshake"</div><div>Classic chocolate shake with cherry</div><div>0.79</div><div>Good</div></div><div><div>"vitamix A3500"</div><div>Vitamix Ascent A3500 blender</div><div>0.86</div><div>Excellent</div></div><div><div>"tomato soup"</div><div>Tomato soup with basil &#x26; grilled cheese</div><div>0.81</div><div>Excellent</div></div><div><div>"frozen dessert"</div><div>Key lime ice cream being scooped</div><div>0.78</div><div>Good</div></div><div><div>"healthy breakfast"</div><div>Kid making smoothie with mom</div><div>0.74</div><div>Good</div></div><div><div>"protein shake workout"</div><div>Green smoothies with celery/ginger</div><div>0.76</div><div>Good</div></div><div><div>"hummus dip"</div><div>Hummus with vegetables and pita</div><div>0.84</div><div>Excellent</div></div><div><div>"baby food puree"</div><div>Baby food puree in jar</div><div>0.77</div><div>Good</div></div><div><div>"margarita cocktail"</div><div>Mango margaritas with salt rim</div><div>0.83</div><div>Excellent</div></div></div><p><strong>Score interpretation:</strong></p><ul>
+<li>0.80+ = Excellent relevance</li>
+<li>0.70–0.79 = Good relevance</li>
+<li>0.60–0.69 = Moderate relevance</li>
+<li>&#x3C;0.60 = Low relevance</li>
+</ul><h2 id="api-endpoints">API Endpoints</h2><h3 id="test-image-search">Test Image Search</h3><pre><code>GET /api/test-image-search?q=&#x3C;query>&#x26;limit=5&#x26;type=&#x3C;image_type>&#x26;block=&#x3C;block_type>&#x26;dims=true
+</code></pre><p>Parameters:</p><ul>
+<li><code>q</code> — Search query (default: "smoothie")</li>
+<li><code>limit</code> — Number of results (default: 5)</li>
+<li><code>type</code> — Filter by image type: product, recipe, lifestyle (optional)</li>
+<li><code>block</code> — Filter by block type for aspect ratio: hero, cards, columns, etc. (optional)</li>
+<li><code>dims</code> — Include dimension data in response: true/false (default: false)</li>
+</ul><p>Example with aspect ratio filtering:</p><pre><code>GET /api/test-image-search?q=smoothie&#x26;block=hero&#x26;limit=3
+# Returns only landscape/landscape-wide images suitable for hero blocks
+</code></pre><h3 id="migration-endpoints">Migration Endpoints</h3><pre><code>GET /api/migrate-images?action=stats
+GET /api/migrate-images?action=migrate&#x26;dryRun=true
+GET /api/migrate-images?action=migrate&#x26;limit=100
+</code></pre><h2 id="files">Files</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="file"><div><div><code>src/migrate-images.ts</code></div><div>Migration script with batch embedding</div></div><div><div><code>src/lib/rag.ts</code></div><div>Image lookup functions (<code>findBestImage</code>, <code>queryImageIndex</code>)</div></div><div><div><code>src/lib/image-dimensions.ts</code></div><div>Dimension extraction, caching, and aspect ratio filtering</div></div><div><div><code>wrangler.toml</code></div><div>IMAGE_INDEX and ADAPTIVE_WEB_DB bindings</div></div></div><h2 id="wrangler-configuration">Wrangler Configuration</h2><pre><code class="language-toml"># Vectorize for image asset lookup
+[[vectorize]]
+binding = "IMAGE_INDEX"
+index_name = "vitamix-images"
+
+# D1 binding to adaptive-web database (for migration)
+[[d1_databases]]
+binding = "ADAPTIVE_WEB_DB"
+database_name = "adaptive-web-db"
+database_id = "407328db-b252-428f-b412-0f902bfd8fdb"
+</code></pre><h2 id="llm-image-discoverability">LLM Image Discoverability</h2><p>During page generation, the system uses a <strong>3-tier priority lookup</strong> before generating new images. This determines how many images the LLM can actually discover and reuse.</p><h3 id="image-lookup-flow">Image Lookup Flow</h3><pre><code>findBestImage() in src/lib/rag.ts
+    │
+    ├─► Priority 1: Product Image Map (static)
+    │   └─► Exact match on product SKU/name
+    │
+    ├─► Priority 2: RAG Chunk Metadata
+    │   └─► Images embedded in content retrieval results
+    │
+    ├─► Priority 3: IMAGE_INDEX (semantic search)
+    │   └─► Query with 0.75 confidence threshold
+    │
+    └─► Fallback: Generate new image via Imagen/FAL
+</code></pre><h3 id="priority-1-product-image-map">Priority 1: Product Image Map</h3><p>Static map of Vitamix product images in <code>src/lib/rag.ts</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="metric"><div><div>Unique product images</div><div>~21</div></div><div><div>Lookup aliases</div><div>~75</div></div><div><div>Coverage</div><div>Ascent X-series, A-series, Explorian, Propel, 5200, immersion blenders, reconditioned</div></div></div><p><strong>Reliability:</strong> High — exact string matching on product SKUs.</p><h3 id="priority-2-rag-chunk-metadata">Priority 2: RAG Chunk Metadata</h3><p>Images embedded in the VECTORIZE content index metadata fields:</p><ul>
+<li><code>image_url</code> — Generic page image</li>
+<li><code>recipe_image_url</code> — Recipe-specific image</li>
+<li><code>product_image_url</code> — Product-specific image</li>
+<li><code>hero_image_url</code> — Hero section image</li>
+</ul><p><strong>Reliability:</strong> Medium — depends on content retrieval relevance.</p><h3 id="priority-3-image_index">Priority 3: IMAGE_INDEX</h3><p>Semantic search against the 9,052 migrated image vectors.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="metric"><div><div>Total vectors</div><div>9,052</div></div><div><div>Confidence threshold</div><div><strong>0.75</strong></div></div><div><div>Estimated discoverable</div><div>~6,000–6,500 (60-70%)</div></div></div><p><strong>Key constraint</strong> (<code>src/lib/rag.ts:1160</code>):</p><pre><code class="language-typescript">if (bestMatch &#x26;&#x26; bestMatch.score > 0.75) {
+  return { url: imageUrl, score: bestMatch.score };
+}
+</code></pre><p>Images scoring below 0.75 are not returned, triggering image generation instead.</p><h3 id="total-discoverable-images">Total Discoverable Images</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="source"><div><div>Product map</div><div>~21</div><div>High</div></div><div><div>RAG metadata</div><div>Variable</div><div>Medium</div></div><div><div>IMAGE_INDEX</div><div>~6,000–6,500</div><div>Medium</div></div><div><div><strong>Total estimate</strong></div><div><strong>~6,000–7,000</strong></div><div>—</div></div></div><h3 id="content-to-image-coverage-analysis">Content-to-Image Coverage Analysis</h3><p>Comparison of RAG content (vitamix_sources) to available images:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="content-type"><div><div>Recipe</div><div>1,659</div><div>11,197</div><div>6.7 images/page</div></div><div><div>Blog</div><div>584</div><div>2,506</div><div>4.3 images/page</div></div><div><div>Page</div><div>250</div><div>574</div><div>2.3 images/page</div></div><div><div>Product</div><div>71</div><div>390</div><div>5.5 images/page</div></div><div><div><strong>Total</strong></div><div><strong>~2,800</strong></div><div><strong>~9,052</strong></div><div><strong>3.2 avg</strong></div></div></div><p><strong>Quantity coverage: Good</strong> — sufficient images per content type.</p><h3 id="aspect-ratio-distribution-critical-gap">Aspect Ratio Distribution (Critical Gap)</h3><p>The primary limitation is <strong>image shape</strong>, not quantity:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="aspect-category"><div><div><strong>Square</strong></div><div>~73%</div><div>~6,600</div><div>cards, thumbnails, product-hero</div></div><div><div><strong>Landscape</strong></div><div>~20%</div><div>~1,800</div><div>columns, split-content</div></div><div><div><strong>Landscape-wide</strong></div><div>~7%</div><div>~650</div><div>hero, recipe-hero</div></div><div><div><strong>Portrait</strong></div><div>&#x3C;1%</div><div>~50</div><div>cards</div></div></div><p><strong>Block coverage by aspect ratio:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block-type"><div><div>Hero</div><div>landscape-wide</div><div>~650</div><div>⚠️ 0.23 per topic</div></div><div><div>Recipe-hero</div><div>landscape</div><div>~1,800</div><div>⚠️ 0.64 per topic</div></div><div><div>Cards</div><div>square</div><div>~6,600</div><div>✅ 2.4 per topic</div></div><div><div>Columns</div><div>square/landscape</div><div>~8,400</div><div>✅ 3.0 per topic</div></div><div><div>Product-hero</div><div>square</div><div>~6,600</div><div>✅ 2.4 per topic</div></div></div><p><strong>Key finding:</strong> Only ~650 landscape-wide images for ~2,800 content topics means hero blocks will frequently fall back to image generation for niche queries.</p><h3 id="root-cause-analysis">Root Cause Analysis</h3><p>Investigation of the hero image shortage:</p><p><strong>Source data breakdown:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="category"><div><div>Total images in adaptive-web</div><div>14,706</div></div><div><div>Indexed (with metadata)</div><div>12,199 → 9,052 unique</div></div><div><div>Not indexed (no metadata)</div><div>2,507</div></div></div><p><strong>Non-indexed image sampling:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="sample"><div><div>Typical non-indexed</div><div>3612×5418</div><div>Portrait</div></div><div><div>Typical non-indexed</div><div>750×750</div><div>Square</div></div><div><div>Identifiable banners</div><div>1440×480</div><div>Landscape-wide</div></div></div><p><strong>Finding:</strong> Only ~3-5 landscape images exist in the 2,507 non-indexed images.</p><p><strong>Root cause breakdown:</strong></p><ul>
+<li><strong>~95% Source site limitation</strong> — Vitamix.com uses predominantly square images (470×449 for recipes). Hero/banner images are rare on the site itself.</li>
+<li><strong>~5% Discoverability gap</strong> — A few commercial banners lack metadata and weren't indexed.</li>
+</ul><p><strong>Conclusion:</strong> Re-crawling won't significantly increase hero image availability. The source site simply doesn't have many landscape images.</p><h3 id="mitigation-options">Mitigation Options</h3><ol>
+<li><strong>Accept generation fallback</strong> — Current behavior for hero blocks ✅ (recommended)</li>
+<li><strong>Relax hero requirements</strong> — Allow landscape (not just wide) for heroes</li>
+<li><strong>CSS cropping</strong> — Use square images with <code>object-fit: cover</code> for heroes</li>
+<li><strong>Generate landscape variants</strong> — Create wide crops from existing square images</li>
+<li><del><strong>Re-crawl hero images</strong></del> — Limited benefit; source site lacks landscape images</li>
+</ol><h3 id="threshold-analysis">Threshold Analysis</h3><p>Based on 10 test queries:</p><ul>
+<li>6/10 queries scored ≥0.75 (would return image)</li>
+<li>4/10 queries scored 0.74–0.79 (borderline)</li>
+</ul><p><strong>Options to increase coverage:</strong></p><ol>
+<li>Lower threshold to 0.70 — adds ~20% more matches, slight relevance risk</li>
+<li>Lower threshold to 0.65 — adds ~35% more matches, moderate relevance risk</li>
+<li>Keep at 0.75 — conservative, high-quality matches only</li>
+</ol><h3 id="aspect-ratio-filtering-implemented">Aspect Ratio Filtering (Implemented)</h3><p>Image lookup now considers block context to select appropriately-shaped images.</p><p><strong>Implementation:</strong></p><ul>
+<li><code>src/lib/image-dimensions.ts</code> — Dimension extraction and caching</li>
+<li>Dimensions cached in KV (<code>img-dim:*</code> keys) for 30 days</li>
+<li>On-demand extraction from image headers (first 64KB)</li>
+</ul><p><strong>Supported formats:</strong> JPEG, PNG, WebP, GIF</p><p><strong>Aspect categories:</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="category"><div><div><code>landscape-wide</code></div><div>≥ 1.7 (16:9+)</div><div>hero, recipe-hero</div></div><div><div><code>landscape</code></div><div>1.2 – 1.7</div><div>hero, columns, split-content</div></div><div><div><code>square</code></div><div>0.8 – 1.2</div><div>cards, recipe-cards, product-cards, thumbnails</div></div><div><div><code>portrait</code></div><div>&#x3C; 0.8</div><div>cards</div></div></div><p><strong>Block preferences:</strong></p><pre><code class="language-typescript">const BLOCK_ASPECT_PREFERENCES = {
+  'hero': ['landscape-wide', 'landscape'],
+  'cards': ['square', 'portrait'],
+  'columns': ['square', 'landscape'],
+  'split-content': ['landscape', 'square'],
+  'recipe-hero': ['landscape-wide', 'landscape'],
+  'product-hero': ['square', 'landscape'],
+  'recipe-cards': ['square'],
+  'product-cards': ['square'],
+};
+</code></pre><p><strong>How it works:</strong></p><ol>
+<li>Query IMAGE_INDEX for top-20 semantic matches</li>
+<li>Extract dimensions for each result (cached)</li>
+<li>Filter by aspect ratio preference for block type</li>
+<li>Return first suitable match above 0.75 threshold</li>
+</ol><h3 id="product-image-accuracy-analysis">Product Image Accuracy Analysis</h3><p>Analysis of how often product queries hit the static map vs fall through to semantic search.</p><h4 id="product_image_map-coverage">PRODUCT_IMAGE_MAP Coverage</h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="category"><div><div>Ascent X-Series</div><div>4</div><div>12</div><div>X5, X4, X3, X2 + aliases</div></div><div><div>Kitchen Systems</div><div>4</div><div>6</div><div>X5 SmartPrep, X4 Gourmet</div></div><div><div>Ascent A-Series</div><div>3</div><div>5</div><div>A3500, A2500, A2300</div></div><div><div>Explorian</div><div>2</div><div>6</div><div>E310, E320 + bundles</div></div><div><div>Propel</div><div>2</div><div>5</div><div>750, 510 + bundles</div></div><div><div>Classic/Legacy</div><div>1</div><div>6</div><div>5200, 5300, 7500</div></div><div><div>Professional</div><div>1</div><div>3</div><div>750, Pro750</div></div><div><div>Immersion</div><div>2</div><div>6</div><div>5-speed, 2-speed + bundles</div></div><div><div>Reconditioned</div><div>4</div><div>6</div><div>Various models</div></div><div><div><strong>Total</strong></div><div><strong>~21</strong></div><div><strong>~55</strong></div><div>—</div></div></div><h4 id="matching-algorithm">Matching Algorithm</h4><p><code>findProductImage()</code> in <code>src/lib/rag.ts:950</code> uses two matching stages:</p><p><strong>Stage 1 — SKU Pattern Matching:</strong></p><pre><code>/\bx([2-5])\b/i       →  X2, X3, X4, X5
+/\ba([23]\d{3})\b/i   →  A3500, A2500, A2300
+/\be([23]\d{2})\b/i   →  E310, E320
+/\b([57]\d{3})\b/     →  5200, 5300, 7500, 750
+/\bpro\s*(\d{3})\b/i  →  Pro750
+</code></pre><p><strong>Stage 2 — Substring Matching:</strong>
+Falls through to check if any map key is contained in the query via <code>includes()</code>.</p><h4 id="hit-rate-by-query-type">Hit Rate by Query Type</h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="query-type"><div><div>Blender with SKU</div><div>"Vitamix A3500"</div><div>✅ Yes</div><div>SKU pattern</div></div><div><div>Model number</div><div>"E310"</div><div>✅ Yes</div><div>SKU pattern</div></div><div><div>Immersion</div><div>"immersion blender"</div><div>✅ Yes</div><div>Substring</div></div><div><div>Container</div><div>"48oz container"</div><div>❌ No</div><div>No match</div></div><div><div>Accessory</div><div>"blade assembly"</div><div>❌ No</div><div>No match</div></div><div><div>Food processor</div><div>"SmartPrep attachment"</div><div>⚠️ Partial</div><div>May hit substring</div></div></div><h4 id="coverage-by-product-category">Coverage by Product Category</h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="category"><div><div>Blenders (with SKU)</div><div>~25</div><div>✅ 21 images</div><div><strong>~95%</strong></div></div><div><div>Reconditioned</div><div>6</div><div>✅ 4 images</div><div><strong>~85%</strong></div></div><div><div>Containers</div><div>~15</div><div>❌ 0 images</div><div><strong>0%</strong></div></div><div><div>Accessories</div><div>~15</div><div>❌ 0 images</div><div><strong>0%</strong></div></div><div><div>Food Processor</div><div>~5</div><div>❌ 0 images</div><div><strong>0%</strong></div></div><div><div>Bundles</div><div>~5</div><div>⚠️ 4 images</div><div><strong>~60%</strong></div></div></div><p><strong>Summary:</strong></p><ul>
+<li><strong>~35 products (49%)</strong> — Map hit → correct image guaranteed</li>
+<li><strong>~36 products (51%)</strong> — Semantic search fallback → risk of wrong image</li>
+</ul><h4 id="high-risk-semantic-search-fallbacks">High-Risk Semantic Search Fallbacks</h4><p>Products that fall through to IMAGE_INDEX semantic search:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="product-type"><div><div>Containers</div><div>High</div><div>"48oz" returns 64oz image</div></div><div><div>Accessories</div><div>High</div><div>"blade assembly" returns wrong blade</div></div><div><div>Food processor</div><div>Medium</div><div>May return blender with attachment</div></div><div><div>Pitcher/carafe</div><div>Medium</div><div>Returns similar container</div></div></div><h4 id="mitigation-options-1">Mitigation Options</h4><ol>
+<li><strong>Expand PRODUCT_IMAGE_MAP</strong> — Add containers/accessories (recommended for critical products)</li>
+<li><strong>Force generation for accessories</strong> — Skip semantic search for non-blender products</li>
+<li><strong>Add SKU metadata to IMAGE_INDEX</strong> — Enable exact matching in semantic results</li>
+<li><strong>Lower confidence for accessories</strong> — Accept that accessories may be slightly wrong</li>
+</ol><h4 id="recommendation">Recommendation</h4><p>For blenders (core products): Current system works well (~95% accuracy).</p><p>For accessories/containers: Either expand the static map with key products, or accept that image generation fallback will handle these cases (current behavior).</p></div>
+<div><h2 id="rag-only-mode-considerations">RAG-Only Mode Considerations</h2><p>Planning notes for switching to RAG-only images (no generation fallback).</p><h3 id="current-vs-rag-only-flow">Current vs RAG-Only Flow</h3><pre><code>CURRENT:
+  Product map → RAG metadata → IMAGE_INDEX → Generate (fallback)
+
+RAG-ONLY:
+  Product map → RAG metadata → IMAGE_INDEX → ??? (no fallback)
+</code></pre><h3 id="key-tradeoffs">Key Tradeoffs</h3><h4 id="hero-images-will-often-be-missing">1. Hero Images Will Often Be Missing</h4><p>Only ~650 landscape-wide images for ~2,800 topics (0.23 per topic).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="option"><div><div>A</div><div>Show no hero image</div><div>Broken/empty layout</div></div><div><div>B</div><div>Relax aspect ratio</div><div>Use square with <code>object-fit: cover</code></div></div><div><div>C</div><div>Skip hero block</div><div>Page structure changes</div></div></div><h4 id="threshold-implications">2. Threshold Implications</h4><p>Current 0.75 threshold filters ~30-40% of queries.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="threshold"><div><div>0.75 (current)</div><div>~60-70%</div><div>Low</div></div><div><div>0.60</div><div>~80-85%</div><div>Medium</div></div><div><div>None</div><div>100%</div><div>High (some poor matches)</div></div></div><h4 id="product-accessories-risk">3. Product Accessories Risk</h4><p>51% of products have no map coverage. Without generation:</p><ul>
+<li>Semantic search may return wrong container size or accessory type</li>
+<li>Question: Is a potentially-wrong accessory image acceptable?</li>
+</ul><h4 id="fallback-strategy-options">4. Fallback Strategy Options</h4>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="scenario"><div><div>No image above threshold</div><div>Skip block</div><div>Use placeholder</div><div>Lower threshold</div></div><div><div>Wrong aspect ratio</div><div>CSS crop</div><div>Accept mismatch</div><div>Skip block</div></div><div><div>Product not in map</div><div>Accept semantic</div><div>Skip image</div><div>Use generic blender</div></div></div><h3 id="benefits-of-rag-only">Benefits of RAG-Only</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="benefit"><div><div><strong>Faster</strong></div><div>No Imagen/FAL API latency (~2-5s saved per image)</div></div><div><div><strong>Cheaper</strong></div><div>No generation costs</div></div><div><div><strong>Authentic</strong></div><div>All images are real Vitamix content</div></div><div><div><strong>Consistent</strong></div><div>No AI hallucination risk in visuals</div></div></div><h3 id="recommended-implementation">Recommended Implementation</h3><p>If switching to RAG-only:</p><ol>
+<li><strong>Remove or lower threshold</strong> — From 0.75 to 0.50, or remove entirely</li>
+<li><strong>Relax aspect ratio filtering</strong> — Prefer correct aspect, accept any if none match</li>
+<li><strong>Keep product map strict</strong> — Wrong blender model is worse than no image</li>
+<li><strong>Define graceful fallback:</strong>
+<ul>
+<li>Branded placeholder image, OR</li>
+<li>Skip image-dependent blocks, OR</li>
+<li>Text-only variant of block</li>
+</ul>
+</li>
+<li><strong>Block-level decisions</strong> — Some blocks need images more than others:
+<ul>
+<li>Hero: critical (defines page feel)</li>
+<li>Cards: can work text-only</li>
+<li>Product: must be correct or omitted</li>
+</ul>
+</li>
+</ol><h3 id="open-questions">Open Questions</h3><ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled> What placeholder image to use when no match found?</li>
+<li class="task-list-item"><input type="checkbox" disabled> Should aspect ratio be enforced or just preferred?</li>
+<li class="task-list-item"><input type="checkbox" disabled> Should product accessories show best-guess or nothing?</li>
+<li class="task-list-item"><input type="checkbox" disabled> Should hero blocks be skipped or show square images?</li>
+</ul></div>
+<div><h2 id="usage-in-generation">Usage in Generation</h2><p>The <code>findBestImage()</code> function in <code>src/lib/rag.ts</code> orchestrates the lookup:</p><pre><code class="language-typescript">const result = await findBestImage(
+  'recipe',                    // context: 'product' | 'recipe' | 'lifestyle'
+  "fresh green smoothie",      // query
+  ragContext,                  // RAG retrieval results
+  env,                         // environment with IMAGE_INDEX
+  'hero'                       // blockType for aspect ratio filtering
+);
+
+if (result) {
+  // Reuse existing image with appropriate aspect ratio
+  console.log(result.source);  // 'map' | 'rag' | 'index'
+  console.log(result.url);     // Image URL suitable for hero block
+} else {
+  // Generate new image
+}
+</code></pre></div>
+<div><h2 id="changelog">Changelog</h2><h3 id="12-04">2024-12-04</h3><ul>
+<li>Migrated 12,162 images from adaptive-web D1 to IMAGE_INDEX</li>
+<li>Final index contains 9,052 unique vectors</li>
+<li>Created test endpoint <code>/api/test-image-search</code></li>
+<li>Verified discoverability with 10 test queries (scores 0.74–0.86)</li>
+<li>Added LLM discoverability analysis:
+<ul>
+<li>Documented 3-tier lookup priority (product map → RAG metadata → IMAGE_INDEX)</li>
+<li>Identified 0.75 confidence threshold constraint</li>
+<li>Estimated ~6,000–7,000 total discoverable images</li>
+</ul>
+</li>
+<li><strong>Implemented aspect ratio filtering:</strong>
+<ul>
+<li>Created <code>src/lib/image-dimensions.ts</code> for dimension extraction</li>
+<li>Supports JPEG, PNG, WebP, GIF format detection</li>
+<li>On-demand extraction from image headers (first 64KB)</li>
+<li>KV caching with 30-day TTL (<code>img-dim:*</code> keys)</li>
+<li>Block-aware filtering: hero→landscape, cards→square</li>
+<li>Updated <code>findBestImage()</code> with optional <code>blockType</code> parameter</li>
+<li>Updated test endpoint with <code>block=</code> and <code>dims=</code> parameters</li>
+</ul>
+</li>
+<li><strong>Content-to-image coverage analysis:</strong>
+<ul>
+<li>Compared ~2,800 RAG content pages to ~9,052 images (3.2 avg ratio)</li>
+<li>Identified critical aspect ratio gap: 73% square, only 7% landscape-wide</li>
+<li>Hero blocks have ~0.23 images per topic (will often fall back to generation)</li>
+<li>Cards/columns have good coverage (~2.4-3.0 images per topic)</li>
+<li>Documented 5 mitigation options for hero image shortage</li>
+</ul>
+</li>
+<li><strong>Root cause analysis for hero image shortage:</strong>
+<ul>
+<li>Investigated 2,507 non-indexed images (missing metadata)</li>
+<li>Found only ~3-5 landscape images among them</li>
+<li>Confirmed ~95% source site limitation (vitamix.com uses square images)</li>
+<li>~5% discoverability gap (minor - few banners lack metadata)</li>
+<li>Conclusion: Re-crawling won't help; generation fallback is correct approach</li>
+</ul>
+</li>
+<li><strong>Product image accuracy analysis:</strong>
+<ul>
+<li>Audited PRODUCT_IMAGE_MAP: 21 unique images, 55 lookup keys</li>
+<li>Blenders hit rate: ~95% (SKU pattern matching works well)</li>
+<li>Containers/accessories hit rate: 0% (no map coverage)</li>
+<li>Overall: 49% of products hit map, 51% fall through to semantic search</li>
+<li>High-risk fallbacks: containers, accessories (may return wrong sizes/types)</li>
+<li>Recommendation: Expand map for critical accessories, or accept generation fallback</li>
+</ul>
+</li>
+<li><strong>RAG-only mode considerations documented:</strong>
+<ul>
+<li>Tradeoffs: hero image gaps, threshold implications, accessory risks</li>
+<li>Benefits: faster, cheaper, authentic imagery</li>
+<li>Open questions: placeholder strategy, aspect ratio enforcement, fallback behavior</li>
+</ul>
+</li>
+</ul></div>

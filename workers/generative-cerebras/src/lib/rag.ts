@@ -1233,13 +1233,14 @@ async function queryImageIndex(
 
     // Build filter for image type if specified
     // Note: Index has image_type values: 'recipe', 'product', 'blog', 'page'
-    // 'lifestyle' doesn't exist in index - skip filter and let semantic search work
-    const validIndexTypes = ['recipe', 'product', 'blog', 'page'];
-    const filter = context && validIndexTypes.includes(context)
+    // BUT: Vectorize filter doesn't work reliably for 'recipe' type (returns 0 even when images exist)
+    // Skip filter for 'lifestyle' (doesn't exist) and 'recipe' (unreliable) - semantic search works well
+    const filterableTypes = ['product', 'blog', 'page']; // Only these work reliably with Vectorize filter
+    const filter = context && filterableTypes.includes(context)
       ? { image_type: { $eq: context } }
       : undefined;
 
-    if (context && !validIndexTypes.includes(context)) {
+    if (context && !filterableTypes.includes(context)) {
       console.log(`[Image Index] No filter for context '${context}' - relying on semantic search`);
     }
 

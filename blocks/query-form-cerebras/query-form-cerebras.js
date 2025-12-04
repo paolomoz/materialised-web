@@ -45,11 +45,6 @@ function simpleHash(str) {
  * Start generation using SSE streaming flow
  */
 async function startGeneration(block, query) {
-  // Get image quality setting from header toggle (default to fast)
-  const headerToggle = document.querySelector('.nav-quality-toggle .quality-option.active');
-  const imageQuality = headerToggle ? headerToggle.dataset.value : 'fast';
-  const imageProvider = imageQuality === 'best' ? 'imagen' : 'fal';
-
   // Get UI elements
   const submitBtn = block.querySelector('button[type="submit"]');
   const input = block.querySelector('input[type="text"]');
@@ -95,7 +90,7 @@ async function startGeneration(block, query) {
   };
 
   // eslint-disable-next-line no-console
-  console.log(`[Cerebras Block] Starting generation with ${imageProvider} images`);
+  console.log(`[Cerebras Block] Starting generation`);
 
   const slug = generateSlug(query);
   const startTime = Date.now();
@@ -104,7 +99,7 @@ async function startGeneration(block, query) {
   let hasNavigated = false;
 
   // Connect to SSE stream
-  const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}&images=${imageProvider}`;
+  const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}`;
   const eventSource = new EventSource(streamUrl);
 
   eventSource.addEventListener('layout', (e) => {
@@ -130,10 +125,9 @@ async function startGeneration(block, query) {
         slug,
         startTime,
         expectedBlocks,
-        imageProvider,
       }));
       // Navigate with cached flag
-      window.location.href = `/?cerebras=${encodeURIComponent(query)}&images=${imageProvider}&cached=1`;
+      window.location.href = `/?cerebras=${encodeURIComponent(query)}&cached=1`;
     } else {
       // Update cache with new block
       sessionStorage.setItem(CACHE_KEY, JSON.stringify({
@@ -142,7 +136,6 @@ async function startGeneration(block, query) {
         slug,
         startTime,
         expectedBlocks,
-        imageProvider,
       }));
     }
   });
