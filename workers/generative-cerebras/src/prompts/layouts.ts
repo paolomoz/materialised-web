@@ -16,16 +16,7 @@ export interface BlockTemplate {
     | 'ingredient-search' | 'recipe-filter-bar' | 'recipe-grid' | 'quick-view-modal' | 'technique-spotlight'
     | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta'
     | 'comparison-table' | 'use-case-cards' | 'verdict-card' | 'comparison-cta'
-    | 'product-hero' | 'specs-table' | 'feature-highlights' | 'included-accessories' | 'product-cta'
-    | 'product-cards'
-    // Single Recipe blocks
-    | 'recipe-hero' | 'ingredients-list' | 'recipe-steps' | 'nutrition-facts' | 'recipe-tips'
-    // Single Recipe Detail blocks (vitamix.com style)
-    | 'recipe-hero-detail' | 'recipe-tabs' | 'recipe-sidebar' | 'recipe-directions'
-    // Campaign Landing blocks
-    | 'countdown-timer' | 'testimonials'
-    // About/Story blocks
-    | 'timeline' | 'team-cards';
+    | 'product-hero' | 'specs-table' | 'feature-highlights' | 'included-accessories' | 'product-cta';
   variant?: string;
   width?: 'full' | 'contained';
   config?: {
@@ -155,7 +146,7 @@ export const LAYOUT_PRODUCT_COMPARISON: LayoutTemplate = {
 export const LAYOUT_RECIPE_COLLECTION: LayoutTemplate = {
   id: 'recipe-collection',
   name: 'Recipe Collection',
-  description: 'Interactive recipe collection with filtering',
+  description: 'Interactive recipe collection with filtering and AI-powered ingredient search',
   useCases: [
     'Soup recipes',
     'Smoothie ideas',
@@ -168,6 +159,13 @@ export const LAYOUT_RECIPE_COLLECTION: LayoutTemplate = {
       // Hero section - full width with collection title
       blocks: [
         { type: 'hero', variant: 'full-width', width: 'full', config: { hasImage: true } },
+      ],
+    },
+    {
+      // AI-powered ingredient search
+      style: 'highlight',
+      blocks: [
+        { type: 'ingredient-search' },
       ],
     },
     {
@@ -198,71 +196,6 @@ export const LAYOUT_RECIPE_COLLECTION: LayoutTemplate = {
     {
       // CTA section
       style: 'highlight',
-      blocks: [
-        { type: 'cta' },
-      ],
-    },
-  ],
-};
-
-/**
- * Layout 3b: Recipe Invention
- * AI-powered recipe creation based on ingredients the user has on hand.
- * This layout is for when users want to INVENT new recipes, not find existing ones.
- *
- * Uses specialized blocks:
- * - ingredient-search: AI-powered ingredient input for recipe invention
- * - recipe-grid: Displays AI-generated recipe ideas based on ingredients
- * - tips-banner: Blending tips relevant to ingredient combinations
- */
-export const LAYOUT_RECIPE_INVENTION: LayoutTemplate = {
-  id: 'recipe-invention',
-  name: 'Recipe Invention',
-  description: 'AI-powered recipe creation from ingredients you have on hand',
-  useCases: [
-    'What can I make with bananas and spinach',
-    'Invent a recipe with these ingredients',
-    'I have carrots, apples and ginger - what can I blend',
-    'Create a smoothie from what I have',
-    'Make something with leftover vegetables',
-    'What recipes can I create with milk, oats, and berries',
-  ],
-  sections: [
-    {
-      // Hero section - explains the ingredient-to-recipe concept
-      blocks: [
-        { type: 'hero', variant: 'centered', config: { hasImage: false } },
-      ],
-    },
-    {
-      // AI-powered ingredient search - the main interaction point
-      style: 'highlight',
-      blocks: [
-        { type: 'ingredient-search' },
-      ],
-    },
-    {
-      // Recipe grid - shows AI-invented recipes based on ingredients
-      blocks: [
-        { type: 'recipe-grid', config: { itemCount: 4 } },
-      ],
-    },
-    {
-      // Tips for combining ingredients effectively
-      style: 'highlight',
-      blocks: [
-        { type: 'tips-banner', config: { itemCount: 3 } },
-      ],
-    },
-    {
-      // Quick view modal container (hidden, triggered by card clicks)
-      blocks: [
-        { type: 'quick-view-modal' },
-      ],
-    },
-    {
-      // CTA to explore more recipes or products
-      style: 'dark',
       blocks: [
         { type: 'cta' },
       ],
@@ -393,12 +326,12 @@ export const LAYOUT_SUPPORT: LayoutTemplate = {
 
 /**
  * Layout 6: Category Browse
- * Browse products in a category with specialized product cards
+ * Browse products in a category
  */
 export const LAYOUT_CATEGORY_BROWSE: LayoutTemplate = {
   id: 'category-browse',
   name: 'Category Browse',
-  description: 'Browse products in a category with product cards',
+  description: 'Browse products in a category',
   useCases: [
     'Show me all blenders',
     'Vitamix accessories',
@@ -411,16 +344,14 @@ export const LAYOUT_CATEGORY_BROWSE: LayoutTemplate = {
       ],
     },
     {
-      // Product grid with images, prices, ratings
       blocks: [
-        { type: 'product-cards', config: { itemCount: 4 } },
+        { type: 'cards', config: { itemCount: 4 } },
       ],
     },
     {
-      // Benefits/features of the category
       style: 'highlight',
       blocks: [
-        { type: 'benefits-grid', config: { itemCount: 3 } },
+        { type: 'columns', config: { itemCount: 3 } },
       ],
     },
     {
@@ -594,192 +525,12 @@ export const LAYOUT_LIFESTYLE: LayoutTemplate = {
 };
 
 /**
- * Layout 11: Single Recipe
- * Detailed recipe page matching vitamix.com design with:
- * - Split hero with dish image, title, rating, metadata icons
- * - Tab navigation (recipe, nutrition, related, reviews)
- * - Two-column content: sidebar (actions, container size, nutrition) + main (ingredients, directions)
- * - CTA at the end
- *
- * Uses specialized blocks:
- * - recipe-hero-detail: Split hero with image left, title/rating/metadata/dietary right
- * - recipe-tabs: Tab navigation bar with cook mode toggle
- * - recipe-sidebar: Left sidebar with actions, container size selector, nutrition facts
- * - ingredients-list: Ingredients with Imperial/Metric unit toggle
- * - recipe-directions: Numbered step-by-step directions with circular indicators
- * - cta: Final call-to-action
- */
-export const LAYOUT_SINGLE_RECIPE: LayoutTemplate = {
-  id: 'single-recipe',
-  name: 'Single Recipe',
-  description: 'Detailed recipe page with sidebar, ingredients, directions, and nutrition',
-  useCases: [
-    'How to make tomato soup',
-    'Green smoothie recipe',
-    'Vitamix banana ice cream recipe',
-    'Show me a hummus recipe',
-    'Apple acorn squash soup recipe',
-  ],
-  sections: [
-    {
-      // Recipe hero with dish image, title, metadata icons
-      blocks: [
-        { type: 'recipe-hero-detail', config: { hasImage: true } },
-      ],
-    },
-    {
-      // Main content area: sidebar + ingredients + directions
-      // CSS will create 2-column layout with sidebar on left
-      blocks: [
-        { type: 'recipe-sidebar' },
-        { type: 'ingredients-list' },
-        { type: 'recipe-directions', config: { itemCount: 3 } },
-      ],
-    },
-    {
-      // CTA section
-      style: 'dark',
-      blocks: [
-        { type: 'cta' },
-      ],
-    },
-  ],
-};
-
-/**
- * Layout 12: Campaign Landing
- * Seasonal or event-specific promotional campaigns.
- *
- * Uses specialized blocks:
- * - hero: Full-width campaign hero
- * - countdown-timer: Urgency-building countdown
- * - product-cards: Featured products
- * - testimonials: Customer quotes
- * - cta: Campaign call-to-action
- */
-export const LAYOUT_CAMPAIGN_LANDING: LayoutTemplate = {
-  id: 'campaign-landing',
-  name: 'Campaign Landing',
-  description: 'Seasonal or event-specific promotional campaigns',
-  useCases: [
-    'Mother\'s Day gifts',
-    'Holiday blender deals',
-    'Valentine\'s Day recipes',
-    'Black Friday Vitamix',
-    'Summer smoothie campaign',
-  ],
-  sections: [
-    {
-      // Campaign hero - full width with event imagery
-      style: 'dark',
-      blocks: [
-        { type: 'hero', variant: 'full-width', width: 'full', config: { hasImage: true } },
-      ],
-    },
-    {
-      // Countdown timer - urgency builder
-      style: 'highlight',
-      blocks: [
-        { type: 'countdown-timer' },
-      ],
-    },
-    {
-      // Featured products for the campaign
-      blocks: [
-        { type: 'product-cards', config: { itemCount: 3 } },
-      ],
-    },
-    {
-      // Customer testimonials
-      style: 'highlight',
-      blocks: [
-        { type: 'testimonials', config: { itemCount: 3, hasImage: true } },
-      ],
-    },
-    {
-      // Campaign CTA
-      style: 'dark',
-      blocks: [
-        { type: 'cta' },
-      ],
-    },
-  ],
-};
-
-/**
- * Layout 13: About / Brand Story
- * Brand story, company history, values, and mission.
- *
- * Uses specialized blocks:
- * - hero: Brand story hero
- * - text: Company mission/vision
- * - timeline: Company history milestones
- * - benefits-grid: Company values (repurposed)
- * - team-cards: Leadership team
- * - cta: Join/connect CTA
- */
-export const LAYOUT_ABOUT_STORY: LayoutTemplate = {
-  id: 'about-story',
-  name: 'About / Brand Story',
-  description: 'Brand story, company history, values, and mission',
-  useCases: [
-    'Vitamix history',
-    'About Vitamix',
-    'Who makes Vitamix',
-    'Vitamix company story',
-    'Vitamix brand values',
-  ],
-  sections: [
-    {
-      // Brand hero
-      blocks: [
-        { type: 'hero', variant: 'full-width', width: 'full', config: { hasImage: true } },
-      ],
-    },
-    {
-      // Mission statement
-      blocks: [
-        { type: 'text' },
-      ],
-    },
-    {
-      // Company timeline
-      style: 'highlight',
-      blocks: [
-        { type: 'timeline', config: { itemCount: 5 } },
-      ],
-    },
-    {
-      // Company values - using benefits-grid with values focus
-      blocks: [
-        { type: 'benefits-grid', config: { itemCount: 4 } },
-      ],
-    },
-    {
-      // Leadership team
-      style: 'highlight',
-      blocks: [
-        { type: 'team-cards', config: { itemCount: 4, hasImage: true } },
-      ],
-    },
-    {
-      // Connect CTA
-      style: 'dark',
-      blocks: [
-        { type: 'cta' },
-      ],
-    },
-  ],
-};
-
-/**
  * All available layouts
  */
 export const LAYOUTS: LayoutTemplate[] = [
   LAYOUT_PRODUCT_DETAIL,
   LAYOUT_PRODUCT_COMPARISON,
   LAYOUT_RECIPE_COLLECTION,
-  LAYOUT_RECIPE_INVENTION,
   LAYOUT_USE_CASE_LANDING,
   LAYOUT_SUPPORT,
   LAYOUT_CATEGORY_BROWSE,
@@ -787,9 +538,6 @@ export const LAYOUTS: LayoutTemplate[] = [
   LAYOUT_PROMOTIONAL,
   LAYOUT_QUICK_ANSWER,
   LAYOUT_LIFESTYLE,
-  LAYOUT_SINGLE_RECIPE,
-  LAYOUT_CAMPAIGN_LANDING,
-  LAYOUT_ABOUT_STORY,
 ];
 
 /**
@@ -815,52 +563,172 @@ const USE_CASE_PATTERNS = [
   /each\s+(morning|day|week)/i,
 ];
 
-/** Patterns indicating a single specific recipe request */
-const SINGLE_RECIPE_PATTERNS = [
-  /how\s+(do\s+i|to|can\s+i)\s+make/i,
-  /recipe\s+for\s+\w+/i,
-  /make\s+(a|me|some)\s+\w+/i,
-  /\w+\s+recipe$/i,  // ends with "recipe" (e.g., "hummus recipe")
-  /show\s+me\s+(a|the)\s+\w+\s+recipe/i,
-];
+/**
+ * Patterns indicating an implicit recommendation request
+ * These are personal statements that imply "help me choose the right product"
+ */
+const IMPLICIT_RECOMMENDATION_PATTERNS = [
+  // Family size indicators
+  /I have \d+ kids/i,
+  /\d+ kids/i,
+  /family of \d+/i,
+  /large (family|household)/i,
+  /big family/i,
+  /feeding (a |my )?(large |big )?(family|crowd|group)/i,
+  /cook(ing)? for (a |my )?(large |big )?(family|crowd|group|\d+)/i,
 
-/** Patterns indicating recipe INVENTION from ingredients (not finding existing recipes) */
-const RECIPE_INVENTION_PATTERNS = [
-  /what\s+can\s+i\s+(make|blend|create)\s+with/i,
-  /invent\s+(a|me)?\s*recipe/i,
-  /create\s+(a|me)?\s*(new|custom)?\s*(recipe|smoothie|soup|blend)/i,
-  /i\s+have\s+[\w\s,]+\s*([-–]|and)\s*what\s+can/i,  // "I have X, Y and Z - what can I..."
-  /(make|blend)\s+something\s+(with|from|using)/i,
-  /what\s+(recipes?|smoothies?|soups?)\s+can\s+i\s+(create|make|invent)\s+with/i,
-  /leftover\s+\w+.*what\s+can/i,  // "leftover vegetables what can I make"
-  /using\s+(what\s+i\s+have|these\s+ingredients|my\s+ingredients)/i,
-  /from\s+(what\s+i\s+have|my\s+ingredients)/i,
-];
+  // Lifestyle/persona indicators
+  /I'?m a (busy|working) (mom|dad|parent|professional)/i,
+  /busy (mom|dad|parent|professional|schedule|lifestyle)/i,
+  /work(ing)? from home/i,
+  /no time to cook/i,
+  /quick meals/i,
 
-/** Patterns indicating campaign/seasonal content */
-const CAMPAIGN_PATTERNS = [
-  /mother'?s?\s*day/i,
-  /father'?s?\s*day/i,
-  /valentine'?s?\s*(day)?/i,
-  /black\s*friday/i,
-  /cyber\s*monday/i,
-  /(christmas|holiday|thanksgiving)\s*(gift|deal|sale|special)?/i,
-  /(summer|winter|spring|fall)\s+(sale|special|campaign|collection)/i,
-  /\b(gift\s+guide|gift\s+ideas?)\b/i,
-  /\bseasonal\s+(offer|deal|special)/i,
-];
+  // Experience level indicators
+  /I'?m (new to|a beginner|just starting|learning)/i,
+  /never (used|owned|had) a (blender|Vitamix)/i,
+  /first (blender|Vitamix|time)/i,
+  /beginner/i,
 
-/** Patterns indicating brand/about content */
-const ABOUT_PATTERNS = [
-  /\b(vitamix|company|brand)\s*(history|story|heritage)/i,
-  /\babout\s+(vitamix|the\s+company|us)\b/i,
-  /\b(who|what)\s+(makes?|is)\s+vitamix/i,
-  /\b(our|vitamix)\s+(values|mission|vision)\b/i,
-  /\bfounded|founder|origins?\b/i,
+  // Budget indicators
+  /on a (tight )?budget/i,
+  /affordable/i,
+  /best value/i,
+  /don'?t want to spend too much/i,
+
+  // Capacity/batch indicators
+  /large batches/i,
+  /batch cooking/i,
+  /meal prep for (the )?week/i,
+  /entertaining( guests)?/i,
+  /hosting (parties|events|guests)/i,
+
+  // General "help me choose" without explicit comparison words
+  /what (do you|would you) recommend/i,
+  /what('s| is) (right|best|good) for me/i,
+  /which (one )?should I (get|buy|choose)/i,
+  /help me (decide|choose|pick)/i,
 ];
 
 function matchesPatterns(text: string, patterns: RegExp[]): boolean {
   return patterns.some(pattern => pattern.test(text));
+}
+
+/**
+ * Extract user context from implicit recommendation queries
+ * Returns a description of WHY this is a recommendation query
+ */
+export function extractUserContext(query: string): {
+  isImplicitRecommendation: boolean;
+  contextType: 'family' | 'lifestyle' | 'experience' | 'budget' | 'capacity' | 'general' | null;
+  contextDescription: string | null;
+} {
+  const normalized = query.toLowerCase();
+
+  // Family size indicators
+  const familyMatch = query.match(/I have (\d+) kids/i)
+    || query.match(/(\d+) kids/i)
+    || query.match(/family of (\d+)/i);
+  if (familyMatch) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'family',
+      contextDescription: `family with ${familyMatch[1]} children`,
+    };
+  }
+  if (/large (family|household)/i.test(query) || /big family/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'family',
+      contextDescription: 'large family',
+    };
+  }
+  if (/feeding (a |my )?(large |big )?(family|crowd|group)/i.test(query)
+      || /cook(ing)? for (a |my )?(large |big )?(family|crowd|group|\d+)/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'family',
+      contextDescription: 'cooking for a group',
+    };
+  }
+
+  // Lifestyle/persona indicators
+  if (/I'?m a (busy|working) (mom|dad|parent|professional)/i.test(query)
+      || /busy (mom|dad|parent|professional|schedule|lifestyle)/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'lifestyle',
+      contextDescription: 'busy lifestyle',
+    };
+  }
+  if (/work(ing)? from home/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'lifestyle',
+      contextDescription: 'work-from-home lifestyle',
+    };
+  }
+  if (/no time to cook/i.test(query) || /quick meals/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'lifestyle',
+      contextDescription: 'time-constrained cooking',
+    };
+  }
+
+  // Experience level indicators
+  if (/I'?m (new to|a beginner|just starting|learning)/i.test(query)
+      || /never (used|owned|had) a (blender|Vitamix)/i.test(query)
+      || /first (blender|Vitamix|time)/i.test(query)
+      || /beginner/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'experience',
+      contextDescription: 'new to blending',
+    };
+  }
+
+  // Budget indicators
+  if (/on a (tight )?budget/i.test(query)
+      || /affordable/i.test(query)
+      || /best value/i.test(query)
+      || /don'?t want to spend too much/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'budget',
+      contextDescription: 'budget-conscious',
+    };
+  }
+
+  // Capacity/batch indicators
+  if (/large batches/i.test(query)
+      || /batch cooking/i.test(query)
+      || /entertaining( guests)?/i.test(query)
+      || /hosting (parties|events|guests)/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'capacity',
+      contextDescription: 'large batch preparation',
+    };
+  }
+
+  // General "help me choose"
+  if (/what (do you|would you) recommend/i.test(query)
+      || /what('s| is) (right|best|good) for me/i.test(query)
+      || /which (one )?should I (get|buy|choose)/i.test(query)
+      || /help me (decide|choose|pick)/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'general',
+      contextDescription: 'seeking a recommendation',
+    };
+  }
+
+  return {
+    isImplicitRecommendation: false,
+    contextType: null,
+    contextDescription: null,
+  };
 }
 
 /** Known Vitamix product names (lowercase for matching) */
@@ -889,54 +757,78 @@ function isBareProductQuery(query: string): boolean {
 // Layout Selection
 // ============================================================================
 
+/** Result type for layout selection with user context */
+export interface LayoutSelectionResult {
+  layout: LayoutTemplate;
+  userContext: {
+    isImplicitRecommendation: boolean;
+    contextType: 'family' | 'lifestyle' | 'experience' | 'budget' | 'capacity' | 'general' | null;
+    contextDescription: string | null;
+  };
+}
+
 /**
  * Get layout for intent type
  * Maps intent types to appropriate layouts
  *
  * Priority:
  * 0. Bare product query always → product-detail (highest priority override)
- * 1. Trust LLM's layoutId if confidence >= 0.85
- * 2. Apply rule-based fallback logic for edge cases
+ * 1. Implicit recommendation queries → product-comparison (NEW!)
+ * 2. Trust LLM's layoutId if confidence >= 0.85
+ * 3. Apply rule-based fallback logic for edge cases
  */
 export function getLayoutForIntent(
   intentType: string,
   contentTypes: string[],
-  entities: { products: string[]; goals: string[]; ingredients?: string[] },
+  entities: { products: string[]; goals: string[] },
   llmLayoutId?: string,
   confidence?: number,
   originalQuery?: string
-): LayoutTemplate {
+): LayoutSelectionResult {
+  // Extract user context for implicit recommendations
+  const userContext = originalQuery
+    ? extractUserContext(originalQuery)
+    : { isImplicitRecommendation: false, contextType: null, contextDescription: null };
+
   // 0a. HIGHEST PRIORITY: Bare product query always gets product-detail
   // This catches "a3500", "A3500", "the A3500", "Vitamix A3500" etc.
   if (originalQuery && isBareProductQuery(originalQuery)) {
     console.log(`[Layout] Override: bare product query "${originalQuery}" → product-detail`);
-    return LAYOUT_PRODUCT_DETAIL;
+    return { layout: LAYOUT_PRODUCT_DETAIL, userContext };
   }
 
   // 0b. Defensive override: Single product in entities should not be comparison
   if (entities.products.length === 1 &&
       (llmLayoutId === 'product-comparison' || intentType === 'comparison')) {
     console.log('[Layout] Override: single product detected → product-detail (not comparison)');
-    return LAYOUT_PRODUCT_DETAIL;
+    return { layout: LAYOUT_PRODUCT_DETAIL, userContext };
   }
 
-  // 1. Trust LLM's layout choice when confident
+  // 1. NEW: Implicit recommendation queries → product-comparison
+  // Queries like "I have 4 kids", "I'm a busy mom", "beginner" etc.
+  // These imply "help me choose" even without explicit comparison words
+  if (userContext.isImplicitRecommendation) {
+    console.log(`[Layout] Implicit recommendation detected: "${userContext.contextDescription}" → product-comparison`);
+    return { layout: LAYOUT_PRODUCT_COMPARISON, userContext };
+  }
+
+  // 2. Trust LLM's layout choice when confident
   if (llmLayoutId && confidence !== undefined && confidence >= 0.85) {
     const llmLayout = getLayoutById(llmLayoutId);
     if (llmLayout) {
       console.log(`[Layout] Trusting LLM choice: ${llmLayoutId} (confidence: ${confidence})`);
-      return llmLayout;
+      return { layout: llmLayout, userContext };
     }
   }
 
-  // 2. Fallback: Rule-based logic for low confidence or invalid layout
+  // 3. Fallback: Rule-based logic for low confidence or invalid layout
   console.log(`[Layout] Using rule-based fallback (LLM confidence: ${confidence ?? 'N/A'})`);
 
   const goalsText = entities.goals.map((g) => g.toLowerCase()).join(' ');
 
   // Support/troubleshooting queries
   if (intentType === 'support') {
-    return LAYOUT_SUPPORT;
+    return { layout: LAYOUT_SUPPORT, userContext };
   }
 
   // Product comparison queries
@@ -944,62 +836,37 @@ export function getLayoutForIntent(
   if (intentType === 'comparison') {
     if (entities.products.length === 1) {
       console.log('[Layout] Demoting comparison → product-detail (only 1 product detected)');
-      return LAYOUT_PRODUCT_DETAIL;
+      return { layout: LAYOUT_PRODUCT_DETAIL, userContext };
     }
-    return LAYOUT_PRODUCT_COMPARISON;
+    return { layout: LAYOUT_PRODUCT_COMPARISON, userContext };
   }
 
   // Single product queries
   if (intentType === 'product_info' && entities.products.length === 1) {
-    return LAYOUT_PRODUCT_DETAIL;
+    return { layout: LAYOUT_PRODUCT_DETAIL, userContext };
   }
 
   // Category browsing
   if (intentType === 'product_info' && entities.products.length === 0) {
-    return LAYOUT_CATEGORY_BROWSE;
+    return { layout: LAYOUT_CATEGORY_BROWSE, userContext };
   }
 
   // Recipe queries - use semantic patterns instead of includes()
   if (intentType === 'recipe') {
-    // Check for recipe INVENTION patterns (user wants to create new recipes from ingredients)
-    // This must come before other recipe patterns to catch "what can I make with..." queries
-    if (matchesPatterns(goalsText, RECIPE_INVENTION_PATTERNS) ||
-        (originalQuery && matchesPatterns(originalQuery.toLowerCase(), RECIPE_INVENTION_PATTERNS))) {
-      console.log('[Layout] Recipe invention query detected → recipe-invention');
-      return LAYOUT_RECIPE_INVENTION;
-    }
-
-    // Check for specific recipe request patterns
-    if (matchesPatterns(goalsText, SINGLE_RECIPE_PATTERNS) ||
-        (entities.ingredients && entities.ingredients.length >= 2)) {
-      return LAYOUT_SINGLE_RECIPE;
-    }
-
     // Check for use-case/routine patterns
     if (matchesPatterns(goalsText, USE_CASE_PATTERNS)) {
-      return LAYOUT_USE_CASE_LANDING;
+      return { layout: LAYOUT_USE_CASE_LANDING, userContext };
     }
-
-    return LAYOUT_RECIPE_COLLECTION;
-  }
-
-  // Campaign/promotional queries - use semantic patterns
-  if (matchesPatterns(goalsText, CAMPAIGN_PATTERNS)) {
-    return LAYOUT_CAMPAIGN_LANDING;
-  }
-
-  // About/brand story queries - use semantic patterns
-  if (intentType === 'general' && matchesPatterns(goalsText, ABOUT_PATTERNS)) {
-    return LAYOUT_ABOUT_STORY;
+    return { layout: LAYOUT_RECIPE_COLLECTION, userContext };
   }
 
   // Educational/how-to queries
   if (contentTypes.includes('support') || contentTypes.includes('editorial')) {
-    return LAYOUT_EDUCATIONAL;
+    return { layout: LAYOUT_EDUCATIONAL, userContext };
   }
 
   // Default to lifestyle for general queries
-  return LAYOUT_LIFESTYLE;
+  return { layout: LAYOUT_LIFESTYLE, userContext };
 }
 
 // ============================================================================
@@ -1025,12 +892,6 @@ export function adjustLayoutForRAGContent(
   const recipeCount = ragContext.chunks.filter(
     c => c.metadata.content_type === 'recipe'
   ).length;
-
-  // If we chose single-recipe but found no recipes, fall back to educational
-  if (layout.id === 'single-recipe' && recipeCount === 0) {
-    console.log('[Layout Adjust] single-recipe → educational (no recipes in RAG)');
-    return LAYOUT_EDUCATIONAL;
-  }
 
   // If we chose recipe-collection but found no recipes, fall back to lifestyle
   if (layout.id === 'recipe-collection' && recipeCount === 0) {
@@ -1074,14 +935,7 @@ export type BlockType = 'hero' | 'cards' | 'columns' | 'split-content' | 'text' 
   | 'ingredient-search' | 'recipe-filter-bar' | 'recipe-grid' | 'quick-view-modal' | 'technique-spotlight'
   | 'support-hero' | 'diagnosis-card' | 'troubleshooting-steps' | 'support-cta'
   | 'comparison-table' | 'use-case-cards' | 'verdict-card' | 'comparison-cta'
-  | 'product-hero' | 'specs-table' | 'feature-highlights' | 'included-accessories' | 'product-cta'
-  | 'product-cards'
-  // Single Recipe blocks
-  | 'recipe-hero' | 'ingredients-list' | 'recipe-steps' | 'nutrition-facts' | 'recipe-tips'
-  // Campaign Landing blocks
-  | 'countdown-timer' | 'testimonials'
-  // About/Story blocks
-  | 'timeline' | 'team-cards';
+  | 'product-hero' | 'specs-table' | 'feature-highlights' | 'included-accessories' | 'product-cta';
 
 export function templateToLayoutDecision(layout: LayoutTemplate): {
   blocks: Array<{

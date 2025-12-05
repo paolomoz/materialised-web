@@ -1688,7 +1688,7 @@ async function handleProvenance(request: Request, env: Env): Promise<Response> {
 
     // 3. Get layout template
     const { getLayoutForIntent, adjustLayoutForRAGContent } = await import('./prompts/layouts');
-    let layoutTemplate = getLayoutForIntent(
+    const layoutSelection = getLayoutForIntent(
       intent.intentType,
       intent.contentTypes,
       intent.entities,
@@ -1696,11 +1696,13 @@ async function handleProvenance(request: Request, env: Env): Promise<Response> {
       intent.confidence,
       query
     );
+    let layoutTemplate = layoutSelection.layout;
+    const userContext = layoutSelection.userContext;
     layoutTemplate = adjustLayoutForRAGContent(layoutTemplate, ragContext, query);
 
     // 4. Generate content
     const { generateContent } = await import('./ai-clients/cerebras');
-    const content = await generateContent(query, ragContext, intent, layoutTemplate, env);
+    const content = await generateContent(query, ragContext, intent, layoutTemplate, env, undefined, userContext);
 
     // 5. Analyze provenance
     const provenance = analyzeContentProvenance(

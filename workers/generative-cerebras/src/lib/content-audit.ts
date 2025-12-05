@@ -408,7 +408,7 @@ async function runTestCase(
     timing.ragRetrieval = Date.now() - ragStart;
 
     // Get layout template
-    const layoutTemplate = getLayoutForIntent(
+    const layoutSelection = getLayoutForIntent(
       intent.intentType,
       intent.contentTypes,
       intent.entities,
@@ -416,11 +416,13 @@ async function runTestCase(
       intent.confidence,
       testCase.query
     );
+    const layoutTemplate = layoutSelection.layout;
+    const userContext = layoutSelection.userContext;
     const adjustedLayout = adjustLayoutForRAGContent(layoutTemplate, ragContext, testCase.query);
 
     // Stage 3: Content Generation
     const genStart = Date.now();
-    const content = await generateContent(testCase.query, ragContext, intent, adjustedLayout, env);
+    const content = await generateContent(testCase.query, ragContext, intent, adjustedLayout, env, undefined, userContext);
     timing.contentGeneration = Date.now() - genStart;
 
     // Stage 4: Validation

@@ -270,15 +270,23 @@ export async function classifyIntent(
  * Generate page content based on query, RAG context, and layout template
  * Uses Llama 3.3 70B for best quality
  */
+/** User context for implicit recommendations */
+export interface UserContext {
+  isImplicitRecommendation: boolean;
+  contextType: 'family' | 'lifestyle' | 'experience' | 'budget' | 'capacity' | 'general' | null;
+  contextDescription: string | null;
+}
+
 export async function generateContent(
   query: string,
   ragContext: RAGContext,
   intent: IntentClassification,
   layout: LayoutTemplate,
   env: Env,
-  sessionContext?: SessionContextParam
+  sessionContext?: SessionContextParam,
+  userContext?: UserContext
 ): Promise<GeneratedContent> {
-  const userPrompt = buildContentGenerationPrompt(query, ragContext, intent, layout, sessionContext);
+  const userPrompt = buildContentGenerationPrompt(query, ragContext, intent, layout, sessionContext, userContext);
 
   const messages: CerebrasMessage[] = [
     {
