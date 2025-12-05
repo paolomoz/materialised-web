@@ -621,6 +621,13 @@ Return a JSON object with this structure:
    - "dark": Dark background with white text
 `;
 
+/** User context for implicit recommendations */
+interface UserContext {
+  isImplicitRecommendation: boolean;
+  contextType: 'family' | 'lifestyle' | 'experience' | 'budget' | 'capacity' | 'general' | null;
+  contextDescription: string | null;
+}
+
 /**
  * Build the user prompt for content generation
  */
@@ -628,7 +635,8 @@ export function buildContentGenerationPrompt(
   query: string,
   ragContext: RAGContext,
   intent: IntentClassification,
-  layout: LayoutTemplate
+  layout: LayoutTemplate,
+  userContext?: UserContext
 ): string {
   // Format RAG context for the prompt
   const ragSection = ragContext.chunks.length > 0
@@ -646,6 +654,43 @@ ${chunk.text}
   // Format layout template
   const layoutSection = formatLayoutForPrompt(layout);
 
+  // Build user context section for implicit recommendations
+  let userContextSection = '';
+  if (userContext?.isImplicitRecommendation) {
+    const contextTypeDescriptions: Record<string, string> = {
+      family: 'The user mentioned family size or number of children. Focus on capacity, batch cooking ability, ease of cleaning, and family-friendly features. Explain how the recommended products handle larger quantities and daily family use.',
+      lifestyle: 'The user mentioned a busy lifestyle. Focus on speed, convenience, preset programs, and time-saving features. Explain how the products fit into a hectic schedule.',
+      experience: 'The user is new to blending or Vitamix. Focus on ease of use, learning curve, preset programs, and support resources. Recommend beginner-friendly options with good value.',
+      budget: 'The user mentioned budget considerations. Focus on value, essential features vs premium, and long-term investment. Compare price points honestly while highlighting what matters most.',
+      capacity: 'The user needs to make large batches. Focus on container sizes, motor power for sustained use, and durability. Explain capacity differences between models.',
+      general: 'The user is seeking a product recommendation. Help them understand the differences between models and which might suit their needs best.',
+    };
+
+    const contextGuidance = userContext.contextType
+      ? contextTypeDescriptions[userContext.contextType]
+      : contextTypeDescriptions.general;
+
+    userContextSection = `
+
+## IMPORTANT: User Context for Personalized Recommendations
+The user's query "${query}" indicates they are: **${userContext.contextDescription}**
+
+This is an IMPLICIT recommendation request. The user didn't explicitly ask "which should I buy?" but their personal situation suggests they need help choosing.
+
+**Content Guidance:**
+${contextGuidance}
+
+**Hero/Introduction Requirements:**
+- The hero headline and subheadline MUST acknowledge the user's situation
+- Example for "I have 4 kids": "Finding the Right Vitamix for Your Growing Family" NOT generic "Compare Vitamix Blenders"
+- Explain WHY they're seeing this comparison: "With a family of 6, you need a blender that handles large batches efficiently..."
+
+**Comparison Focus:**
+- Tailor the comparison criteria to their context (e.g., for families: focus on capacity, durability, ease of cleaning)
+- The verdict should specifically address their stated situation
+- Avoid generic "about us" or company history content - this is a PRODUCT RECOMMENDATION page`;
+  }
+
   return `
 ## User Query
 "${query}"
@@ -658,6 +703,7 @@ ${chunk.text}
 - Products mentioned: ${intent.entities.products.join(', ') || 'none'}
 - Ingredients mentioned: ${intent.entities.ingredients.join(', ') || 'none'}
 - User goals: ${intent.entities.goals.join(', ') || 'general exploration'}
+${userContextSection}
 
 ## LAYOUT TEMPLATE (FOLLOW EXACTLY)
 ${layoutSection}
@@ -673,6 +719,7 @@ Generate content that EXACTLY matches the layout template above:
 4. Apply section styles (highlight, dark) as specified
 5. Use RAG context for all factual information
 6. Follow brand guidelines strictly
+${userContext?.isImplicitRecommendation ? '7. Personalize ALL content to the user\'s stated situation - DO NOT generate generic "about us" or company history content' : ''}
 
 Return valid JSON only.
 `;

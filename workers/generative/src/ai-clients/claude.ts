@@ -120,6 +120,13 @@ export async function classifyIntent(
   }
 }
 
+/** User context for implicit recommendations */
+export interface UserContext {
+  isImplicitRecommendation: boolean;
+  contextType: 'family' | 'lifestyle' | 'experience' | 'budget' | 'capacity' | 'general' | null;
+  contextDescription: string | null;
+}
+
 /**
  * Generate page content based on query, RAG context, and layout template
  * Uses Claude Sonnet for quality
@@ -129,9 +136,10 @@ export async function generateContent(
   ragContext: RAGContext,
   intent: IntentClassification,
   layout: LayoutTemplate,
-  env: Env
+  env: Env,
+  userContext?: UserContext
 ): Promise<GeneratedContent> {
-  const userPrompt = buildContentGenerationPrompt(query, ragContext, intent, layout);
+  const userPrompt = buildContentGenerationPrompt(query, ragContext, intent, layout, userContext);
 
   const response = await callClaude(
     [{ role: 'user', content: userPrompt }],

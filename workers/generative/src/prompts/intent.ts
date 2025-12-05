@@ -151,6 +151,21 @@ Extract ONLY products from this list. Do not guess or invent product names.
 | "Healthy breakfast ideas" | lifestyle | General inspiration, not specific recipes |
 | "Is the A3500 good for soup?" | product-detail | Question about specific product capability |
 
+### IMPORTANT: Personal Statements → Product Comparison
+When users share personal context without explicitly asking for comparisons, treat as implicit recommendation requests:
+| Query | Layout | Reason |
+|-------|--------|--------|
+| "I have 4 kids" | product-comparison | Implicit: "which blender for large family?" |
+| "I'm a busy mom" | product-comparison | Implicit: "which blender fits my lifestyle?" |
+| "I'm new to blending" | product-comparison | Implicit: "which blender for beginners?" |
+| "On a budget" | product-comparison | Implicit: "best value blender?" |
+| "Large batches" | product-comparison | Implicit: "which has best capacity?" |
+| "Family of 6" | product-comparison | Implicit: "which for large family?" |
+| "Working from home" | product-comparison | Implicit: "which fits WFH lifestyle?" |
+| "First blender" | product-comparison | Implicit: "which for beginners?" |
+
+**DO NOT** classify these as "general" or route to "lifestyle" - they are implicit product recommendations!
+
 ## Examples
 
 Query: "What's the best Vitamix for making soup?"
@@ -319,6 +334,58 @@ Query: "All blenders"
     "products": [],
     "ingredients": [],
     "goals": ["browse catalog"]
+  }
+}
+
+Query: "I have 4 kids"
+{
+  "intent_type": "comparison",
+  "confidence": 0.9,
+  "layout_id": "product-comparison",
+  "content_types": ["product"],
+  "entities": {
+    "products": [],
+    "ingredients": [],
+    "goals": ["large family", "capacity", "batch cooking"]
+  }
+}
+
+Query: "I'm a busy mom"
+{
+  "intent_type": "comparison",
+  "confidence": 0.9,
+  "layout_id": "product-comparison",
+  "content_types": ["product"],
+  "entities": {
+    "products": [],
+    "ingredients": [],
+    "goals": ["convenience", "time-saving", "easy to use"]
+  }
+}
+
+Query: "I'm new to blending"
+{
+  "intent_type": "comparison",
+  "confidence": 0.85,
+  "layout_id": "product-comparison",
+  "content_types": ["product"],
+  "entities": {
+    "products": [],
+    "ingredients": [],
+    "goals": ["beginner", "easy to use", "learning"]
+  }
+}
+
+Query: "On a budget"
+{
+  "intent_type": "comparison",
+  "confidence": 0.9,
+  "layout_id": "product-comparison",
+  "content_types": ["product"],
+  "entities": {
+    "products": [],
+    "ingredients": [],
+    "goals": ["budget", "value", "affordable"]
   }
 }
 

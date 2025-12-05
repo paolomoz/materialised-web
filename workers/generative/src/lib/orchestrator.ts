@@ -12,7 +12,7 @@ import { classifyIntent, generateContent, validateBrandCompliance } from '../ai-
 import { analyzeQuery } from '../ai-clients/gemini';
 import { generateImages, decideImageStrategy, type ImageProvider } from '../ai-clients/image-router';
 import { smartRetrieve, findProductImage } from './rag';
-import { getLayoutForIntent, adjustLayoutForRAGContent, templateToLayoutDecision, type LayoutTemplate } from '../prompts/layouts';
+import { getLayoutForIntent, adjustLayoutForRAGContent, templateToLayoutDecision, type LayoutTemplate, type LayoutSelectionResult } from '../prompts/layouts';
 
 // Worker base URL for image serving
 const WORKER_URL = 'https://vitamix-generative-cerebras.paolo-moz.workers.dev';
@@ -108,7 +108,8 @@ export async function orchestrate(
     // Get layout template based on intent (needed for content generation)
     // Now passes LLM's layoutId and confidence for smarter selection
     // Also passes original query for bare product name detection
-    let layoutTemplate = getLayoutForIntent(
+    // Returns both layout and user context for implicit recommendations
+    const layoutSelection = getLayoutForIntent(
       ctx.intent.intentType,
       ctx.intent.contentTypes,
       ctx.intent.entities,
@@ -116,6 +117,9 @@ export async function orchestrate(
       ctx.intent.confidence, // LLM's confidence score
       query  // Original query for bare product name check
     );
+
+    let layoutTemplate = layoutSelection.layout;
+    const userContext = layoutSelection.userContext;
 
     // Adjust layout based on RAG results (e.g., no recipes found → fallback)
     // Pass query to prevent bare product queries from being overridden
@@ -129,6 +133,7 @@ export async function orchestrate(
       contentTypes: ctx.intent.contentTypes,
       entities: ctx.intent.entities,
       selectedLayout: layoutTemplate.id,
+      userContext: userContext.isImplicitRecommendation ? userContext : undefined,
     });
 
     // Extract block types from layout template for preview
@@ -143,7 +148,8 @@ export async function orchestrate(
     });
 
     // Stage 3: Content Generation (main LLM call)
-    ctx.content = await generateContent(query, ragContext, ctx.intent, layoutTemplate, env);
+    // Pass user context for implicit recommendations so content can explain why user was directed here
+    ctx.content = await generateContent(query, ragContext, ctx.intent, layoutTemplate, env, userContext);
 
     // Stage 4: Derive layout from template + Image decisions
     // No Gemini call - we use the predefined layout template directly

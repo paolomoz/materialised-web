@@ -563,8 +563,172 @@ const USE_CASE_PATTERNS = [
   /each\s+(morning|day|week)/i,
 ];
 
+/**
+ * Patterns indicating an implicit recommendation request
+ * These are personal statements that imply "help me choose the right product"
+ */
+const IMPLICIT_RECOMMENDATION_PATTERNS = [
+  // Family size indicators
+  /I have \d+ kids/i,
+  /\d+ kids/i,
+  /family of \d+/i,
+  /large (family|household)/i,
+  /big family/i,
+  /feeding (a |my )?(large |big )?(family|crowd|group)/i,
+  /cook(ing)? for (a |my )?(large |big )?(family|crowd|group|\d+)/i,
+
+  // Lifestyle/persona indicators
+  /I'?m a (busy|working) (mom|dad|parent|professional)/i,
+  /busy (mom|dad|parent|professional|schedule|lifestyle)/i,
+  /work(ing)? from home/i,
+  /no time to cook/i,
+  /quick meals/i,
+
+  // Experience level indicators
+  /I'?m (new to|a beginner|just starting|learning)/i,
+  /never (used|owned|had) a (blender|Vitamix)/i,
+  /first (blender|Vitamix|time)/i,
+  /beginner/i,
+
+  // Budget indicators
+  /on a (tight )?budget/i,
+  /affordable/i,
+  /best value/i,
+  /don'?t want to spend too much/i,
+
+  // Capacity/batch indicators
+  /large batches/i,
+  /batch cooking/i,
+  /meal prep for (the )?week/i,
+  /entertaining( guests)?/i,
+  /hosting (parties|events|guests)/i,
+
+  // General "help me choose" without explicit comparison words
+  /what (do you|would you) recommend/i,
+  /what('s| is) (right|best|good) for me/i,
+  /which (one )?should I (get|buy|choose)/i,
+  /help me (decide|choose|pick)/i,
+];
+
 function matchesPatterns(text: string, patterns: RegExp[]): boolean {
   return patterns.some(pattern => pattern.test(text));
+}
+
+/**
+ * Extract user context from implicit recommendation queries
+ * Returns a description of WHY this is a recommendation query
+ */
+export function extractUserContext(query: string): {
+  isImplicitRecommendation: boolean;
+  contextType: 'family' | 'lifestyle' | 'experience' | 'budget' | 'capacity' | 'general' | null;
+  contextDescription: string | null;
+} {
+  const normalized = query.toLowerCase();
+
+  // Family size indicators
+  const familyMatch = query.match(/I have (\d+) kids/i)
+    || query.match(/(\d+) kids/i)
+    || query.match(/family of (\d+)/i);
+  if (familyMatch) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'family',
+      contextDescription: `family with ${familyMatch[1]} children`,
+    };
+  }
+  if (/large (family|household)/i.test(query) || /big family/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'family',
+      contextDescription: 'large family',
+    };
+  }
+  if (/feeding (a |my )?(large |big )?(family|crowd|group)/i.test(query)
+      || /cook(ing)? for (a |my )?(large |big )?(family|crowd|group|\d+)/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'family',
+      contextDescription: 'cooking for a group',
+    };
+  }
+
+  // Lifestyle/persona indicators
+  if (/I'?m a (busy|working) (mom|dad|parent|professional)/i.test(query)
+      || /busy (mom|dad|parent|professional|schedule|lifestyle)/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'lifestyle',
+      contextDescription: 'busy lifestyle',
+    };
+  }
+  if (/work(ing)? from home/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'lifestyle',
+      contextDescription: 'work-from-home lifestyle',
+    };
+  }
+  if (/no time to cook/i.test(query) || /quick meals/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'lifestyle',
+      contextDescription: 'time-constrained cooking',
+    };
+  }
+
+  // Experience level indicators
+  if (/I'?m (new to|a beginner|just starting|learning)/i.test(query)
+      || /never (used|owned|had) a (blender|Vitamix)/i.test(query)
+      || /first (blender|Vitamix|time)/i.test(query)
+      || /beginner/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'experience',
+      contextDescription: 'new to blending',
+    };
+  }
+
+  // Budget indicators
+  if (/on a (tight )?budget/i.test(query)
+      || /affordable/i.test(query)
+      || /best value/i.test(query)
+      || /don'?t want to spend too much/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'budget',
+      contextDescription: 'budget-conscious',
+    };
+  }
+
+  // Capacity/batch indicators
+  if (/large batches/i.test(query)
+      || /batch cooking/i.test(query)
+      || /entertaining( guests)?/i.test(query)
+      || /hosting (parties|events|guests)/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'capacity',
+      contextDescription: 'large batch preparation',
+    };
+  }
+
+  // General "help me choose"
+  if (/what (do you|would you) recommend/i.test(query)
+      || /what('s| is) (right|best|good) for me/i.test(query)
+      || /which (one )?should I (get|buy|choose)/i.test(query)
+      || /help me (decide|choose|pick)/i.test(query)) {
+    return {
+      isImplicitRecommendation: true,
+      contextType: 'general',
+      contextDescription: 'seeking a recommendation',
+    };
+  }
+
+  return {
+    isImplicitRecommendation: false,
+    contextType: null,
+    contextDescription: null,
+  };
 }
 
 /** Known Vitamix product names (lowercase for matching) */
@@ -593,14 +757,25 @@ function isBareProductQuery(query: string): boolean {
 // Layout Selection
 // ============================================================================
 
+/** Result type for layout selection with user context */
+export interface LayoutSelectionResult {
+  layout: LayoutTemplate;
+  userContext: {
+    isImplicitRecommendation: boolean;
+    contextType: 'family' | 'lifestyle' | 'experience' | 'budget' | 'capacity' | 'general' | null;
+    contextDescription: string | null;
+  };
+}
+
 /**
  * Get layout for intent type
  * Maps intent types to appropriate layouts
  *
  * Priority:
  * 0. Bare product query always → product-detail (highest priority override)
- * 1. Trust LLM's layoutId if confidence >= 0.85
- * 2. Apply rule-based fallback logic for edge cases
+ * 1. Implicit recommendation queries → product-comparison (NEW!)
+ * 2. Trust LLM's layoutId if confidence >= 0.85
+ * 3. Apply rule-based fallback logic for edge cases
  */
 export function getLayoutForIntent(
   intentType: string,
@@ -609,38 +784,51 @@ export function getLayoutForIntent(
   llmLayoutId?: string,
   confidence?: number,
   originalQuery?: string
-): LayoutTemplate {
+): LayoutSelectionResult {
+  // Extract user context for implicit recommendations
+  const userContext = originalQuery
+    ? extractUserContext(originalQuery)
+    : { isImplicitRecommendation: false, contextType: null, contextDescription: null };
+
   // 0a. HIGHEST PRIORITY: Bare product query always gets product-detail
   // This catches "a3500", "A3500", "the A3500", "Vitamix A3500" etc.
   if (originalQuery && isBareProductQuery(originalQuery)) {
     console.log(`[Layout] Override: bare product query "${originalQuery}" → product-detail`);
-    return LAYOUT_PRODUCT_DETAIL;
+    return { layout: LAYOUT_PRODUCT_DETAIL, userContext };
   }
 
   // 0b. Defensive override: Single product in entities should not be comparison
   if (entities.products.length === 1 &&
       (llmLayoutId === 'product-comparison' || intentType === 'comparison')) {
     console.log('[Layout] Override: single product detected → product-detail (not comparison)');
-    return LAYOUT_PRODUCT_DETAIL;
+    return { layout: LAYOUT_PRODUCT_DETAIL, userContext };
   }
 
-  // 1. Trust LLM's layout choice when confident
+  // 1. NEW: Implicit recommendation queries → product-comparison
+  // Queries like "I have 4 kids", "I'm a busy mom", "beginner" etc.
+  // These imply "help me choose" even without explicit comparison words
+  if (userContext.isImplicitRecommendation) {
+    console.log(`[Layout] Implicit recommendation detected: "${userContext.contextDescription}" → product-comparison`);
+    return { layout: LAYOUT_PRODUCT_COMPARISON, userContext };
+  }
+
+  // 2. Trust LLM's layout choice when confident
   if (llmLayoutId && confidence !== undefined && confidence >= 0.85) {
     const llmLayout = getLayoutById(llmLayoutId);
     if (llmLayout) {
       console.log(`[Layout] Trusting LLM choice: ${llmLayoutId} (confidence: ${confidence})`);
-      return llmLayout;
+      return { layout: llmLayout, userContext };
     }
   }
 
-  // 2. Fallback: Rule-based logic for low confidence or invalid layout
+  // 3. Fallback: Rule-based logic for low confidence or invalid layout
   console.log(`[Layout] Using rule-based fallback (LLM confidence: ${confidence ?? 'N/A'})`);
 
   const goalsText = entities.goals.map((g) => g.toLowerCase()).join(' ');
 
   // Support/troubleshooting queries
   if (intentType === 'support') {
-    return LAYOUT_SUPPORT;
+    return { layout: LAYOUT_SUPPORT, userContext };
   }
 
   // Product comparison queries
@@ -648,37 +836,37 @@ export function getLayoutForIntent(
   if (intentType === 'comparison') {
     if (entities.products.length === 1) {
       console.log('[Layout] Demoting comparison → product-detail (only 1 product detected)');
-      return LAYOUT_PRODUCT_DETAIL;
+      return { layout: LAYOUT_PRODUCT_DETAIL, userContext };
     }
-    return LAYOUT_PRODUCT_COMPARISON;
+    return { layout: LAYOUT_PRODUCT_COMPARISON, userContext };
   }
 
   // Single product queries
   if (intentType === 'product_info' && entities.products.length === 1) {
-    return LAYOUT_PRODUCT_DETAIL;
+    return { layout: LAYOUT_PRODUCT_DETAIL, userContext };
   }
 
   // Category browsing
   if (intentType === 'product_info' && entities.products.length === 0) {
-    return LAYOUT_CATEGORY_BROWSE;
+    return { layout: LAYOUT_CATEGORY_BROWSE, userContext };
   }
 
   // Recipe queries - use semantic patterns instead of includes()
   if (intentType === 'recipe') {
     // Check for use-case/routine patterns
     if (matchesPatterns(goalsText, USE_CASE_PATTERNS)) {
-      return LAYOUT_USE_CASE_LANDING;
+      return { layout: LAYOUT_USE_CASE_LANDING, userContext };
     }
-    return LAYOUT_RECIPE_COLLECTION;
+    return { layout: LAYOUT_RECIPE_COLLECTION, userContext };
   }
 
   // Educational/how-to queries
   if (contentTypes.includes('support') || contentTypes.includes('editorial')) {
-    return LAYOUT_EDUCATIONAL;
+    return { layout: LAYOUT_EDUCATIONAL, userContext };
   }
 
   // Default to lifestyle for general queries
-  return LAYOUT_LIFESTYLE;
+  return { layout: LAYOUT_LIFESTYLE, userContext };
 }
 
 // ============================================================================
