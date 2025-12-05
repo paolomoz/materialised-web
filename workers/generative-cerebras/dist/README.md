@@ -1,0 +1,1 @@
+This folder contains the built output assets for the worker "vitamix-generative-cerebras" generated at 2025-12-05T06:57:42.577Z.

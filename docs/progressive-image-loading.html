@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta
+  http-equiv="Content-Security-Policy"
+  content="script-src 'nonce-aem' 'strict-dynamic' 'unsafe-inline' http: https:; base-uri 'self'; object-src 'none'; connect-src 'self' https://vitamix-generative.paolo-moz.workers.dev https://vitamix-generative-cerebras.paolo-moz.workers.dev;"
+  move-to-http-header="true"
+>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<script nonce="aem" src="/scripts/aem.js" type="module"></script>
+<script nonce="aem" src="/scripts/scripts.js" type="module"></script>
+<script nonce="aem" src="/scripts/cerebras-scripts.js" type="module"></script>
+<link rel="stylesheet" href="/styles/styles.css"/>
+<link rel="stylesheet" href="/styles/skeleton.css"/>
+</head>
+<body>
+<header></header>
+<main>
+<div><h1 id="progressive-image-loading-for-generative-pages">Progressive Image Loading for Generative Pages</h1>
+<h2 id="overview">Overview</h2>
+<p>When generating pages via Cerebras, images are resolved asynchronously after content is streamed. This document describes the progressive image loading mechanism and how to ensure new blocks support it correctly.</p>
+<h2 id="architecture">Architecture</h2>
+<pre><code>Query → Content Generation → Stream Blocks (with placeholders) → Resolve Images (parallel) → SSE image-ready events
+</code></pre>
+<ol>
+<li><strong>Content streams immediately</strong> with placeholder images</li>
+<li><strong>Images resolve in background</strong> in parallel</li>
+<li><strong><code>image-ready</code> SSE events</strong> notify frontend when each image is ready</li>
+<li><strong>Frontend updates</strong> the <code>src</code> attribute on matching <code>&#x3C;img></code> elements</li>
+</ol>
+<h2 id="the-problem-block-decoration-race-condition">The Problem: Block Decoration Race Condition</h2>
+<p>Many EDS blocks rebuild the DOM during decoration (using <code>block.innerHTML = ...</code>). This creates a race condition:</p>
+<ol>
+<li>SSE <code>block-content</code> event arrives with HTML containing <code>&#x3C;img data-gen-image="..."></code></li>
+<li><code>renderBlockSection()</code> inserts HTML and calls <code>loadBlock()</code> (async)</li>
+<li>Block JS loads and decoration starts</li>
+<li><strong>Meanwhile</strong>, <code>image-ready</code> events fire</li>
+<li>Frontend tries <code>querySelector('img[data-gen-image="..."]')</code> but element may be:
+<ul>
+<li>Still the original (works)</li>
+<li>Being rebuilt (not found)</li>
+<li>Replaced with new element (works if attribute preserved)</li>
+</ul>
+</li>
+</ol>
+<h2 id="solution-two-part-fix">Solution: Two-Part Fix</h2>
+<h3 id="part-1-worker---always-include-data-gen-image">Part 1: Worker - Always Include <code>data-gen-image</code></h3>
+<p>In <code>orchestrator.ts</code>, every block's HTML builder must:</p>
+<ol>
+<li><strong>Always include the image</strong> (with placeholder if not resolved)</li>
+<li><strong>Add <code>data-gen-image</code> attribute</strong> with the same ID used in <code>collectImageRequests()</code></li>
+</ol>
+<pre><code class="language-typescript">// CORRECT - Always include with data-gen-image
+const imageId = `grid-recipe-${i}`;
+const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
+const imageSrc = imageUrl || PLACEHOLDER_IMAGE;
+return `&#x3C;img src="${imageSrc}" data-gen-image="${imageId}" loading="lazy">`;
+
+// WRONG - Missing data-gen-image
+return `&#x3C;img src="${imageUrl}" loading="lazy">`;
+
+// WRONG - Only includes image if already resolved
+if (imageUrl) {
+  return `&#x3C;img src="${imageUrl}" loading="lazy">`;
+}
+return '&#x3C;div>&#x3C;/div>';
+</code></pre>
+<h3 id="part-2-block-js---preserve-original-image-element">Part 2: Block JS - Preserve Original Image Element</h3>
+<p>Blocks that rebuild the DOM must preserve the original <code>&#x3C;img></code> element (not just copy innerHTML):</p>
+<pre><code class="language-javascript">// CORRECT - Store and reuse original img element
+let originalImg = null;
+
+rows.forEach((row) => {
+  const picture = cell.querySelector('picture');
+  if (picture) {
+    originalImg = picture.querySelector('img'); // Store reference
+  }
+});
+
+// Build new DOM
+block.innerHTML = `...`;
+
+// Reinsert original img element
+if (originalImg) {
+  const container = block.querySelector('.image-container');
+  container.appendChild(originalImg);
+}
+
+// WRONG - Using innerHTML (loses DOM reference, creates new element)
+mediaHtml = picture.innerHTML; // String copy, not element reference
+</code></pre>
+<h3 id="part-3-frontend---retry-logic">Part 3: Frontend - Retry Logic</h3>
+<p>The frontend (<code>cerebras-scripts.js</code>) includes retry logic for race conditions:</p>
+<pre><code class="language-javascript">const pendingImages = new Map();
+
+function applyImageUpdate(imageId, url) {
+  const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
+  if (img) {
+    img.src = url;
+    img.classList.add('loaded');
+    return true;
+  }
+  return false;
+}
+
+// Retry every 100ms for up to 2 seconds
+setInterval(() => {
+  pendingImages.forEach(({ url, attempts }, imageId) => {
+    if (applyImageUpdate(imageId, url)) {
+      pendingImages.delete(imageId);
+    } else if (attempts >= 20) {
+      console.warn(`Image not found: ${imageId}`);
+      pendingImages.delete(imageId);
+    }
+  });
+}, 100);
+</code></pre>
+<h2 id="checklist-for-new-blocks">Checklist for New Blocks</h2>
+<p>When creating a block that displays images:</p>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled> <strong>Worker HTML builder</strong> includes <code>data-gen-image="${imageId}"</code> on all images</li>
+<li class="task-list-item"><input type="checkbox" disabled> <strong>Worker HTML builder</strong> always includes image (with placeholder if not resolved)</li>
+<li class="task-list-item"><input type="checkbox" disabled> <strong>Image ID format</strong> matches between <code>collectImageRequests()</code> and HTML builder</li>
+<li class="task-list-item"><input type="checkbox" disabled> <strong>Block JS</strong> preserves original <code>&#x3C;img></code> element if rebuilding DOM</li>
+<li class="task-list-item"><input type="checkbox" disabled> Test with query that triggers the block type</li>
+</ul>
+<h2 id="testing">Testing</h2>
+<ol>
+<li>Run local dev server: <code>npm start</code></li>
+<li>Navigate to: <code>http://localhost:3000/?cerebras=yellow%20smoothies</code></li>
+<li>Open DevTools Console</li>
+<li><strong>Expected logs:</strong>
+<ul>
+<li><code>[Cerebras] Image ready: hero</code></li>
+<li><code>[Cerebras] Image ready: grid-recipe-0</code></li>
+<li>etc.</li>
+</ul>
+</li>
+<li><strong>If images don't load</strong>, check for:
+<ul>
+<li><code>[Cerebras] Image not found after retries: &#x3C;imageId></code> - Block not preserving <code>data-gen-image</code></li>
+<li>No <code>Image ready</code> log - Worker not sending <code>image-ready</code> event</li>
+<li>Image ID mismatch between console and Elements panel</li>
+</ul>
+</li>
+</ol>
+<h2 id="fixed-blocks">Fixed Blocks</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="block"><div><div><code>recipe-grid</code></div><div>Missing <code>data-gen-image</code> in HTML</div><div>Added attribute in <code>buildRecipeGridHTML()</code></div></div><div><div><code>recipe-grid</code></div><div>Block rebuilt DOM</div><div>Modified <code>recipe-grid.js</code> to reuse original img element</div></div><div><div><code>technique-spotlight</code></div><div>Missing <code>data-gen-image</code>, conditional include</div><div>Added attribute and always include in <code>buildTechniqueSpotlightHTML()</code></div></div><div><div><code>technique-spotlight</code></div><div>Block rebuilt DOM</div><div>Modified <code>technique-spotlight.js</code> to reuse original img element</div></div></div>
+<h2 id="blocks-that-may-need-similar-fixes">Blocks That May Need Similar Fixes</h2>
+<p>Blocks that use <code>block.innerHTML = ...</code> and display images:</p>
+<ul>
+<li><code>recipe-cards</code></li>
+<li><code>product-cards</code></li>
+<li><code>category-cards</code></li>
+<li><code>use-case-cards</code></li>
+<li><code>benefits-grid</code></li>
+<li><code>product-recommendation</code></li>
+<li><code>feature-highlights</code></li>
+<li><code>included-accessories</code></li>
+</ul>
+<p>Run the test query and check console for "Image not found after retries" warnings.</p></div>
+</main>
+<footer></footer>
+</body>
+</html>

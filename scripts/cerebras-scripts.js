@@ -131,7 +131,20 @@ async function renderCerebrasPage() {
   const slug = generateSlug(query);
   const startTime = Date.now();
 
-  main.innerHTML = '<div id="generation-content"></div>';
+  // Show loading state while waiting for SSE to connect
+  main.innerHTML = `
+    <div id="generation-content">
+      <div class="generating-container">
+        <h1 class="generating-title">Creating your personalized page...</h1>
+        <p class="generating-query">"${query}"</p>
+        <div class="progress-indicator">
+          <div class="progress-dot"></div>
+          <div class="progress-dot"></div>
+          <div class="progress-dot"></div>
+        </div>
+      </div>
+    </div>
+  `;
   const content = main.querySelector('#generation-content');
 
   // Reset original blocks storage for this generation
@@ -146,7 +159,19 @@ async function renderCerebrasPage() {
 
   console.log(`[Cerebras] Starting SSE stream for: ${query}`);
 
+  // Track if first block has arrived
+  let firstBlockReceived = false;
+
   eventSource.addEventListener('block-content', async (e) => {
+    // Remove loading indicator on first block
+    if (!firstBlockReceived) {
+      firstBlockReceived = true;
+      const loadingContainer = content.querySelector('.generating-container');
+      if (loadingContainer) {
+        loadingContainer.remove();
+      }
+    }
+
     const data = JSON.parse(e.data);
     // Store original block data for publishing
     originalBlocksData.push(data);
