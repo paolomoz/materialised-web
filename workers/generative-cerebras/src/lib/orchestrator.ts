@@ -2323,12 +2323,12 @@ function buildRecipeGridHTML(content: any, variant: string, resolvedImages?: Map
 
   let rowsHtml = '';
 
-  // Row 1: Images
+  // Row 1: Images (with data-gen-image for progressive loading)
   const imagesRow = recipes.map((recipe: any, i: number) => {
-    const imageUrl = getResolvedImageUrl(`grid-recipe-${i}`, resolvedImages);
-    return imageUrl
-      ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(recipe.title)}" loading="lazy"></picture></div>`
-      : '<div></div>';
+    const imageId = `grid-recipe-${i}`;
+    const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
+    const imageSrc = imageUrl || PLACEHOLDER_IMAGE;
+    return `<div><picture><img src="${imageSrc}" alt="${escapeHTML(recipe.title)}" loading="lazy" data-gen-image="${imageId}"></picture></div>`;
   }).join('');
   rowsHtml += `<div>${imagesRow}</div>`;
 
@@ -2426,10 +2426,12 @@ function buildTechniqueSpotlightHTML(content: any, variant: string, blockId: str
   let rowsHtml = '';
 
   // Row 1: Image/Video (use image if video URL is invalid/placeholder)
+  // Always include image with data-gen-image for progressive loading
   if (isValidVideoUrl(content.videoUrl)) {
     rowsHtml += `<div><div><a href="${escapeHTML(content.videoUrl)}">${escapeHTML(content.videoUrl)}</a></div></div>`;
-  } else if (imageUrl) {
-    rowsHtml += `<div><div><picture><img src="${imageUrl}" alt="${escapeHTML(content.title || 'Technique')}" loading="lazy"></picture></div></div>`;
+  } else {
+    const imageSrc = imageUrl || PLACEHOLDER_IMAGE;
+    rowsHtml += `<div><div><picture><img src="${imageSrc}" alt="${escapeHTML(content.title || 'Technique')}" loading="lazy" data-gen-image="${imageId}"></picture></div></div>`;
   }
 
   // Row 2: Title

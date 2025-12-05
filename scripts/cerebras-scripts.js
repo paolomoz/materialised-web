@@ -153,14 +153,11 @@ async function renderCerebrasPage() {
     await renderBlockSection(data, content);
   });
 
-  // Handle image-ready events - update image src when resolved
-  eventSource.addEventListener('image-ready', (e) => {
-    const data = JSON.parse(e.data);
-    const { imageId, url, cropNeeded } = data;
+  // Queue for pending image updates (handles race condition with block decoration)
+  const pendingImages = new Map();
 
-    console.log(`[Cerebras] Image ready: ${imageId}`);
-
-    // Find the image with matching data-gen-image attribute
+  // Function to apply image update
+  function applyImageUpdate(imageId, url, cropNeeded) {
     const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
     if (img && url) {
       // Cache-bust to ensure fresh load
@@ -168,21 +165,10 @@ async function renderCerebrasPage() {
         ? `${url}&_t=${Date.now()}`
         : `${url}?_t=${Date.now()}`;
 
-      // Create new image element to bypass browser's image cache
-      const imgParent = img.parentNode;
-      const newImg = document.createElement('img');
-      newImg.src = cacheBustUrl;
-      newImg.alt = img.alt || '';
-      newImg.className = img.className;
-      if (img.loading) newImg.loading = img.loading;
-      newImg.dataset.genImage = imageId;
-      if (cropNeeded) newImg.dataset.crop = 'true';
-      newImg.classList.add('loaded');
-
-      // Replace old image with new one
-      if (imgParent) {
-        imgParent.replaceChild(newImg, img);
-      }
+      // Update src directly instead of replacing element
+      img.src = cacheBustUrl;
+      if (cropNeeded) img.dataset.crop = 'true';
+      img.classList.add('loaded');
 
       // Also update the original blocks data for publishing
       const originalUrl = img.dataset.originalSrc;
@@ -194,12 +180,48 @@ async function renderCerebrasPage() {
           );
         });
       }
+      return true;
+    }
+    return false;
+  }
+
+  // Retry pending images periodically
+  const retryInterval = setInterval(() => {
+    if (pendingImages.size === 0) return;
+
+    pendingImages.forEach(({ url, cropNeeded, attempts }, imageId) => {
+      if (applyImageUpdate(imageId, url, cropNeeded)) {
+        console.log(`[Cerebras] Image applied (retry): ${imageId}`);
+        pendingImages.delete(imageId);
+      } else if (attempts >= 20) {
+        // Give up after 20 attempts (2 seconds)
+        console.warn(`[Cerebras] Image not found after retries: ${imageId}`);
+        pendingImages.delete(imageId);
+      } else {
+        pendingImages.set(imageId, { url, cropNeeded, attempts: attempts + 1 });
+      }
+    });
+  }, 100);
+
+  // Handle image-ready events - update image src when resolved
+  eventSource.addEventListener('image-ready', (e) => {
+    const data = JSON.parse(e.data);
+    const { imageId, url, cropNeeded } = data;
+
+    console.log(`[Cerebras] Image ready: ${imageId}`);
+
+    // Try to apply immediately, queue for retry if element not found
+    if (!applyImageUpdate(imageId, url, cropNeeded)) {
+      pendingImages.set(imageId, { url, cropNeeded, attempts: 0 });
     }
   });
 
   eventSource.addEventListener('generation-complete', (e) => {
     eventSource.close();
     const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+
+    // Clear retry interval after a delay to allow final retries
+    setTimeout(() => clearInterval(retryInterval), 2000);
 
     console.log(`[Cerebras] Complete in ${totalTime}s`);
 

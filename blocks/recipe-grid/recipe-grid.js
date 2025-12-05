@@ -35,6 +35,7 @@ export default function decorate(block) {
   for (let i = 0; i < columnCount; i += 1) {
     recipes.push({
       id: `recipe-${i}`,
+      imgElement: null, // Store original img element for reuse
       image: '',
       title: '',
       difficulty: 'Easy',
@@ -66,10 +67,10 @@ export default function decorate(block) {
 
       if (picture) {
         const img = picture.querySelector('img');
+        // Store original img element for reuse (preserves data-gen-image for SSE updates)
+        recipe.imgElement = img;
         recipe.image = img?.src || '';
         recipe.imageAlt = img?.alt || recipe.title;
-        // Preserve data-gen-image attribute for SSE image updates
-        recipe.genImageId = img?.dataset?.genImage || '';
       } else if (strong) {
         recipe.title = strong.textContent;
       } else if (text.includes('•')) {
@@ -112,36 +113,61 @@ export default function decorate(block) {
 
     const isFavorite = favorites.has(recipe.id);
 
-    // Build image HTML with data-gen-image preserved for SSE updates
-    const genImageAttr = recipe.genImageId ? ` data-gen-image="${recipe.genImageId}"` : '';
-    card.innerHTML = `
-      <div class="recipe-card-image">
-        ${recipe.image ? `<img src="${recipe.image}" alt="${recipe.title}"${genImageAttr} loading="lazy">` : '<div class="image-placeholder"></div>'}
-        <button class="favorite-btn ${isFavorite ? 'active' : ''}" aria-label="Save to favorites">
-          <svg class="heart-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+    // Build card structure - reuse original img element to preserve data-gen-image for SSE updates
+    const imageDiv = document.createElement('div');
+    imageDiv.className = 'recipe-card-image';
+
+    // Reuse original img element if available (preserves data-gen-image attribute)
+    if (recipe.imgElement) {
+      recipe.imgElement.loading = 'lazy';
+      imageDiv.appendChild(recipe.imgElement);
+    } else if (recipe.image) {
+      const img = document.createElement('img');
+      img.src = recipe.image;
+      img.alt = recipe.title;
+      img.loading = 'lazy';
+      imageDiv.appendChild(img);
+    } else {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'image-placeholder';
+      imageDiv.appendChild(placeholder);
+    }
+
+    // Add favorite button
+    const favBtn = document.createElement('button');
+    favBtn.className = `favorite-btn ${isFavorite ? 'active' : ''}`;
+    favBtn.setAttribute('aria-label', 'Save to favorites');
+    favBtn.innerHTML = `
+      <svg class="heart-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+      </svg>
+    `;
+    imageDiv.appendChild(favBtn);
+
+    // Build card body
+    const bodyDiv = document.createElement('div');
+    bodyDiv.className = 'recipe-card-body';
+    bodyDiv.innerHTML = `
+      <h3 class="recipe-card-title">${recipe.title}</h3>
+      <div class="recipe-card-meta">
+        <span class="meta-difficulty" data-level="${recipe.difficultyLevel}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
           </svg>
-        </button>
-      </div>
-      <div class="recipe-card-body">
-        <h3 class="recipe-card-title">${recipe.title}</h3>
-        <div class="recipe-card-meta">
-          <span class="meta-difficulty" data-level="${recipe.difficultyLevel}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-            </svg>
-            ${recipe.difficulty}
-          </span>
-          <span class="meta-time">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
-            ${recipe.time}
-          </span>
-        </div>
+          ${recipe.difficulty}
+        </span>
+        <span class="meta-time">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          ${recipe.time}
+        </span>
       </div>
     `;
+
+    card.appendChild(imageDiv);
+    card.appendChild(bodyDiv);
 
     // Store full recipe data for modal
     card.recipeData = {
@@ -150,7 +176,6 @@ export default function decorate(block) {
     };
 
     // Favorite toggle
-    const favBtn = card.querySelector('.favorite-btn');
     favBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       const isNowFavorite = !favorites.has(recipe.id);

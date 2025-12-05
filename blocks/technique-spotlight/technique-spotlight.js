@@ -24,6 +24,9 @@ export default function decorate(block) {
   const tips = [];
   let link = '';
 
+  // Store original img element for progressive image loading
+  let originalImg = null;
+
   rows.forEach((row) => {
     const cell = row.children[0];
     if (!cell) return;
@@ -34,11 +37,9 @@ export default function decorate(block) {
     const text = cell.textContent.trim();
 
     if (picture) {
-      mediaHtml = `
-        <picture class="spotlight-image">
-          ${picture.innerHTML}
-        </picture>
-      `;
+      // Store original img element to preserve data-gen-image attribute
+      originalImg = picture.querySelector('img');
+      mediaHtml = 'HAS_IMAGE'; // Placeholder, will use original element
     } else if (strong && !title) {
       title = strong.textContent;
     } else if (!description && text.length > 50 && !text.includes('•')) {
@@ -60,7 +61,7 @@ export default function decorate(block) {
   block.innerHTML = `
     <div class="technique-spotlight-inner">
       <div class="spotlight-media">
-        ${mediaHtml || '<div class="spotlight-placeholder"></div>'}
+        ${mediaHtml ? '<picture class="spotlight-image"></picture>' : '<div class="spotlight-placeholder"></div>'}
       </div>
       <div class="spotlight-content">
         <div class="spotlight-header">
@@ -91,6 +92,14 @@ export default function decorate(block) {
       </div>
     </div>
   `;
+
+  // Insert original img element to preserve data-gen-image for progressive loading
+  if (originalImg) {
+    const pictureEl = block.querySelector('.spotlight-image');
+    if (pictureEl) {
+      pictureEl.appendChild(originalImg);
+    }
+  }
 
   // Animate tips on scroll
   const tipItems = block.querySelectorAll('.tip-item');
