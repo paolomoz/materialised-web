@@ -1304,7 +1304,11 @@ async function queryImageIndex(
     const bestMatch = results.matches[0];
     if (bestMatch) {
       const url = (bestMatch.metadata as any)?.url || (bestMatch.metadata as any)?.image_url;
-      if (url && bestMatch.score >= 0.35) { // Absolute minimum for any relevance
+      // For lifestyle/columns context, always return something (empty placeholder looks worse than imperfect image)
+      // For other contexts, use 0.35 minimum threshold
+      const isLifestyleContext = context === 'lifestyle' || blockType === 'columns' || blockType === 'split-content';
+      const minScore = isLifestyleContext ? 0.20 : 0.35;
+      if (url && bestMatch.score >= minScore) {
         console.log(`[Image Index] Best-effort match for "${description}" - score ${bestMatch.score.toFixed(3)} (below threshold ${threshold})`);
         return { url, score: bestMatch.score, isFallback: true };
       }
