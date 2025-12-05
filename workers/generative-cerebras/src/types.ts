@@ -359,9 +359,8 @@ export type SSEEvent =
   | { event: 'block-start'; data: { blockId: string; blockType: BlockType; position: number } }
   | { event: 'block-content'; data: { blockId: string; html: string; partial: boolean; sectionStyle?: 'default' | 'highlight' | 'dark' } }
   | { event: 'block-complete'; data: { blockId: string } }
-  // RAG-only mode: Images are resolved server-side, no SSE events needed
-  // | { event: 'image-placeholder'; data: { imageId: string; blockId: string } }
-  // | { event: 'image-ready'; data: { imageId: string; url: string } }
+  // Progressive image loading: Images are resolved after content is streamed
+  | { event: 'image-ready'; data: { imageId: string; url: string; cropNeeded?: boolean } }
   | { event: 'generation-complete'; data: { pageUrl: string } }
   | { event: 'error'; data: { code: string; message: string; recoverable: boolean } };
 

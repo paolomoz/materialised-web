@@ -192,27 +192,19 @@ export async function orchestrate(
 
     ctx.layout = layout;
 
-    // Stage 5: RAG-Only Image Resolution
-    // Resolve all images from RAG before streaming (no generation)
-    const resolvedImages = await resolveBlockImages(ctx.content, ragContext, env);
+    // Stage 5: Stream content IMMEDIATELY with placeholder images
+    // This shows content to users as fast as possible
+    console.log('[Orchestrator] Streaming content with placeholder images');
+    await streamBlockContent(ctx.content, layout, ctx.slug, onEvent, ctx.ragContext, new Map());
 
-    // Log resolution stats
-    const resolvedCount = Array.from(resolvedImages.values()).filter(v => v !== null).length;
-    console.log(`[Orchestrator] Resolved ${resolvedCount}/${resolvedImages.size} images from RAG`);
+    // Stage 5b: Resolve images in BACKGROUND (parallel)
+    // Images are resolved after content is visible, emitting image-ready events
+    const imageResolutionPromise = resolveImagesInBackground(ctx.content, ragContext, env, onEvent);
 
-    // Stream block content with resolved image URLs (no placeholders)
-    await streamBlockContent(ctx.content, layout, ctx.slug, onEvent, ctx.ragContext, resolvedImages);
+    // Initialize empty images array (will be populated after resolution)
+    ctx.images = [];
 
-    // Convert resolved images to GeneratedImage format for compatibility
-    ctx.images = Array.from(resolvedImages.entries())
-      .filter(([_, img]) => img !== null)
-      .map(([id, img]) => ({
-        id,
-        url: img!.url,
-        prompt: '', // No prompt - from RAG
-      }));
-
-    // Stage 6: Quality Validation (BLOCKING)
+    // Stage 6: Quality Validation (runs in parallel with image resolution)
     const fullText = extractFullText(ctx.content);
     const safetyResult = await validateContentSafety(
       fullText,
@@ -263,6 +255,11 @@ export async function orchestrate(
       });
     }
 
+    // Wait for image resolution to complete before signaling done
+    // (images continue to stream via image-ready events during this time)
+    await imageResolutionPromise;
+    console.log('[Orchestrator] All images resolved');
+
     // Build final HTML (images already have predictable URLs based on slug)
     // Pass RAG context so product-hero can use existing images
     const html = buildEDSHTML(ctx.content, ctx.layout, ctx.slug, ctx.ragContext);
@@ -301,6 +298,225 @@ interface ResolvedImage {
   score?: number;
   alt?: string;
   cropNeeded?: boolean;
+}
+
+/**
+ * Image request for background resolution
+ */
+interface ImageResolveRequest {
+  id: string;
+  context: ImageContext;
+  query: string;
+  blockType: string;
+}
+
+/**
+ * Transparent 1x1 placeholder for shimmer effect
+ * The shimmer animation is handled by CSS on img[data-gen-image]
+ */
+const PLACEHOLDER_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+/**
+ * Collect all image requests from content blocks without resolving them.
+ * Used to build the list of images that need to be resolved in background.
+ */
+function collectImageRequests(content: GeneratedContent): ImageResolveRequest[] {
+  const requests: ImageResolveRequest[] = [];
+
+  for (const block of content.blocks) {
+    const blockContent = block.content as any;
+
+    switch (block.type) {
+      case 'hero': {
+        const query = blockContent.imagePrompt || blockContent.headline || 'Vitamix blending lifestyle';
+        requests.push({ id: 'hero', context: 'lifestyle', query, blockType: 'hero' });
+        break;
+      }
+
+      case 'cards': {
+        if (blockContent.cards) {
+          for (let i = 0; i < blockContent.cards.length; i++) {
+            const card = blockContent.cards[i];
+            const query = card.imagePrompt || card.title || 'Vitamix feature';
+            requests.push({ id: `card-${i}`, context: 'lifestyle', query, blockType: 'cards' });
+          }
+        }
+        break;
+      }
+
+      case 'product-cards': {
+        if (blockContent.products) {
+          for (let i = 0; i < blockContent.products.length; i++) {
+            const product = blockContent.products[i];
+            const query = product.name || 'Vitamix blender';
+            requests.push({ id: `product-card-${block.id}-${i}`, context: 'product', query, blockType: 'product-cards' });
+          }
+        }
+        break;
+      }
+
+      case 'columns': {
+        if (blockContent.columns) {
+          for (let i = 0; i < blockContent.columns.length; i++) {
+            const col = blockContent.columns[i];
+            const query = col.imagePrompt || col.headline || 'Vitamix feature';
+            requests.push({ id: `col-${i}`, context: 'lifestyle', query, blockType: 'columns' });
+          }
+        }
+        break;
+      }
+
+      case 'split-content': {
+        const imageId = `split-content-${block.id}`;
+        const query = blockContent.imagePrompt || blockContent.headline || 'Vitamix lifestyle';
+        requests.push({ id: imageId, context: 'lifestyle', query, blockType: 'split-content' });
+        break;
+      }
+
+      case 'recipe-cards': {
+        if (blockContent.recipes) {
+          for (let i = 0; i < blockContent.recipes.length; i++) {
+            const recipe = blockContent.recipes[i];
+            const query = recipe.title || 'Vitamix recipe';
+            requests.push({ id: `recipe-${i}`, context: 'recipe', query, blockType: 'recipe-cards' });
+          }
+        }
+        break;
+      }
+
+      case 'product-hero': {
+        const imageId = `product-hero-${block.id}`;
+        const productName = blockContent.productName || 'Vitamix blender';
+        requests.push({ id: imageId, context: 'product', query: productName, blockType: 'product-hero' });
+        break;
+      }
+
+      case 'recipe-hero': {
+        const imageId = `recipe-hero-${block.id}`;
+        const query = blockContent.title || blockContent.headline || 'Vitamix recipe';
+        requests.push({ id: imageId, context: 'recipe', query, blockType: 'recipe-hero' });
+        break;
+      }
+
+      case 'recipe-grid': {
+        if (blockContent.recipes) {
+          for (let i = 0; i < blockContent.recipes.length; i++) {
+            const recipe = blockContent.recipes[i];
+            const query = recipe.title || 'Vitamix recipe';
+            requests.push({ id: `grid-recipe-${i}`, context: 'recipe', query, blockType: 'recipe-cards' });
+          }
+        }
+        break;
+      }
+
+      case 'technique-spotlight': {
+        const imageId = `technique-${block.id}`;
+        const query = blockContent.title || 'Vitamix technique';
+        requests.push({ id: imageId, context: 'lifestyle', query, blockType: 'cards' });
+        break;
+      }
+
+      case 'feature-highlights': {
+        if (blockContent.features) {
+          for (let i = 0; i < blockContent.features.length; i++) {
+            const feature = blockContent.features[i];
+            const query = feature.title || 'Vitamix feature';
+            requests.push({ id: `feature-highlights-${block.id}-${i}`, context: 'lifestyle', query, blockType: 'cards' });
+          }
+        }
+        break;
+      }
+
+      case 'included-accessories': {
+        if (blockContent.accessories) {
+          for (let i = 0; i < blockContent.accessories.length; i++) {
+            const accessory = blockContent.accessories[i];
+            const query = accessory.name || 'Vitamix accessory';
+            requests.push({ id: `included-accessories-${block.id}-${i}`, context: 'product', query, blockType: 'product-cards' });
+          }
+        }
+        break;
+      }
+
+      case 'troubleshooting-steps': {
+        if (blockContent.steps) {
+          for (let i = 0; i < blockContent.steps.length; i++) {
+            const step = blockContent.steps[i];
+            const query = step.title || 'Vitamix troubleshooting';
+            requests.push({ id: `step-${block.id}-${i}`, context: 'lifestyle', query, blockType: 'cards' });
+          }
+        }
+        break;
+      }
+
+      case 'product-recommendation': {
+        const imageId = `product-rec-${block.id}`;
+        const query = blockContent.productName || 'Vitamix blender';
+        requests.push({ id: imageId, context: 'product', query, blockType: 'product-cards' });
+        break;
+      }
+
+      // Blocks without images - no action needed
+      case 'text':
+      case 'cta':
+      case 'faq':
+      case 'benefits-grid':
+      case 'comparison-table':
+      case 'nutrition-table':
+      case 'specifications':
+      case 'reviews':
+      case 'warranty-info':
+        break;
+
+      default:
+        // Unknown block type - skip
+        break;
+    }
+  }
+
+  return requests;
+}
+
+/**
+ * Resolve images in background and emit image-ready events as each completes.
+ * All images are resolved in parallel for maximum speed.
+ */
+async function resolveImagesInBackground(
+  content: GeneratedContent,
+  ragContext: RAGContext,
+  env: Env,
+  onEvent: SSECallback
+): Promise<void> {
+  const requests = collectImageRequests(content);
+
+  if (requests.length === 0) {
+    console.log('[resolveImagesInBackground] No images to resolve');
+    return;
+  }
+
+  console.log(`[resolveImagesInBackground] Starting parallel resolution of ${requests.length} images`);
+
+  // Resolve all images in parallel, emit events as each completes
+  await Promise.all(requests.map(async (req) => {
+    try {
+      const image = await findBestImage(req.context, req.query, ragContext, env, req.blockType);
+      if (image) {
+        onEvent({
+          event: 'image-ready',
+          data: {
+            imageId: req.id,
+            url: image.url,
+            cropNeeded: image.cropNeeded || false,
+          },
+        });
+      }
+    } catch (err) {
+      console.error(`[resolveImagesInBackground] Failed to resolve image ${req.id}:`, err);
+      // Don't emit error - image will stay as placeholder
+    }
+  }));
+
+  console.log('[resolveImagesInBackground] All images resolved');
 }
 
 /**
@@ -1305,15 +1521,16 @@ function buildHeroHTML(content: any, variant: string, imageUrl: string | null, c
     ctaHtml = `<p><a href="${escapeHTML(buttonUrl)}" class="button"${exploreAttrs}>${escapeHTML(content.ctaText)}</a></p>`;
   }
 
-  // Build image HTML - either with resolved URL or skip if no image
+  // Build image HTML with data-gen-image for progressive loading
+  // When imageUrl is null, use placeholder with shimmer effect (CSS handles animation)
   // Add data-crop="true" if image needs CSS cropping (non-ideal aspect ratio)
   const cropAttr = cropNeeded ? ' data-crop="true"' : '';
-  const imageHtml = imageUrl
-    ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(content.headline)}" loading="lazy"${cropAttr}></picture></div>`
-    : ''; // No image - text-only hero variant
+  const imageSrc = imageUrl || PLACEHOLDER_IMAGE;
+  const genImageAttr = ' data-gen-image="hero"'; // Always include for SSE updates
+  const imageHtml = `<div><picture><img src="${imageSrc}" alt="${escapeHTML(content.headline)}" loading="lazy"${cropAttr}${genImageAttr}></picture></div>`;
 
   return `
-    <div class="hero${variant !== 'default' ? ` ${variant}` : ''}${!imageUrl ? ' text-only' : ''}">
+    <div class="hero${variant !== 'default' ? ` ${variant}` : ''}">
       <div>
         ${imageHtml}
         <div>
@@ -1358,10 +1575,11 @@ function buildHeroHTML(content: any, variant: string, imageUrl: string | null, c
  */
 function buildCardsHTML(content: any, variant: string, resolvedImages?: Map<string, ResolvedImage | null>): string {
   const cardsHtml = content.cards.map((card: any, i: number) => {
-    const imageUrl = getResolvedImageUrl(`card-${i}`, resolvedImages);
-    const imageHtml = imageUrl
-      ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(card.title)}" loading="lazy"></picture></div>`
-      : '<div></div>'; // Empty cell if no image
+    const imageId = `card-${i}`;
+    const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
+    // Use placeholder with data-gen-image for progressive loading
+    const imageSrc = imageUrl || PLACEHOLDER_IMAGE;
+    const imageHtml = `<div><picture><img src="${imageSrc}" alt="${escapeHTML(card.title)}" loading="lazy" data-gen-image="${imageId}"></picture></div>`;
 
     return `
       <div>
@@ -1411,15 +1629,15 @@ function buildColumnsHTML(content: any, variant: string, resolvedImages?: Map<st
   const columnsHtml = content.columns.map((col: any, i: number) => {
     let colContent = '';
 
-    // Try to get resolved image for this column
-    const imageUrl = getResolvedImageUrl(`col-${i}`, resolvedImages);
-    if (imageUrl) {
-      colContent += `
-        <picture>
-          <img src="${imageUrl}" alt="${escapeHTML(col.headline || '')}" loading="lazy">
-        </picture>
-      `;
-    }
+    // Always include image with data-gen-image for progressive loading
+    const imageId = `col-${i}`;
+    const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
+    const imageSrc = imageUrl || PLACEHOLDER_IMAGE;
+    colContent += `
+      <picture>
+        <img src="${imageSrc}" alt="${escapeHTML(col.headline || '')}" loading="lazy" data-gen-image="${imageId}">
+      </picture>
+    `;
 
     if (col.headline) {
       colContent += `<h3>${escapeHTML(col.headline)}</h3>`;
@@ -1662,10 +1880,9 @@ function buildSplitContentHTML(content: any, variant: string, blockId: string, r
     contentHtml += `<p>${ctaHtml}</p>`;
   }
 
-  // Build image HTML
-  const imageHtml = imageUrl
-    ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(content.headline)}" loading="lazy"></picture></div>`
-    : '<div></div>';
+  // Build image HTML with data-gen-image for progressive loading
+  const imageSrc = imageUrl || PLACEHOLDER_IMAGE;
+  const imageHtml = `<div><picture><img src="${imageSrc}" alt="${escapeHTML(content.headline)}" loading="lazy" data-gen-image="${imageId}"></picture></div>`;
 
   return `
     <div class="split-content${variant !== 'default' ? ` ${variant}` : ''}">
@@ -1762,12 +1979,12 @@ function buildRecipeCardsHTML(content: any, variant: string, resolvedImages?: Ma
     rowsHtml += `<div><div><h2>${escapeHTML(content.sectionTitle)}</h2></div></div>`;
   }
 
-  // Row 1: Images - each cell is one card's image
+  // Row 1: Images - each cell is one card's image (with data-gen-image for progressive loading)
   const imagesRow = recipes.map((recipe: any, i: number) => {
-    const imageUrl = getResolvedImageUrl(`recipe-${i}`, resolvedImages);
-    return imageUrl
-      ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(recipe.title)}" loading="lazy"></picture></div>`
-      : '<div></div>';
+    const imageId = `recipe-${i}`;
+    const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
+    const imageSrc = imageUrl || PLACEHOLDER_IMAGE;
+    return `<div><picture><img src="${imageSrc}" alt="${escapeHTML(recipe.title)}" loading="lazy" data-gen-image="${imageId}"></picture></div>`;
   }).join('');
   rowsHtml += `<div>${imagesRow}</div>`;
 
@@ -1827,13 +2044,12 @@ function buildProductCardsHTML(content: any, variant: string, blockId: string, r
   const rowsHtml = products.map((product: any, i: number) => {
     const imageId = `product-card-${blockId}-${i}`;
     const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
+    const imageSrc = imageUrl || PLACEHOLDER_IMAGE;
 
     const cells: string[] = [];
 
-    // Cell 1: Image
-    cells.push(imageUrl
-      ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(product.name)}" loading="lazy"></picture></div>`
-      : '<div></div>');
+    // Cell 1: Image with data-gen-image for progressive loading
+    cells.push(`<div><picture><img src="${imageSrc}" alt="${escapeHTML(product.name)}" loading="lazy" data-gen-image="${imageId}"></picture></div>`);
 
     // Cell 2: Product name (bold)
     cells.push(`<div><p><strong>${escapeHTML(product.name)}</strong></p></div>`);
@@ -1941,10 +2157,9 @@ function buildProductRecommendationHTML(content: any, variant: string, blockId: 
     contentHtml += `<p>${ctaHtml}</p>`;
   }
 
-  // Build image HTML
-  const imageHtml = imageUrl
-    ? `<div><picture><img src="${imageUrl}" alt="${escapeHTML(content.headline)}" loading="lazy"></picture></div>`
-    : '<div></div>';
+  // Build image HTML with data-gen-image for progressive loading
+  const imageSrc = imageUrl || PLACEHOLDER_IMAGE;
+  const imageHtml = `<div><picture><img src="${imageSrc}" alt="${escapeHTML(content.headline)}" loading="lazy" data-gen-image="${imageId}"></picture></div>`;
 
   return `
     <div class="product-recommendation${variant !== 'default' ? ` ${variant}` : ''}">
@@ -2472,10 +2687,10 @@ function buildProductHeroHTML(content: any, variant: string, blockId: string, im
   // Default generation hint if not provided
   const compareHint = content.compareGenerationHint || `compare ${productName} with similar Vitamix models`;
 
-  // Build image HTML
-  const imageHtml = imageUrl
-    ? `<div><picture><img loading="lazy" alt="${escapeHTML(productName)}" src="${imageUrl}"></picture></div>`
-    : '<div></div>';
+  // Build image HTML with data-gen-image for progressive loading
+  const imageId = `product-hero-${blockId}`;
+  const imageSrc = imageUrl || PLACEHOLDER_IMAGE;
+  const imageHtml = `<div><picture><img loading="lazy" alt="${escapeHTML(productName)}" src="${imageSrc}" data-gen-image="${imageId}"></picture></div>`;
 
   return `
     <div class="product-hero${variant !== 'default' ? ` ${variant}` : ''}">
@@ -2890,12 +3105,17 @@ function buildRecipeStepsHTML(content: any, variant: string, slug: string, block
   const stepsHtml = steps.map((step: any, i: number) => {
     const imageId = `recipe-step-${blockId}-${i}`;
     const imageUrl = getResolvedImageUrl(imageId, resolvedImages);
+    // Only add image placeholder if step has an imagePrompt (indicates image expected)
+    const imageSrc = imageUrl || PLACEHOLDER_IMAGE;
+    const imageHtml = step.imagePrompt
+      ? `<div><picture><img src="${imageSrc}" alt="Step ${i + 1}" loading="lazy" data-gen-image="${imageId}"></picture></div>`
+      : '';
 
     return `
         <div>
           <div><p><strong>Step ${i + 1}</strong></p></div>
           <div><p>${escapeHTML(step.instruction || '')}</p></div>
-          ${imageUrl ? `<div><picture><img src="${imageUrl}" alt="Step ${i + 1}" loading="lazy"></picture></div>` : ''}
+          ${imageHtml}
         </div>`;
   }).join('');
 
