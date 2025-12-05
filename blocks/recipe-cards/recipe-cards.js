@@ -48,7 +48,9 @@ export default function decorate(block) {
       const text = cell.textContent.trim();
 
       if (picture) {
-        cardData[idx].image = picture;
+        // Store the original img element (not picture) to preserve data-gen-image for progressive loading
+        const img = picture.querySelector('img');
+        cardData[idx].image = img || picture;
       } else if (strong) {
         cardData[idx].title = strong.textContent;
       } else if (link && !strong) {
@@ -79,11 +81,12 @@ export default function decorate(block) {
     }
     wrapper.className = 'recipe-card-inner';
 
-    // Image
+    // Image - use original element (not clone) to preserve data-gen-image for progressive loading
     if (card.image) {
       const imageDiv = document.createElement('div');
       imageDiv.className = 'recipe-card-image';
-      imageDiv.appendChild(card.image.cloneNode(true));
+      // Append original img element directly to preserve reference for image-ready updates
+      imageDiv.appendChild(card.image);
       wrapper.appendChild(imageDiv);
     }
 
