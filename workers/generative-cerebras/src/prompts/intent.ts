@@ -389,6 +389,28 @@ Query: "On a budget"
   }
 }
 
+### HYBRID QUERIES: Personal Context + Recipe Request
+When users provide personal context AND explicitly ask for recipes, prioritize recipes:
+| Query | Layout | Reason |
+|-------|--------|--------|
+| "I have 4 kids, give me ideas for sweet smoothies" | recipe-collection | Explicit recipe request takes priority |
+| "Busy mom needs quick breakfast smoothie recipes" | recipe-collection | Recipe request + personal context |
+| "Family of 6, what soups can I make?" | recipe-collection | Explicit "what can I make" = recipes |
+| "I have 4 kids" (no recipe words) | product-comparison | No recipe request = product recommendation |
+
+Query: "I have 4 kids, give me ideas for sweet smoothies"
+{
+  "intent_type": "recipe",
+  "confidence": 0.9,
+  "layout_id": "recipe-collection",
+  "content_types": ["recipe"],
+  "entities": {
+    "products": [],
+    "ingredients": [],
+    "goals": ["sweet smoothies", "kid-friendly", "family recipes"]
+  }
+}
+
 Query: "Show me your blender lineup"
 {
   "intent_type": "product_info",

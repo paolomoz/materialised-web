@@ -700,6 +700,32 @@ ${contextGuidance}
 - Avoid generic "about us" or company history content - this is a PRODUCT RECOMMENDATION page`;
   }
 
+  // Build session context section for conversational continuity
+  let sessionContextSection = '';
+  if (sessionContext?.previousQueries && sessionContext.previousQueries.length > 0) {
+    const prevQueries = sessionContext.previousQueries.slice(-5).map((q, i) => {
+      const details: string[] = [];
+      if (q.intent) details.push(`intent: ${q.intent}`);
+      if (q.entities?.ingredients?.length) details.push(`ingredients: ${q.entities.ingredients.join(', ')}`);
+      if (q.entities?.products?.length) details.push(`products: ${q.entities.products.join(', ')}`);
+      if (q.entities?.goals?.length) details.push(`goals: ${q.entities.goals.join(', ')}`);
+      return `${i + 1}. "${q.query}"${details.length > 0 ? ` (${details.join('; ')})` : ''}`;
+    }).join('\n');
+
+    sessionContextSection = `
+
+## IMPORTANT: Session Context (Previous Queries in This Conversation)
+The user has made the following queries earlier in this session:
+${prevQueries}
+
+**Conversational Continuity Requirements:**
+- Pronouns like "they", "it", "them" refer to entities mentioned in previous queries
+- Example: If previous query was "I have 4 kids" and current query is "they like red smoothies", then "they" = the 4 kids
+- Content MUST acknowledge and incorporate context from previous queries
+- Headlines and descriptions should reflect the COMBINED context (e.g., "Kid-Friendly Red Smoothies for Your Family")
+- Do NOT treat this as a standalone query - it's part of an ongoing conversation`;
+  }
+
   return `
 ## User Query
 "${query}"
@@ -712,7 +738,7 @@ ${contextGuidance}
 - Products mentioned: ${intent.entities.products.join(', ') || 'none'}
 - Ingredients mentioned: ${intent.entities.ingredients.join(', ') || 'none'}
 - User goals: ${intent.entities.goals.join(', ') || 'general exploration'}
-${userContextSection}
+${userContextSection}${sessionContextSection}
 
 ## LAYOUT TEMPLATE (FOLLOW EXACTLY)
 ${layoutSection}

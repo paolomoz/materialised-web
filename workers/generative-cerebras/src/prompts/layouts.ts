@@ -615,6 +615,23 @@ function matchesPatterns(text: string, patterns: RegExp[]): boolean {
 }
 
 /**
+ * Patterns indicating an explicit recipe request
+ * These override implicit product recommendations when user clearly wants recipes
+ */
+const EXPLICIT_RECIPE_PATTERNS = [
+  /\b(recipe|recipes)\b/i,
+  /\b(smoothie|smoothies|soup|soups|juice|juices)\s*(ideas?|collection|suggestions?)?/i,
+  /\b(ideas?|suggestions?)\s+(for|about)\s+(\w+\s+)?(smoothie|smoothies|soup|soups|juice|juices|recipe|recipes|breakfast|lunch|dinner|snack|meal)/i,
+  /give me\s+(some\s+)?(ideas?|suggestions?|recipes?)/i,
+  /\bwhat\s+(can|should)\s+I\s+(make|blend|cook|prepare)/i,
+  /\bhow\s+(do|can)\s+I\s+make\b/i,
+];
+
+function hasExplicitRecipeRequest(query: string): boolean {
+  return EXPLICIT_RECIPE_PATTERNS.some(pattern => pattern.test(query));
+}
+
+/**
  * Extract user context from implicit recommendation queries
  * Returns a description of WHY this is a recommendation query
  */
@@ -804,10 +821,16 @@ export function getLayoutForIntent(
     return { layout: LAYOUT_PRODUCT_DETAIL, userContext };
   }
 
-  // 1. NEW: Implicit recommendation queries → product-comparison
+  // 1. Implicit recommendation queries → product-comparison
   // Queries like "I have 4 kids", "I'm a busy mom", "beginner" etc.
   // These imply "help me choose" even without explicit comparison words
+  // UNLESS the user explicitly asks for recipes - then prioritize recipe-collection
   if (userContext.isImplicitRecommendation) {
+    // Check if query ALSO has explicit recipe request (e.g., "I have 4 kids, give me smoothie ideas")
+    if (originalQuery && hasExplicitRecipeRequest(originalQuery)) {
+      console.log(`[Layout] Hybrid query: personal context + recipe request "${originalQuery}" → recipe-collection`);
+      return { layout: LAYOUT_RECIPE_COLLECTION, userContext };
+    }
     console.log(`[Layout] Implicit recommendation detected: "${userContext.contextDescription}" → product-comparison`);
     return { layout: LAYOUT_PRODUCT_COMPARISON, userContext };
   }
