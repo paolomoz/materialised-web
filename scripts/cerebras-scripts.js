@@ -304,7 +304,152 @@ async function renderCerebrasPage() {
 }
 
 /**
- * Start generation - simply navigate to the generation page
+ * Transform current page into generation page when first block arrives
+ */
+async function transformToGenerationPage(query, slug, eventSource, initialBlocks) {
+  const main = document.querySelector('main');
+  if (!main) return;
+
+  const startTime = Date.now();
+
+  // Update URL without navigation
+  const newUrl = `/?cerebras=${encodeURIComponent(query)}`;
+  window.history.pushState({ cerebras: query }, '', newUrl);
+
+  // Replace page content
+  main.innerHTML = '<div id="generation-content"></div>';
+  const content = main.querySelector('#generation-content');
+
+  // Reset original blocks storage
+  originalBlocksData = [];
+
+  // Load cerebras CSS
+  await loadCSS('/styles/cerebras.css');
+
+  // Render initial blocks that arrived before page transform
+  for (const blockData of initialBlocks) {
+    originalBlocksData.push(blockData);
+    await renderBlockSection(blockData, content);
+  }
+
+  // Queue for pending image updates (handles race condition with block decoration)
+  const pendingImages = new Map();
+
+  // Function to apply image update
+  function applyImageUpdate(imageId, url, cropNeeded) {
+    const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
+    if (img && url) {
+      const cacheBustUrl = url.includes('?')
+        ? `${url}&_t=${Date.now()}`
+        : `${url}?_t=${Date.now()}`;
+
+      img.src = cacheBustUrl;
+      if (cropNeeded) img.dataset.crop = 'true';
+      img.classList.add('loaded');
+
+      const originalUrl = img.dataset.originalSrc;
+      if (originalUrl) {
+        originalBlocksData.forEach((block) => {
+          block.html = block.html.replace(
+            new RegExp(escapeRegExp(originalUrl), 'g'),
+            url,
+          );
+        });
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // Retry pending images periodically
+  const retryInterval = setInterval(() => {
+    if (pendingImages.size === 0) return;
+
+    pendingImages.forEach(({ url, cropNeeded, attempts }, imageId) => {
+      if (applyImageUpdate(imageId, url, cropNeeded)) {
+        console.log(`[Cerebras] Image applied (retry): ${imageId}`);
+        pendingImages.delete(imageId);
+      } else if (attempts >= 20) {
+        console.warn(`[Cerebras] Image not found after retries: ${imageId}`);
+        pendingImages.delete(imageId);
+      } else {
+        pendingImages.set(imageId, { url, cropNeeded, attempts: attempts + 1 });
+      }
+    });
+  }, 100);
+
+  // Continue listening for more blocks
+  eventSource.addEventListener('block-content', async (e) => {
+    const data = JSON.parse(e.data);
+    originalBlocksData.push(data);
+    await renderBlockSection(data, content);
+  });
+
+  // Handle image-ready events
+  eventSource.addEventListener('image-ready', (e) => {
+    const data = JSON.parse(e.data);
+    const { imageId, url, cropNeeded } = data;
+
+    console.log(`[Cerebras] Image ready: ${imageId}`);
+
+    if (!applyImageUpdate(imageId, url, cropNeeded)) {
+      pendingImages.set(imageId, { url, cropNeeded, attempts: 0 });
+    }
+  });
+
+  eventSource.addEventListener('generation-complete', (e) => {
+    eventSource.close();
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+
+    setTimeout(() => clearInterval(retryInterval), 2000);
+
+    console.log(`[Cerebras] Complete in ${totalTime}s`);
+
+    let intent = null;
+    if (e.data) {
+      try {
+        const data = JSON.parse(e.data);
+        intent = data.intent;
+      } catch {
+        // No intent data
+      }
+    }
+
+    SessionContextManager.addQuery({
+      query,
+      timestamp: Date.now(),
+      intent: intent?.intentType || 'general',
+      entities: intent?.entities || { products: [], ingredients: [], goals: [] },
+      generatedPath: `/discover/${slug}`,
+    });
+
+    console.log(`[Cerebras] Session context updated, total queries: ${SessionContextManager.getContext().queries.length}`);
+
+    const h1 = content.querySelector('h1');
+    if (h1) {
+      document.title = `${h1.textContent} | Vitamix`;
+    }
+
+    addPublishButton();
+  });
+
+  eventSource.addEventListener('error', (e) => {
+    if (e.data) {
+      const data = JSON.parse(e.data);
+      main.innerHTML = `
+        <div class="section cerebras-loading">
+          <h1>Something went wrong</h1>
+          <p style="color: #c00;">${data.message}</p>
+          <p><a href="/">Try again</a></p>
+        </div>
+      `;
+    }
+    eventSource.close();
+  });
+}
+
+/**
+ * Start generation - stream content before navigating
  */
 function startGeneration(query) {
   // Show loading state on any button that triggered this
@@ -332,8 +477,51 @@ function startGeneration(query) {
 
   console.log(`[Cerebras] Starting generation for query: "${query}"`);
 
-  // Navigate directly to generation page
-  window.location.href = `/?cerebras=${encodeURIComponent(query)}`;
+  // Start SSE stream immediately (don't navigate yet)
+  const slug = generateSlug(query);
+  const contextParam = SessionContextManager.buildEncodedContextParam();
+  const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}&ctx=${contextParam}`;
+  const eventSource = new EventSource(streamUrl);
+
+  let firstBlockReceived = false;
+  const pendingBlocks = [];
+
+  eventSource.addEventListener('block-content', (e) => {
+    const data = JSON.parse(e.data);
+    pendingBlocks.push(data);
+
+    // On first block, transform the page
+    if (!firstBlockReceived) {
+      firstBlockReceived = true;
+      transformToGenerationPage(query, slug, eventSource, pendingBlocks);
+    }
+  });
+
+  eventSource.addEventListener('error', (e) => {
+    if (e.data) {
+      const data = JSON.parse(e.data);
+      alert(`Generation failed: ${data.message}`);
+    }
+    eventSource.close();
+    // Re-enable UI
+    if (headerBtn) {
+      headerBtn.disabled = false;
+      headerBtn.innerHTML = '<span>EXPLORE</span>';
+    }
+    if (headerInput) headerInput.disabled = false;
+  });
+
+  eventSource.onerror = () => {
+    if (eventSource.readyState === EventSource.CLOSED && !firstBlockReceived) {
+      console.error('[Cerebras] SSE connection failed');
+      // Re-enable UI
+      if (headerBtn) {
+        headerBtn.disabled = false;
+        headerBtn.innerHTML = '<span>EXPLORE</span>';
+      }
+      if (headerInput) headerInput.disabled = false;
+    }
+  };
 }
 
 /**
