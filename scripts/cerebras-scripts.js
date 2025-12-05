@@ -17,9 +17,6 @@ import { SessionContextManager } from './session-context.js';
 // Cerebras worker URL
 const CEREBRAS_WORKER_URL = 'https://vitamix-generative-cerebras.paolo-moz.workers.dev';
 
-// Storage key for cached generation
-const CACHE_KEY = 'cerebras-generation-cache';
-
 // Store original block data for publishing (before decoration)
 let originalBlocksData = [];
 
@@ -82,12 +79,12 @@ async function renderBlockSection(blockData, container) {
   section.querySelectorAll('img[data-gen-image]').forEach((img) => {
     img.dataset.originalSrc = img.getAttribute('src');
 
-    // Add onload handler to show image when it loads (including via redirect fallback)
+    // Add onload handler to show image when it loads
     img.onload = () => {
       img.classList.add('loaded');
     };
 
-    // If image is already loaded (cached), add class immediately
+    // If image is already loaded, add class immediately
     if (img.complete && img.naturalWidth > 0) {
       img.classList.add('loaded');
     }
@@ -121,102 +118,7 @@ async function renderBlockSection(blockData, container) {
 }
 
 /**
- * Render the Cerebras generative page from cached content
- */
-async function renderCachedPage() {
-  const main = document.querySelector('main');
-  if (!main) return false;
-
-  const cached = sessionStorage.getItem(CACHE_KEY);
-  if (!cached) return false;
-
-  const { blocks, query, slug, startTime, expectedBlocks } = JSON.parse(cached);
-  sessionStorage.removeItem(CACHE_KEY);
-
-  console.log(`[Cerebras] Rendering ${blocks.length} cached blocks`);
-
-  main.innerHTML = '<div id="generation-content"></div>';
-  const content = main.querySelector('#generation-content');
-
-  // Store original blocks for publishing and render
-  originalBlocksData = [...blocks];
-  for (const blockData of blocks) {
-    await renderBlockSection(blockData, content);
-  }
-
-  // Update title
-  const h1 = content.querySelector('h1');
-  if (h1) {
-    document.title = `${h1.textContent} | Vitamix (Cerebras)`;
-  }
-
-  // Load images directly from data-pending-src attributes in cached HTML
-  // This avoids SSE reconnection which could return mismatched image IDs
-  // (the worker regenerates content on each SSE connection, and LLM may
-  // produce different block types, causing image ID mismatches)
-  const genImages = content.querySelectorAll('img[data-pending-src]');
-  console.log(`[Cerebras] Loading ${genImages.length} images from cached HTML`);
-
-  genImages.forEach((img) => {
-    let pendingSrc = img.dataset.pendingSrc;
-    if (!pendingSrc) return;
-
-    // Resolve relative URLs to absolute worker URLs
-    if (pendingSrc.startsWith('/')) {
-      pendingSrc = `${CEREBRAS_WORKER_URL}${pendingSrc}`;
-    }
-
-    // Cache-bust to ensure fresh load
-    const cacheBustUrl = pendingSrc.includes('?')
-      ? `${pendingSrc}&_t=${Date.now()}`
-      : `${pendingSrc}?_t=${Date.now()}`;
-
-    const imageId = img.dataset.genImage || 'unknown';
-
-    // Create new image to bypass cache
-    const imgParent = img.parentNode;
-    const newImg = document.createElement('img');
-    newImg.src = cacheBustUrl;
-    newImg.alt = img.alt || '';
-    newImg.className = img.className;
-    if (img.loading) newImg.loading = img.loading;
-    if (img.dataset.genImage) newImg.dataset.genImage = img.dataset.genImage;
-    newImg.classList.add('loaded');
-
-    // Handle load success
-    newImg.onload = () => {
-      console.log(`[Cerebras] Image loaded: ${imageId}`);
-    };
-
-    // Handle load error - log but don't break
-    newImg.onerror = () => {
-      console.warn(`[Cerebras] Image failed to load: ${imageId}`, pendingSrc.substring(0, 60));
-    };
-
-    if (imgParent) {
-      imgParent.replaceChild(newImg, img);
-    }
-  });
-
-  // Record query in session context
-  SessionContextManager.addQuery({
-    query,
-    timestamp: Date.now(),
-    intent: 'general',
-    entities: { products: [], ingredients: [], goals: [] },
-    generatedPath: `/discover/${slug}`,
-  });
-
-  console.log(`[Cerebras] Session context updated, total queries: ${SessionContextManager.getContext().queries.length}`);
-
-  // Show publish button
-  addPublishButton();
-
-  return true;
-}
-
-/**
- * Render the Cerebras generative page (fallback if no cache)
+ * Render the Cerebras generative page by streaming from SSE
  */
 async function renderCerebrasPage() {
   const main = document.querySelector('main');
@@ -224,22 +126,8 @@ async function renderCerebrasPage() {
 
   const params = new URLSearchParams(window.location.search);
   const query = params.get('cerebras');
+  if (!query) return;
 
-  // Check for cached content first
-  if (params.has('cached')) {
-    const rendered = await renderCachedPage();
-    if (rendered) return;
-  }
-
-  // No cache - start generation directly (for header search or direct navigation)
-  await renderWithSSE(query);
-}
-
-/**
- * Render page by streaming from SSE (used when no cache available)
- */
-async function renderWithSSE(query) {
-  const main = document.querySelector('main');
   const slug = generateSlug(query);
   const startTime = Date.now();
 
@@ -248,9 +136,6 @@ async function renderWithSSE(query) {
 
   // Reset original blocks storage for this generation
   originalBlocksData = [];
-
-  // Track intent from layout event for session recording
-  let intentData = null;
 
   // Build session context for the request
   const contextParam = SessionContextManager.buildEncodedContextParam();
@@ -266,6 +151,50 @@ async function renderWithSSE(query) {
     // Store original block data for publishing
     originalBlocksData.push(data);
     await renderBlockSection(data, content);
+  });
+
+  // Handle image-ready events - update image src when resolved
+  eventSource.addEventListener('image-ready', (e) => {
+    const data = JSON.parse(e.data);
+    const { imageId, url, cropNeeded } = data;
+
+    console.log(`[Cerebras] Image ready: ${imageId}`);
+
+    // Find the image with matching data-gen-image attribute
+    const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
+    if (img && url) {
+      // Cache-bust to ensure fresh load
+      const cacheBustUrl = url.includes('?')
+        ? `${url}&_t=${Date.now()}`
+        : `${url}?_t=${Date.now()}`;
+
+      // Create new image element to bypass browser's image cache
+      const imgParent = img.parentNode;
+      const newImg = document.createElement('img');
+      newImg.src = cacheBustUrl;
+      newImg.alt = img.alt || '';
+      newImg.className = img.className;
+      if (img.loading) newImg.loading = img.loading;
+      newImg.dataset.genImage = imageId;
+      if (cropNeeded) newImg.dataset.crop = 'true';
+      newImg.classList.add('loaded');
+
+      // Replace old image with new one
+      if (imgParent) {
+        imgParent.replaceChild(newImg, img);
+      }
+
+      // Also update the original blocks data for publishing
+      const originalUrl = img.dataset.originalSrc;
+      if (originalUrl) {
+        originalBlocksData.forEach((block) => {
+          block.html = block.html.replace(
+            new RegExp(escapeRegExp(originalUrl), 'g'),
+            url,
+          );
+        });
+      }
+    }
   });
 
   eventSource.addEventListener('generation-complete', (e) => {
@@ -302,7 +231,7 @@ async function renderWithSSE(query) {
       document.title = `${h1.textContent} | Vitamix (Cerebras)`;
     }
 
-    // Show publish button now that all images are ready
+    // Show publish button now that generation is complete
     addPublishButton();
   });
 
@@ -328,37 +257,14 @@ async function renderWithSSE(query) {
 }
 
 /**
- * Start generation from homepage using SSE streaming flow
- *
- * Flow:
- * 1. Start SSE connection to worker
- * 2. Cache blocks in sessionStorage as they arrive
- * 3. Navigate to /?cerebras=query&cached=1 after first block
- * 4. New page reads cache and renders immediately
+ * Start generation - simply navigate to the generation page
  */
-async function startGeneration(query) {
-  // Get UI elements - homepage form
-  const submitBtn = document.querySelector('#cerebras-form button[type="submit"]');
-  const input = document.getElementById('cerebras-query');
-
-  // Get UI elements - header search
+function startGeneration(query) {
+  // Show loading state on any button that triggered this
   const header = document.querySelector('header');
   const headerBtn = header ? header.querySelector('button') : null;
   const headerInput = header ? header.querySelector('input[type="text"], input[type="search"], input:not([type])') : null;
 
-  // Show loading state on homepage button
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = `
-      <div class="generating-spinner"></div>
-      <span>Generating...</span>
-    `;
-  }
-  if (input) {
-    input.disabled = true;
-  }
-
-  // Show loading state on header button
   if (headerBtn) {
     headerBtn.disabled = true;
     headerBtn.innerHTML = `
@@ -379,123 +285,8 @@ async function startGeneration(query) {
 
   console.log(`[Cerebras] Starting generation for query: "${query}"`);
 
-  const slug = generateSlug(query);
-  const startTime = Date.now();
-  const blocks = [];
-  let expectedBlocks = 0;
-  let hasNavigated = false;
-
-  // Build session context for the request
-  const contextParam = SessionContextManager.buildEncodedContextParam();
-
-  // Connect to SSE stream with session context
-  const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}&ctx=${contextParam}`;
-  const eventSource = new EventSource(streamUrl);
-
-  eventSource.addEventListener('layout', (e) => {
-    const data = JSON.parse(e.data);
-    expectedBlocks = data.blocks.length;
-    console.log(`[Cerebras] Layout: ${expectedBlocks} blocks`);
-  });
-
-  eventSource.addEventListener('block-content', (e) => {
-    const data = JSON.parse(e.data);
-    blocks.push(data);
-    console.log(`[Cerebras] Block ${blocks.length}/${expectedBlocks}: ${data.blockType}`);
-
-    // Navigate after first block arrives
-    if (!hasNavigated) {
-      hasNavigated = true;
-      // Store blocks in sessionStorage for the new page to read
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-        blocks,
-        query,
-        slug,
-        startTime,
-        expectedBlocks,
-      }));
-      // Navigate with cached flag
-      window.location.href = `/?cerebras=${encodeURIComponent(query)}&cached=1`;
-    } else {
-      // Update cache with new block
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-        blocks,
-        query,
-        slug,
-        startTime,
-        expectedBlocks,
-      }));
-    }
-  });
-
-  eventSource.addEventListener('error', (e) => {
-    // Ignore errors if we've already navigated (expected when page unloads)
-    if (hasNavigated) {
-      eventSource.close();
-      return;
-    }
-
-    let errorMessage = 'Something went wrong during generation.';
-    if (e.data) {
-      try {
-        const data = JSON.parse(e.data);
-        errorMessage = data.message || errorMessage;
-      } catch {
-        // Not JSON error
-      }
-    }
-    console.error('[Cerebras] Error:', errorMessage);
-    eventSource.close();
-
-    // Re-enable UI on error
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = `<span>Explore</span>`;
-    }
-    if (input) {
-      input.disabled = false;
-    }
-    if (headerBtn) {
-      headerBtn.disabled = false;
-      headerBtn.innerHTML = `<span>Explore</span>`;
-    }
-    if (headerInput) {
-      headerInput.disabled = false;
-    }
-    document.querySelectorAll('.suggestion-chip').forEach((chip) => {
-      chip.disabled = false;
-      chip.style.pointerEvents = '';
-      chip.style.opacity = '';
-    });
-    // eslint-disable-next-line no-alert
-    alert(`Error: ${errorMessage}`);
-  });
-
-  eventSource.onerror = () => {
-    if (eventSource.readyState === EventSource.CLOSED && !hasNavigated) {
-      console.error('[Cerebras] Connection closed before navigation');
-      // Re-enable UI
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = `<span>Explore</span>`;
-      }
-      if (input) {
-        input.disabled = false;
-      }
-      if (headerBtn) {
-        headerBtn.disabled = false;
-        headerBtn.innerHTML = `<span>Explore</span>`;
-      }
-      if (headerInput) {
-        headerInput.disabled = false;
-      }
-      document.querySelectorAll('.suggestion-chip').forEach((chip) => {
-        chip.disabled = false;
-        chip.style.pointerEvents = '';
-        chip.style.opacity = '';
-      });
-    }
-  };
+  // Navigate directly to generation page
+  window.location.href = `/?cerebras=${encodeURIComponent(query)}`;
 }
 
 /**
@@ -891,7 +682,6 @@ async function init() {
   if (isCerebrasGeneration()) {
     await loadCSS('/styles/cerebras.css');
     await renderCerebrasPage();
-    // Publish button will be added when generation-complete fires (all images loaded)
   } else {
     // Setup the form on the homepage
     setupCerebrasForm();
