@@ -185,10 +185,16 @@ async function renderCerebrasPage() {
   function applyImageUpdate(imageId, url, cropNeeded) {
     const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
     if (img && url) {
+      // Resolve relative URLs to absolute worker URLs
+      let resolvedUrl = url;
+      if (url.startsWith('/')) {
+        resolvedUrl = `${CEREBRAS_WORKER_URL}${url}`;
+      }
+
       // Cache-bust to ensure fresh load
-      const cacheBustUrl = url.includes('?')
-        ? `${url}&_t=${Date.now()}`
-        : `${url}?_t=${Date.now()}`;
+      const cacheBustUrl = resolvedUrl.includes('?')
+        ? `${resolvedUrl}&_t=${Date.now()}`
+        : `${resolvedUrl}?_t=${Date.now()}`;
 
       // Update src directly instead of replacing element
       img.src = cacheBustUrl;
@@ -201,7 +207,7 @@ async function renderCerebrasPage() {
         originalBlocksData.forEach((block) => {
           block.html = block.html.replace(
             new RegExp(escapeRegExp(originalUrl), 'g'),
-            url,
+            resolvedUrl,
           );
         });
       }
@@ -339,9 +345,15 @@ async function transformToGenerationPage(query, slug, eventSource, initialBlocks
   function applyImageUpdate(imageId, url, cropNeeded) {
     const img = content.querySelector(`img[data-gen-image="${imageId}"]`);
     if (img && url) {
-      const cacheBustUrl = url.includes('?')
-        ? `${url}&_t=${Date.now()}`
-        : `${url}?_t=${Date.now()}`;
+      // Resolve relative URLs to absolute worker URLs
+      let resolvedUrl = url;
+      if (url.startsWith('/')) {
+        resolvedUrl = `${CEREBRAS_WORKER_URL}${url}`;
+      }
+
+      const cacheBustUrl = resolvedUrl.includes('?')
+        ? `${resolvedUrl}&_t=${Date.now()}`
+        : `${resolvedUrl}?_t=${Date.now()}`;
 
       img.src = cacheBustUrl;
       if (cropNeeded) img.dataset.crop = 'true';
@@ -352,7 +364,7 @@ async function transformToGenerationPage(query, slug, eventSource, initialBlocks
         originalBlocksData.forEach((block) => {
           block.html = block.html.replace(
             new RegExp(escapeRegExp(originalUrl), 'g'),
-            url,
+            resolvedUrl,
           );
         });
       }

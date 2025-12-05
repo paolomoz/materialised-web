@@ -259,7 +259,7 @@ header nav .nav-search {
 
 /* Image quality toggle - subtle, right side of header */
 .nav-quality-toggle {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 6px;
   margin-left: auto;

@@ -5,17 +5,20 @@
  * - 'imagen': Google Imagen 3 via Vertex AI (~3-5s per image) - DEFAULT
  * - 'fal': FLUX Schnell via fal.ai (~0.8-1s per image, $0.003/megapixel)
  * - 'lora': FLUX Dev with Vitamix LoRA (~3-5s per image, brand-consistent)
+ * - 'zimage': Z-Image Turbo via fal.ai (~0.5-1s per image, $0.005/megapixel)
  *
  * Default: 'imagen' for high-quality images
  * Set IMAGE_PROVIDER='fal' for faster but lower quality
  * Set IMAGE_PROVIDER='lora' for brand-consistent images with custom LoRA
+ * Set IMAGE_PROVIDER='zimage' for ultra-fast generation with Z-Image Turbo
  */
 
 import type { Env, ImageRequest, GeneratedImage } from '../types';
 import { generateImagesWithImagen, decideImageStrategy } from './imagen';
 import { generateImagesWithFal, generateImagesWithFalLora } from './fal';
+import { generateImagesWithZImage } from './zimage';
 
-export type ImageProvider = 'fal' | 'lora' | 'imagen';
+export type ImageProvider = 'fal' | 'lora' | 'imagen' | 'zimage';
 
 /**
  * Generate images using the configured provider
@@ -40,6 +43,15 @@ export async function generateImages(
     hasFalKey: !!env.FAL_API_KEY,
     requestCount: requests.length,
   });
+
+  if (provider === 'zimage') {
+    if (!env.FAL_API_KEY) {
+      console.warn('[ImageRouter] FAL_API_KEY not configured, FALLING BACK to Imagen 3');
+      return generateImagesWithImagen(requests, slug, env);
+    }
+    console.log('[ImageRouter] ACTUALLY USING: Z-Image Turbo (fal.ai)');
+    return generateImagesWithZImage(requests, slug, env);
+  }
 
   if (provider === 'lora') {
     if (!env.FAL_API_KEY) {

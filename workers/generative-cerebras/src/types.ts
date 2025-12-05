@@ -32,8 +32,11 @@ export interface Env {
   // Optional configuration
   VERTEX_AI_REGION?: string;
 
-  // Image provider: 'fal' for FLUX Schnell, 'imagen' for Google Imagen 3
-  IMAGE_PROVIDER?: 'fal' | 'imagen';
+  // Image provider: 'fal' for FLUX Schnell, 'imagen' for Google Imagen 3, 'zimage' for Z-Image Turbo, 'lora' for FLUX LoRA
+  IMAGE_PROVIDER?: 'fal' | 'imagen' | 'zimage' | 'lora';
+
+  // Image mode: 'rag' for RAG-only (default), 'generate' for always generate with configured provider
+  IMAGE_MODE?: 'rag' | 'generate';
 
   // D1 database binding for adaptive-web (for image migration)
   ADAPTIVE_WEB_DB?: D1Database;

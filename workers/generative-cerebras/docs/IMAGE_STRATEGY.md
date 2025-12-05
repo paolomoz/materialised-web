@@ -2,6 +2,74 @@
 
 This document outlines the current state of image handling in the generative system and strategies for better leveraging existing Vitamix images instead of generating new ones.
 
+---
+
+## Quick Reference: Switching Between RAG and Generated Images
+
+The system supports two image modes controlled by environment variables in `wrangler.toml`:
+
+### Always Generate Images (Current Default)
+
+```toml
+IMAGE_MODE = "generate"
+IMAGE_PROVIDER = "zimage"  # Fastest option: Z-Image Turbo via fal.ai
+```
+
+This configuration:
+- Generates fresh images for every block using AI
+- Bypasses all RAG/index lookups
+- Uses Z-Image Turbo (~0.5-1s per image, $0.005/megapixel)
+
+### Always Use RAG Images (To Switch Back)
+
+```toml
+IMAGE_MODE = "rag"
+# IMAGE_PROVIDER is ignored in RAG mode
+```
+
+This configuration:
+- Uses existing images from RAG chunks, image index, and product maps
+- Falls back to placeholders if no image found (no generation)
+- Fastest option when images are already indexed
+
+### Available Image Providers
+
+When `IMAGE_MODE="generate"`, choose a provider:
+
+| Provider | Speed | Cost | Quality | Notes |
+|----------|-------|------|---------|-------|
+| `zimage` | ~0.5-1s | $0.005/MP | High | **Recommended** - Z-Image Turbo via fal.ai |
+| `fal` | ~0.8-1s | $0.003/MP | Medium | FLUX Schnell via fal.ai |
+| `lora` | ~3-5s | $0.003/MP | High | FLUX Dev with Vitamix LoRA (brand-consistent) |
+| `imagen` | ~3-5s | N/A | Highest | Google Imagen 3 via Vertex AI |
+
+### Configuration Examples
+
+**Fast generation with Z-Image Turbo:**
+```toml
+IMAGE_MODE = "generate"
+IMAGE_PROVIDER = "zimage"
+```
+
+**Brand-consistent generation with LoRA:**
+```toml
+IMAGE_MODE = "generate"
+IMAGE_PROVIDER = "lora"
+```
+
+**Highest quality with Google Imagen 3:**
+```toml
+IMAGE_MODE = "generate"
+IMAGE_PROVIDER = "imagen"
+```
+
+**Disable generation, use only existing images:**
+```toml
+IMAGE_MODE = "rag"
+```
+
+---
+
 ## Problem Statement
 
 1. **Product images must be accurate** - AI-generated product images could be inaccurate/off-brand

@@ -11,10 +11,10 @@ import type {
 } from '../types';
 import { classifyIntent, generateContent, validateBrandCompliance } from '../ai-clients/cerebras';
 import { analyzeQuery } from '../ai-clients/gemini';
-// RAG_ONLY_IMAGES mode: Image generation is disabled, all images resolved from RAG
-// Keeping ImageProvider type for compatibility with OrchestratorContext
-// generateImages and decideImageStrategy are no longer used
-import { type ImageProvider } from '../ai-clients/image-router';
+// IMAGE_MODE controls whether images come from RAG or are always generated
+// - 'rag' (default): Uses RAG lookup, image index, and product maps
+// - 'generate': Always generates images using configured IMAGE_PROVIDER (e.g., 'zimage')
+import { generateImages, type ImageProvider } from '../ai-clients/image-router';
 import { smartRetrieve, findProductImage, findBestImage, type ImageContext, type ImageLookupResult } from './rag';
 import { getLayoutForIntent, adjustLayoutForRAGContent, templateToLayoutDecision, type LayoutTemplate, type LayoutSelectionResult } from '../prompts/layouts';
 import { validateContentSafety, type ContentSafetyResult } from './content-safety';
@@ -203,9 +203,21 @@ export async function orchestrate(
     console.log('[Orchestrator] Streaming content with placeholder images');
     await streamBlockContent(ctx.content, layout, ctx.slug, onEvent, ctx.ragContext, new Map());
 
-    // Stage 5b: Resolve images in BACKGROUND (parallel)
-    // Images are resolved after content is visible, emitting image-ready events
-    const imageResolutionPromise = resolveImagesInBackground(ctx.content, ragContext, env, onEvent);
+    // Stage 5b: Resolve or generate images in BACKGROUND (parallel)
+    // IMAGE_MODE controls whether images come from RAG or are always generated
+    // - 'rag' (default): Uses RAG lookup, image index, and product maps
+    // - 'generate': Always generates images using configured IMAGE_PROVIDER
+    const imageMode = env.IMAGE_MODE || 'rag';
+    console.log(`[Orchestrator] Image mode: ${imageMode}, provider: ${imageProvider || env.IMAGE_PROVIDER || 'default'}`);
+
+    let imageResolutionPromise: Promise<void>;
+    if (imageMode === 'generate') {
+      // Always generate images - bypass all RAG lookup
+      imageResolutionPromise = generateImagesInBackground(ctx.content, ctx.slug, env, onEvent, imageProvider);
+    } else {
+      // RAG mode - resolve from existing images (default)
+      imageResolutionPromise = resolveImagesInBackground(ctx.content, ragContext, env, onEvent);
+    }
 
     // Initialize empty images array (will be populated after resolution)
     ctx.images = [];
@@ -523,6 +535,314 @@ async function resolveImagesInBackground(
   }));
 
   console.log('[resolveImagesInBackground] All images resolved');
+}
+
+/**
+ * Generate all images using AI (no RAG lookup) and emit image-ready events.
+ * Used when IMAGE_MODE='generate' to always generate fresh images.
+ *
+ * This bypasses all RAG/index lookup and generates images for every block
+ * using the configured IMAGE_PROVIDER (e.g., 'zimage' for Z-Image Turbo).
+ */
+async function generateImagesInBackground(
+  content: GeneratedContent,
+  slug: string,
+  env: Env,
+  onEvent: SSECallback,
+  imageProvider?: ImageProvider
+): Promise<void> {
+  // Build image generation requests from content blocks
+  const requests = buildImageRequestsForGeneration(content);
+
+  if (requests.length === 0) {
+    console.log('[generateImagesInBackground] No images to generate');
+    return;
+  }
+
+  console.log(`[generateImagesInBackground] Generating ${requests.length} images with provider: ${imageProvider || env.IMAGE_PROVIDER || 'default'}`);
+
+  try {
+    // Generate all images using the configured provider
+    const generatedImages = await generateImages(requests, slug, env, imageProvider);
+
+    // Emit image-ready events for each generated image
+    for (const image of generatedImages) {
+      onEvent({
+        event: 'image-ready',
+        data: {
+          imageId: image.id,
+          url: image.url,
+          cropNeeded: false,
+        },
+      });
+    }
+
+    console.log(`[generateImagesInBackground] Successfully generated ${generatedImages.length} images`);
+  } catch (err) {
+    console.error('[generateImagesInBackground] Image generation failed:', err);
+    // Images will stay as placeholders
+  }
+}
+
+/**
+ * Build image generation requests from content blocks.
+ * Similar to buildImageRequests but without RAG context checks.
+ */
+function buildImageRequestsForGeneration(content: GeneratedContent): ImageRequest[] {
+  const requests: ImageRequest[] = [];
+
+  for (const block of content.blocks) {
+    const blockContent = block.content as any;
+
+    switch (block.type) {
+      case 'hero':
+        requests.push({
+          id: 'hero',
+          blockId: block.id,
+          prompt: blockContent.imagePrompt || `Hero image for ${blockContent.headline || 'Vitamix blending lifestyle'}`,
+          aspectRatio: '5:2',
+          size: 'hero',
+        });
+        break;
+
+      case 'cards':
+        if (blockContent.cards) {
+          blockContent.cards.forEach((card: any, i: number) => {
+            requests.push({
+              id: `card-${i}`,
+              blockId: block.id,
+              prompt: card.imagePrompt || `Image for ${card.title || 'Vitamix feature'}`,
+              aspectRatio: '4:3',
+              size: 'card',
+            });
+          });
+        }
+        break;
+
+      case 'product-cards':
+        if (blockContent.products) {
+          blockContent.products.forEach((product: any, i: number) => {
+            requests.push({
+              id: `product-card-${block.id}-${i}`,
+              blockId: block.id,
+              prompt: product.imagePrompt || `Vitamix ${product.name || 'blender'} product photo on neutral background`,
+              aspectRatio: '1:1',
+              size: 'card',
+            });
+          });
+        }
+        break;
+
+      case 'columns':
+        if (blockContent.columns) {
+          blockContent.columns.forEach((col: any, i: number) => {
+            requests.push({
+              id: `col-${i}`,
+              blockId: block.id,
+              prompt: col.imagePrompt || `Image for ${col.headline || 'Vitamix feature column'}`,
+              aspectRatio: '3:2',
+              size: 'column',
+            });
+          });
+        }
+        break;
+
+      case 'split-content':
+        requests.push({
+          id: `split-content-${block.id}`,
+          blockId: block.id,
+          prompt: blockContent.imagePrompt || `Image for ${blockContent.headline || 'Vitamix lifestyle'}`,
+          aspectRatio: '4:3',
+          size: 'card',
+        });
+        break;
+
+      case 'recipe-cards':
+        if (blockContent.recipes) {
+          blockContent.recipes.forEach((recipe: any, i: number) => {
+            requests.push({
+              id: `recipe-${i}`,
+              blockId: block.id,
+              prompt: recipe.imagePrompt || `Appetizing ${recipe.title || 'Vitamix recipe'} food photography`,
+              aspectRatio: '4:3',
+              size: 'card',
+            });
+          });
+        }
+        break;
+
+      case 'recipe-grid':
+        if (blockContent.recipes) {
+          blockContent.recipes.forEach((recipe: any, i: number) => {
+            requests.push({
+              id: `grid-recipe-${i}`,
+              blockId: block.id,
+              prompt: recipe.imagePrompt || `Appetizing ${recipe.title || 'Vitamix recipe'} food photography`,
+              aspectRatio: '4:3',
+              size: 'card',
+            });
+          });
+        }
+        break;
+
+      case 'product-hero':
+        requests.push({
+          id: `product-hero-${block.id}`,
+          blockId: block.id,
+          prompt: blockContent.imagePrompt || `Vitamix ${blockContent.productName || 'blender'} product shot on neutral gray background`,
+          aspectRatio: '1:1',
+          size: 'card',
+        });
+        break;
+
+      case 'recipe-hero':
+      case 'recipe-hero-detail':
+        requests.push({
+          id: `recipe-hero-${block.id}`,
+          blockId: block.id,
+          prompt: blockContent.imagePrompt || `Appetizing ${blockContent.title || blockContent.recipeName || 'finished dish'} food photography`,
+          aspectRatio: '16:9',
+          size: 'hero',
+        });
+        break;
+
+      case 'technique-spotlight':
+        requests.push({
+          id: `technique-${block.id}`,
+          blockId: block.id,
+          prompt: blockContent.imagePrompt || `Vitamix ${blockContent.title || 'technique'} demonstration`,
+          aspectRatio: '4:3',
+          size: 'card',
+        });
+        break;
+
+      case 'feature-highlights':
+        if (blockContent.features) {
+          blockContent.features.forEach((feature: any, i: number) => {
+            requests.push({
+              id: `feature-highlights-${block.id}-${i}`,
+              blockId: block.id,
+              prompt: feature.imagePrompt || `Vitamix feature: ${feature.title || 'blender capability'}`,
+              aspectRatio: '3:2',
+              size: 'card',
+            });
+          });
+        }
+        break;
+
+      case 'included-accessories':
+        if (blockContent.accessories) {
+          blockContent.accessories.forEach((acc: any, i: number) => {
+            requests.push({
+              id: `included-accessories-${block.id}-${i}`,
+              blockId: block.id,
+              prompt: acc.imagePrompt || `Vitamix accessory: ${acc.name || 'blender accessory'} product photo`,
+              aspectRatio: '1:1',
+              size: 'thumbnail',
+            });
+          });
+        }
+        break;
+
+      case 'troubleshooting-steps':
+        if (blockContent.steps) {
+          blockContent.steps.forEach((step: any, i: number) => {
+            requests.push({
+              id: `step-${block.id}-${i}`,
+              blockId: block.id,
+              prompt: step.imagePrompt || `Vitamix troubleshooting step: ${step.title || 'repair process'}`,
+              aspectRatio: '4:3',
+              size: 'card',
+            });
+          });
+        }
+        break;
+
+      case 'product-recommendation':
+        requests.push({
+          id: `product-rec-${block.id}`,
+          blockId: block.id,
+          prompt: blockContent.imagePrompt || `Vitamix ${blockContent.productName || 'blender'} product photo`,
+          aspectRatio: '1:1',
+          size: 'card',
+        });
+        break;
+
+      case 'testimonials':
+        if (blockContent.testimonials) {
+          blockContent.testimonials.forEach((testimonial: any, i: number) => {
+            requests.push({
+              id: `testimonial-${block.id}-${i}`,
+              blockId: block.id,
+              prompt: testimonial.imagePrompt || `Professional headshot portrait of ${testimonial.name || 'satisfied customer'}`,
+              aspectRatio: '1:1',
+              size: 'card',
+            });
+          });
+        }
+        break;
+
+      case 'team-cards':
+        if (blockContent.members) {
+          blockContent.members.forEach((member: any, i: number) => {
+            requests.push({
+              id: `team-${block.id}-${i}`,
+              blockId: block.id,
+              prompt: member.imagePrompt || `Professional corporate headshot of ${member.name || 'team member'}`,
+              aspectRatio: '1:1',
+              size: 'card',
+            });
+          });
+        }
+        break;
+
+      case 'recipe-steps':
+        if (blockContent.steps) {
+          blockContent.steps.forEach((step: any, i: number) => {
+            requests.push({
+              id: `recipe-step-${block.id}-${i}`,
+              blockId: block.id,
+              prompt: step.imagePrompt || `Recipe step ${i + 1}: ${step.title || step.instruction?.substring(0, 50) || 'cooking process'}`,
+              aspectRatio: '4:3',
+              size: 'card',
+            });
+          });
+        }
+        break;
+
+      // UI-only blocks that don't have images - skip
+      case 'text':
+      case 'cta':
+      case 'faq':
+      case 'benefits-grid':
+      case 'tips-banner':
+      case 'ingredient-search':
+      case 'recipe-filter-bar':
+      case 'quick-view-modal':
+      case 'support-hero':
+      case 'diagnosis-card':
+      case 'support-cta':
+      case 'comparison-table':
+      case 'use-case-cards':
+      case 'verdict-card':
+      case 'comparison-cta':
+      case 'specs-table':
+      case 'product-cta':
+      case 'ingredients-list':
+      case 'nutrition-facts':
+      case 'recipe-tips':
+      case 'countdown-timer':
+      case 'timeline':
+        break;
+
+      default:
+        // Skip unknown block types
+        console.log(`[buildImageRequestsForGeneration] Skipping unknown block type: ${block.type}`);
+        break;
+    }
+  }
+
+  return requests;
 }
 
 /**
