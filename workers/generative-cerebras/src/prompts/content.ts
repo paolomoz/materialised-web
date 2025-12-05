@@ -593,6 +593,36 @@ Return a JSON object with this structure:
 - Primary CTA should include price
 - Secondary and tertiary CTAs for additional actions
 
+## CTA Generation Guidelines (Explore CTAs)
+
+When generating CTAs with type "explore" (that trigger new page generation), follow these logical user journey flows:
+
+### Valid CTA Targets by Current Layout
+
+| Current Layout | Valid Next Layouts | Example Hints |
+|---------------|-------------------|---------------|
+| lifestyle | recipe-collection, category-browse, use-case-landing, educational, product-detail | "Explore healthy smoothie recipes", "Browse our blender lineup" |
+| quick-answer | product-detail, support, educational, category-browse | "Learn more about this model", "Get help with your Vitamix" |
+| educational | recipe-collection, product-detail, category-browse, use-case-landing | "Try these recipes", "See the recommended blender" |
+| category-browse | product-detail, product-comparison | "Learn more about the A3500", "Compare these models" |
+| recipe-collection | use-case-landing, product-detail, recipe-collection | "Make this your daily habit", "Get the right blender" |
+| product-detail | product-comparison, recipe-collection, support, category-browse | "Compare with other models", "Recipes for this blender" |
+| product-comparison | product-detail | "Learn more about the {winner}", "Deep dive into {product}" |
+| use-case-landing | product-detail, recipe-collection | "Get the recommended blender", "Explore more recipes" |
+| support | educational, product-detail | "Preventive care tips", "Consider an upgrade" |
+| promotional | product-detail, product-comparison, category-browse | "See this deal", "Compare sale items" |
+
+### CTA Hint Requirements
+- \`generationHint\` should describe the user's NEXT intent, not the current page
+- Hints should be natural language queries that make sense as follow-up questions
+- Include product/category context when relevant (e.g., "Recipes for the A3500" not just "See recipes")
+- Keep hints concise (5-10 words)
+
+### Invalid Flows (AVOID)
+- Going backwards in journey (product-comparison → lifestyle)
+- Mismatched tone (support → promotional)
+- Information downgrade (product-detail → quick-answer)
+
 ## Critical Instructions
 
 1. **FOLLOW THE LAYOUT**: Match the exact structure specified in the layout template.
@@ -620,6 +650,97 @@ Return a JSON object with this structure:
    - "highlight": Light gray background section
    - "dark": Dark background with white text
 `;
+
+/**
+ * CTA Layout Flow Matrix
+ * Defines valid "explore" CTA targets for each layout with example hints.
+ * Mostly forward in the user journey, with logical exceptions.
+ */
+export const CTA_LAYOUT_FLOWS: Record<string, {
+  validTargets: string[];
+  exampleHints: Record<string, string[]>;
+}> = {
+  'lifestyle': {
+    validTargets: ['recipe-collection', 'category-browse', 'use-case-landing', 'educational', 'product-detail'],
+    exampleHints: {
+      'recipe-collection': ['Explore healthy smoothie recipes', 'Discover whole-food recipes'],
+      'category-browse': ['Browse our blender lineup', 'Explore Vitamix products'],
+      'use-case-landing': ['Start your morning smoothie routine', 'Meal prep made easy'],
+      'educational': ['Learn blending techniques', 'How to get started with whole foods'],
+      'product-detail': ['Discover the Vitamix A3500', 'Meet the Ascent Series'],
+    }
+  },
+  'quick-answer': {
+    validTargets: ['product-detail', 'support', 'educational', 'category-browse'],
+    exampleHints: {
+      'product-detail': ['Learn more about this model', 'See full product details'],
+      'support': ['Get help with your Vitamix', 'Contact our support team'],
+      'educational': ['Learn how to use this feature', 'See our how-to guides'],
+      'category-browse': ['Browse all products', 'Explore our lineup'],
+    }
+  },
+  'educational': {
+    validTargets: ['recipe-collection', 'product-detail', 'category-browse', 'use-case-landing'],
+    exampleHints: {
+      'recipe-collection': ['Try these recipes', 'Put your skills to use'],
+      'product-detail': ['See the recommended blender', 'Equipment for this technique'],
+      'category-browse': ['Find the right Vitamix', 'Browse products for this use'],
+      'use-case-landing': ['Make this part of your routine', 'Daily blending habits'],
+    }
+  },
+  'category-browse': {
+    validTargets: ['product-detail', 'product-comparison'],
+    exampleHints: {
+      'product-detail': ['Learn more about the {product}', 'See full details'],
+      'product-comparison': ['Compare these models', 'See how they stack up'],
+    }
+  },
+  'recipe-collection': {
+    validTargets: ['use-case-landing', 'product-detail', 'recipe-collection'],
+    exampleHints: {
+      'use-case-landing': ['Make this your daily habit', 'Build a smoothie routine'],
+      'product-detail': ['Get the right blender for these recipes', 'Recommended equipment'],
+      'recipe-collection': ['Explore more {category} recipes', 'Filter by ingredients'],
+    }
+  },
+  'product-detail': {
+    validTargets: ['product-comparison', 'recipe-collection', 'support', 'category-browse'],
+    exampleHints: {
+      'product-comparison': ['Compare with other models', 'See how it stacks up'],
+      'recipe-collection': ['Recipes perfect for this blender', 'What you can make'],
+      'support': ['Get help with your {product}', 'Troubleshooting guides'],
+      'category-browse': ['Explore accessories', 'See compatible containers'],
+    }
+  },
+  'product-comparison': {
+    validTargets: ['product-detail'],
+    exampleHints: {
+      'product-detail': ['Learn more about the {product}', 'Deep dive into {product}'],
+    }
+  },
+  'use-case-landing': {
+    validTargets: ['product-detail', 'recipe-collection'],
+    exampleHints: {
+      'product-detail': ['Get the recommended blender', 'See the {product}'],
+      'recipe-collection': ['Explore more recipes for this routine', 'Find new recipes'],
+    }
+  },
+  'support': {
+    validTargets: ['educational', 'product-detail'],
+    exampleHints: {
+      'educational': ['Preventive care tips', 'Maintenance guides'],
+      'product-detail': ['Consider an upgrade', 'Explore replacement options'],
+    }
+  },
+  'promotional': {
+    validTargets: ['product-detail', 'product-comparison', 'category-browse'],
+    exampleHints: {
+      'product-detail': ['See this deal', 'Learn about {product}'],
+      'product-comparison': ['Compare sale items', 'Find your best value'],
+      'category-browse': ['Browse all deals', 'Shop the sale'],
+    }
+  },
+};
 
 /** User context for implicit recommendations */
 interface UserContext {
@@ -738,6 +859,7 @@ ${prevQueries}
 - Products mentioned: ${intent.entities.products.join(', ') || 'none'}
 - Ingredients mentioned: ${intent.entities.ingredients.join(', ') || 'none'}
 - User goals: ${intent.entities.goals.join(', ') || 'general exploration'}
+- **Current layout**: ${layout.id} (valid explore CTAs: ${CTA_LAYOUT_FLOWS[layout.id]?.validTargets.join(', ') || 'any'})
 ${userContextSection}${sessionContextSection}
 
 ## LAYOUT TEMPLATE (FOLLOW EXACTLY)
