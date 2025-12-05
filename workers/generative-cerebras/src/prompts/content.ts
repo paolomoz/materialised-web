@@ -63,7 +63,7 @@ Return a JSON object with this structure:
     "headline": "string",
     "subheadline": "string",
     "ctaText": "string (optional)",
-    "ctaUrl": "string (optional)",
+    "generationHint": "string (required if ctaText provided - query for next page)",
     "imagePrompt": "string (describe ideal image for generation)"
   }
 }
@@ -81,7 +81,7 @@ Return a JSON object with this structure:
         "imagePrompt": "string",
         "meta": "string (optional, like 'Simple • 5 min')",
         "linkText": "string (optional)",
-        "linkUrl": "string (optional)"
+        "generationHint": "string (required if linkText provided - query for next page)"
       }
     ]
   }
@@ -118,9 +118,9 @@ Return a JSON object with this structure:
     "price": "string (optional, like '$449.95')",
     "priceNote": "string (optional, like '10-Year Warranty')",
     "primaryCtaText": "string",
-    "primaryCtaUrl": "string",
+    "primaryGenerationHint": "string (REQUIRED - query for next page)",
     "secondaryCtaText": "string (optional)",
-    "secondaryCtaUrl": "string (optional)",
+    "secondaryGenerationHint": "string (required if secondaryCtaText provided)",
     "imagePrompt": "string"
   }
 }
@@ -141,11 +141,16 @@ Return a JSON object with this structure:
     "headline": "string",
     "text": "string (optional)",
     "buttonText": "string",
-    "buttonUrl": "string",
+    "generationHint": "string (REQUIRED - natural language query describing the next page to generate)",
     "secondaryButtonText": "string (optional)",
-    "secondaryButtonUrl": "string (optional)"
+    "secondaryGenerationHint": "string (required if secondaryButtonText is provided)"
   }
 }
+
+**CTA Block Notes:**
+- ALL CTAs are generative - they trigger new page generation, not external links
+- generationHint should be a natural language query (e.g., "Show me smoothie recipes", "Compare Vitamix blenders")
+- Follow the CTA Layout Flow rules for valid next-step hints
 
 ### FAQ Block
 {
@@ -191,7 +196,7 @@ Return a JSON object with this structure:
         "imagePrompt": "string (describe the finished dish)",
         "difficulty": "string (Simple, Easy, Intermediate, Advanced)",
         "time": "string (like '5 min', '20 min')",
-        "linkUrl": "string (optional recipe page URL)"
+        "generationHint": "string (optional - e.g., 'Show me the Green Power Smoothie recipe')"
       }
     ]
   }
@@ -200,6 +205,7 @@ Return a JSON object with this structure:
 **Recipe Cards Notes:**
 - Used on use-case landing pages to showcase relevant recipes
 - Always include difficulty and time for each recipe
+- Each recipe card can link to a detailed recipe page via generationHint
 - Image prompts should describe the finished dish in appetizing detail
 
 ### Product Recommendation Block (Use Case Landing pages)
@@ -212,16 +218,17 @@ Return a JSON object with this structure:
     "body": "string (why this product is recommended for the use case)",
     "price": "string (like '$649.95')",
     "priceNote": "string (like '10-Year Warranty')",
-    "primaryCtaText": "string (like 'Shop Now')",
-    "primaryCtaUrl": "string",
-    "secondaryCtaText": "string (optional, like 'Learn More')",
-    "secondaryCtaUrl": "string (optional)",
+    "primaryCtaText": "string (like 'Learn More About A3500')",
+    "primaryGenerationHint": "string (REQUIRED - e.g., 'Tell me more about the Vitamix A3500')",
+    "secondaryCtaText": "string (optional, like 'Compare Models')",
+    "secondaryGenerationHint": "string (required if secondaryCtaText provided)",
     "imagePrompt": "string (product in lifestyle setting)"
   }
 }
 
 **Product Recommendation Notes:**
 - Use on use-case landing pages to recommend a specific product
+- ALL CTAs are generative - use generationHint to describe the next page
 - Eyebrow should explain WHY this product fits the use case
 - Body should connect product features to user's goals
 - Always include price from RAG context if available
@@ -286,7 +293,7 @@ Return a JSON object with this structure:
         "difficultyLevel": number (1-5),
         "time": "string (like '5 min', '20 min')",
         "ingredients": ["string", ...] (key ingredients for filtering),
-        "linkUrl": "string (recipe page URL)"
+        "generationHint": "string (e.g., 'Show me the Berry Blast Smoothie recipe')"
       }
     ]
   }
@@ -294,9 +301,10 @@ Return a JSON object with this structure:
 
 **Recipe Grid Notes:**
 - Filterable grid with favorites toggle (localStorage persistence)
-- Click card to open quick-view-modal
+- Click card to open quick-view-modal or generate detailed recipe page
 - difficultyLevel (1-5) used for slider filtering
 - ingredients array used for AI-powered search matching
+- generationHint triggers detailed recipe page generation
 
 ### Quick View Modal Block (Recipe Collection pages)
 {
@@ -321,7 +329,7 @@ Return a JSON object with this structure:
     "tips": ["string", ...] (3-5 numbered tips),
     "videoUrl": "string (optional, link to video)",
     "imagePrompt": "string (if no video, describe technique visual)",
-    "linkUrl": "string (optional, link to learn more)",
+    "generationHint": "string (optional - e.g., 'Learn the layering technique in depth')",
     "linkText": "string (optional, default 'Learn More')"
   }
 }
@@ -331,6 +339,7 @@ Return a JSON object with this structure:
 - Use videoUrl for video content, imagePrompt for static images
 - Tips displayed as numbered list with animations
 - Dark theme by default, use 'light' variant for light backgrounds
+- generationHint triggers an educational page about the technique
 
 ### Support Hero Block (Support/Troubleshooting pages)
 {
@@ -397,9 +406,9 @@ Return a JSON object with this structure:
   "content": {
     "ctas": [
       {
-        "title": "string (button title like 'Contact Support')",
+        "title": "string (button title like 'Get More Help')",
         "description": "string (supporting text like 'Still need help? We're here.')",
-        "url": "string (destination URL)",
+        "generationHint": "string (REQUIRED - query for next page, e.g., 'Contact Vitamix support')",
         "style": "string (primary | secondary)"
       }
     ]
@@ -407,10 +416,11 @@ Return a JSON object with this structure:
 }
 
 **Support CTA Notes:**
-- Always provide exactly 2 CTAs: one primary (contact), one secondary (parts/resources)
-- Primary should be for human support escalation
-- Secondary should be for self-service (parts, warranty, etc.)
-- Descriptions should be encouraging and helpful
+- Always provide exactly 2 CTAs: one primary, one secondary
+- ALL CTAs are generative - use generationHint to describe the next page
+- Primary hint examples: "Contact Vitamix support", "Schedule a call with support"
+- Secondary hint examples: "Find replacement parts for my Vitamix", "Check my warranty status"
+- Valid targets from support: educational, product-detail
 
 ### Comparison Table Block (Product Comparison pages)
 {
@@ -442,8 +452,8 @@ Return a JSON object with this structure:
         "persona": "string (like 'POWER USER', 'MOST POPULAR', 'BEST VALUE')",
         "product": "string (product name like 'A3500')",
         "description": "string (why this product fits this persona)",
-        "ctaText": "string (like 'Shop A3500')",
-        "ctaUrl": "string (product page URL)"
+        "ctaText": "string (like 'Learn More About A3500')",
+        "generationHint": "string (REQUIRED - e.g., 'Tell me more about the Vitamix A3500')"
       }
     ]
   }
@@ -451,6 +461,7 @@ Return a JSON object with this structure:
 
 **Use Case Cards Notes:**
 - Generate exactly 3 cards matching the number of products compared
+- ALL CTAs are generative - each leads to a product-detail page
 - Personas should be distinct: tech-savvy, balanced, budget-conscious
 - Description should explain WHY this product fits the persona
 - Keep descriptions concise (1-2 sentences)
@@ -485,8 +496,8 @@ Return a JSON object with this structure:
       {
         "name": "string (product name)",
         "price": "string (like '$649')",
-        "ctaText": "string (like 'Shop Now')",
-        "ctaUrl": "string (product page URL)"
+        "ctaText": "string (like 'Learn More')",
+        "generationHint": "string (REQUIRED - e.g., 'Tell me more about the Vitamix A3500')"
       }
     ],
     "footerMessage": "string (like 'All models include free shipping')"
@@ -495,6 +506,8 @@ Return a JSON object with this structure:
 
 **Comparison CTA Notes:**
 - Include all products from the comparison
+- ALL CTAs are generative - each product CTA leads to its product-detail page
+- generationHint should reference the specific product (e.g., "Tell me about the A3500")
 - Prices should match RAG context
 - Footer message should include trust signals (free shipping, warranty)
 
@@ -507,15 +520,18 @@ Return a JSON object with this structure:
     "price": "string (like '$649.95')",
     "specs": "string (key specs like '2.2 HP Motor | 64 oz Container | 10-Year Warranty')",
     "imagePrompt": "string (product image description)",
-    "addToCartUrl": "string (add to cart URL)",
-    "compareUrl": "string (comparison page URL)"
+    "primaryCtaText": "string (like 'See Recipes')",
+    "primaryGenerationHint": "string (REQUIRED - e.g., 'Show me recipes for the A3500')",
+    "secondaryCtaText": "string (like 'Compare Models')",
+    "secondaryGenerationHint": "string (REQUIRED - e.g., 'Compare the A3500 with other Vitamix models')"
   }
 }
 
 **Product Hero Notes:**
 - Split layout with image on left, details on right
 - Include price and key specs summary
-- Two CTAs: Add to Cart and Compare Models
+- ALL CTAs are generative - no external shop links
+- Primary CTA leads to recipes/use cases, secondary to comparisons
 
 ### Specs Table Block (Product Detail pages)
 {
@@ -579,23 +595,28 @@ Return a JSON object with this structure:
   "content": {
     "headline": "string (like 'Ready to Transform Your Kitchen?')",
     "description": "string (motivational message)",
-    "primaryCtaText": "string (like 'Add to Cart - $649.95')",
-    "primaryCtaUrl": "string (add to cart URL)",
-    "secondaryCtaText": "string (like 'Find a Retailer')",
-    "secondaryCtaUrl": "string (retailer locator URL)",
-    "tertiaryCtaText": "string (optional, like 'Compare All Models')",
-    "tertiaryCtaUrl": "string (optional)"
+    "primaryCtaText": "string (like 'See Recipes for This Blender')",
+    "primaryGenerationHint": "string (REQUIRED - e.g., 'Show me recipes I can make with the A3500')",
+    "secondaryCtaText": "string (like 'Compare Models')",
+    "secondaryGenerationHint": "string (REQUIRED - e.g., 'Compare the A3500 with other Vitamix blenders')",
+    "tertiaryCtaText": "string (optional, like 'Browse Accessories')",
+    "tertiaryGenerationHint": "string (required if tertiaryCtaText provided)"
   }
 }
 
 **Product CTA Notes:**
 - Dark background with white text
-- Primary CTA should include price
-- Secondary and tertiary CTAs for additional actions
+- ALL CTAs are generative - no external shop links
+- Valid targets from product-detail: product-comparison, recipe-collection, support, category-browse
+- Primary hint examples: "Show me recipes for the A3500", "What can I make with this blender?"
+- Secondary hint examples: "Compare the A3500 with other models", "How does A3500 compare to A2500?"
+- Tertiary hint examples: "Browse containers for the A3500", "See compatible accessories"
 
-## CTA Generation Guidelines (Explore CTAs)
+## CTA Generation Guidelines
 
-When generating CTAs with type "explore" (that trigger new page generation), follow these logical user journey flows:
+**IMPORTANT: ALL CTAs are generative.** Every CTA triggers new page generation - there are NO external links or shop URLs. Every CTA must include a \`generationHint\` that describes what page to generate next.
+
+Follow these logical user journey flows:
 
 ### Valid CTA Targets by Current Layout
 
