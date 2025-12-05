@@ -450,6 +450,7 @@ async function transformToGenerationPage(query, slug, eventSource, initialBlocks
 
 /**
  * Start generation - stream content before navigating
+ * Exposed globally as window.startCerebrasGeneration for use by blocks
  */
 function startGeneration(query) {
   // Show loading state on any button that triggered this
@@ -930,6 +931,9 @@ document.addEventListener('load', (e) => {
     e.target.classList.add('loaded');
   }
 }, true); // Use capture phase to catch before bubbling
+
+// Expose startGeneration globally for use by blocks
+window.startCerebrasGeneration = startGeneration;
 
 // Run when DOM is ready
 if (document.readyState === 'loading') {

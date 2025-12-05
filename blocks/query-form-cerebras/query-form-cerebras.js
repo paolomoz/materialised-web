@@ -2,58 +2,20 @@
  * Query Form Cerebras Block
  *
  * A form for submitting queries using the Cerebras worker.
- * Uses the same flow as the homepage: starts SSE streaming,
- * caches blocks, then navigates to /?cerebras=query&cached=1.
+ * Delegates to the global startCerebrasGeneration function from cerebras-scripts.js
+ * which handles SSE streaming and page transformation.
  */
-
-// Cerebras worker URL
-const CEREBRAS_WORKER_URL = 'https://vitamix-generative-cerebras.paolo-moz.workers.dev';
-
-// Storage key for cached generation
-const CACHE_KEY = 'cerebras-generation-cache';
 
 /**
- * Generate a URL-safe slug from a query
+ * Start generation - show loading UI and delegate to global handler
  */
-function generateSlug(query) {
-  let slug = query
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .substring(0, 80);
-
-  const hash = simpleHash(query + Date.now()).slice(0, 6);
-  return `${slug}-${hash}`;
-}
-
-function simpleHash(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i += 1) {
-    const char = str.charCodeAt(i);
-    // eslint-disable-next-line no-bitwise
-    hash = ((hash << 5) - hash) + char;
-    // eslint-disable-next-line no-bitwise
-    hash &= hash;
-  }
-  return Math.abs(hash).toString(36);
-}
-
-/**
- * Start generation using SSE streaming flow
- */
-async function startGeneration(block, query) {
+function startGeneration(block, query) {
   // Get UI elements
   const submitBtn = block.querySelector('button[type="submit"]');
   const input = block.querySelector('input[type="text"]');
   const suggestionChips = block.querySelectorAll('.query-form-cerebras-examples button');
 
-  // Store original button content
-  const originalBtnHTML = submitBtn ? submitBtn.innerHTML : '';
-
-  // Show loading state
+  // Show loading state on block elements
   if (submitBtn) {
     const btnWidth = submitBtn.offsetWidth;
     submitBtn.style.minWidth = `${btnWidth}px`;
@@ -72,105 +34,18 @@ async function startGeneration(block, query) {
     chip.style.opacity = '0.5';
   });
 
-  // Restore buttons helper
-  const restoreButtons = () => {
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.style.minWidth = '';
-      submitBtn.innerHTML = originalBtnHTML;
-    }
-    if (input) {
-      input.disabled = false;
-    }
-    suggestionChips.forEach((chip) => {
-      chip.disabled = false;
-      chip.style.pointerEvents = '';
-      chip.style.opacity = '';
-    });
-  };
-
   // eslint-disable-next-line no-console
-  console.log(`[Cerebras Block] Starting generation`);
+  console.log(`[Cerebras Block] Starting generation via global handler`);
 
-  const slug = generateSlug(query);
-  const startTime = Date.now();
-  const blocks = [];
-  let expectedBlocks = 0;
-  let hasNavigated = false;
-
-  // Connect to SSE stream
-  const streamUrl = `${CEREBRAS_WORKER_URL}/api/stream?slug=${encodeURIComponent(slug)}&query=${encodeURIComponent(query)}`;
-  const eventSource = new EventSource(streamUrl);
-
-  eventSource.addEventListener('layout', (e) => {
-    const data = JSON.parse(e.data);
-    expectedBlocks = data.blocks.length;
+  // Delegate to global handler which will transform the page when first block arrives
+  if (window.startCerebrasGeneration) {
+    window.startCerebrasGeneration(query);
+  } else {
     // eslint-disable-next-line no-console
-    console.log(`[Cerebras Block] Layout: ${expectedBlocks} blocks`);
-  });
-
-  eventSource.addEventListener('block-content', (e) => {
-    const data = JSON.parse(e.data);
-    blocks.push(data);
-    // eslint-disable-next-line no-console
-    console.log(`[Cerebras Block] Block ${blocks.length}/${expectedBlocks}: ${data.blockType}`);
-
-    // Navigate after first block arrives
-    if (!hasNavigated) {
-      hasNavigated = true;
-      // Store blocks in sessionStorage for the new page to read
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-        blocks,
-        query,
-        slug,
-        startTime,
-        expectedBlocks,
-      }));
-      // Navigate with cached flag
-      window.location.href = `/?cerebras=${encodeURIComponent(query)}&cached=1`;
-    } else {
-      // Update cache with new block
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-        blocks,
-        query,
-        slug,
-        startTime,
-        expectedBlocks,
-      }));
-    }
-  });
-
-  eventSource.addEventListener('error', (e) => {
-    // Ignore errors if we've already navigated (expected when page unloads)
-    if (hasNavigated) {
-      eventSource.close();
-      return;
-    }
-
-    let errorMessage = 'Something went wrong during generation.';
-    if (e.data) {
-      try {
-        const data = JSON.parse(e.data);
-        errorMessage = data.message || errorMessage;
-      } catch {
-        // Not JSON error
-      }
-    }
-    // eslint-disable-next-line no-console
-    console.error('[Cerebras Block] Error:', errorMessage);
-    eventSource.close();
-    restoreButtons();
-    // eslint-disable-next-line no-alert
-    alert(`Error: ${errorMessage}`);
-  });
-
-  eventSource.onerror = () => {
-    if (eventSource.readyState === EventSource.CLOSED && !hasNavigated) {
-      // eslint-disable-next-line no-console
-      console.error('[Cerebras Block] Connection closed before navigation');
-      restoreButtons();
-    }
-  };
+    console.error('[Cerebras Block] Global startCerebrasGeneration not available');
+    // Fallback: navigate directly
+    window.location.href = `/?cerebras=${encodeURIComponent(query)}`;
+  }
 }
 
 /**
