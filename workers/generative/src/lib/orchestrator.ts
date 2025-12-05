@@ -8,9 +8,9 @@ import type {
   GeneratedImage,
   SSEEvent,
 } from '../types';
-import { classifyIntent, generateContent, validateBrandCompliance } from '../ai-clients/cerebras';
+import { classifyIntent, generateContent, validateBrandCompliance } from '../ai-clients/claude';
 import { analyzeQuery } from '../ai-clients/gemini';
-import { generateImages, decideImageStrategy, type ImageProvider } from '../ai-clients/image-router';
+import { generateImages, decideImageStrategy } from '../ai-clients/imagen';
 import { smartRetrieve, findProductImage } from './rag';
 import { getLayoutForIntent, adjustLayoutForRAGContent, templateToLayoutDecision, type LayoutTemplate, type LayoutSelectionResult } from '../prompts/layouts';
 
@@ -75,14 +75,12 @@ type SSECallback = (event: SSEEvent) => void;
 
 /**
  * Main orchestration function - coordinates all AI services
- * @param imageProvider Optional override for image provider ('fal' | 'lora' | 'imagen')
  */
 export async function orchestrate(
   query: string,
   slug: string,
   env: Env,
-  onEvent: SSECallback,
-  imageProvider?: ImageProvider
+  onEvent: SSECallback
 ): Promise<{
   content: GeneratedContent;
   layout: LayoutDecision;
@@ -182,7 +180,7 @@ export async function orchestrate(
     }
 
     // Generate images (this is slow, but we've already streamed content)
-    ctx.images = await generateImages(imageRequests, ctx.slug, env, imageProvider);
+    ctx.images = await generateImages(imageRequests, ctx.slug, env);
 
     // Send image ready events
     for (const image of ctx.images) {
